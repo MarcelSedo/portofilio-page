@@ -1,0 +1,76 @@
+/* =====================================================================
+   Forest folk sitting on windows (shown when the forest can't show them).
+   Import in app/layout.tsx after forest.css (reuses .folk-* styles).
+   ===================================================================== */
+
+.perch-host { position: relative; }
+/* room above the window for the character, only while someone sits there */
+.perch-host:has(> .perch) { margin-top: 56px; }
+
+.perch {
+  position: absolute;
+  bottom: calc(100% - 4px); /* feet on the window frame */
+  z-index: 5;
+  pointer-events: auto;
+}
+.perch-left { left: 20px; }
+.perch-right { right: 20px; }
+.perch.is-open,
+.perch:focus-within { z-index: 30; }
+
+.perch-btn { display: block; }
+
+/* the bubble opens downwards, over the window, with the tail pointing up at the character */
+.perch-bubble {
+  top: calc(100% + 18px);
+  bottom: auto;
+  width: min(320px, calc(100vw - 56px));
+}
+.perch-left .perch-bubble { left: -8px; right: auto; }
+.perch-right .perch-bubble { right: -8px; left: auto; }
+
+.perch-bubble::after {
+  top: auto;
+  bottom: 100%;
+  box-shadow:
+    -4px 0 0 #0b1226, 4px 0 0 #fdf8ea, 8px 0 0 #0b1226,
+    0 -4px 0 #fdf8ea, -4px -4px 0 #0b1226, 4px -4px 0 #0b1226,
+    0 -8px 0 #0b1226;
+}
+.perch-left .perch-bubble::after { left: 28px; right: auto; }
+.perch-right .perch-bubble::after { right: 28px; left: auto; }
+
+/* open: teal outline like in the forest */
+.perch.is-open .folk-sprite {
+  filter:
+    drop-shadow(2px 0 0 #5ec4b6) drop-shadow(-2px 0 0 #5ec4b6)
+    drop-shadow(0 2px 0 #5ec4b6) drop-shadow(0 -2px 0 #5ec4b6);
+}
+.perch.is-open .folk-mark { visibility: hidden; }
+
+@media (max-width: 639px) {
+  .perch-left { left: 14px; }
+  .perch-right { right: 14px; }
+}
+@media print {
+  .perch { display: none; }
+  .perch-host:has(> .perch) { margin-top: 0; }
+}
+
+/* ---------- over a card that is itself a link (home page cik-cak) ----------
+   The gap between the cards is big enough, so no extra margin.
+   The character stands on a little branch 18px above the card (12px above its frame), so its tap area
+   never touches the card's tap area (two targets right next to each other). */
+.perch-host.perch-roomy:has(> .perch) { margin-top: 0; }
+.perch-roomy > .perch { bottom: calc(100% + 18px); } /* clear of the 6px frame, even when the card lifts on hover */
+.perch-roomy > .perch::after {
+  content: "";
+  position: absolute;
+  left: -10px;
+  right: -10px;
+  bottom: -4px;
+  height: 4px;
+  background: #6b4423;
+  box-shadow: 0 4px 0 #3b2412, 0 -2px 0 #8a5a2e;
+  pointer-events: none;
+}

@@ -1,0 +1,297 @@
+/* =====================================================================
+   Experience page: pixel village map (components/experience/*)
+   Import in app/layout.tsx after globals.css
+   ===================================================================== */
+
+.xmap-kicker {
+  margin: 0;
+  font-family: var(--font-pixel), monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #5ec4b6;
+}
+.xmap-h1 { margin: 14px 0 0; font-family: var(--font-pixel), monospace; font-size: clamp(22px, 4vw, 32px); line-height: 1.3; color: #f1efe8; }
+.xmap-lead { margin: 16px 0 0; font-size: 18px; line-height: 1.6; color: #e4e6ee; max-width: 62ch; }
+.xmap-lead-small { margin: 10px 0 0; font-size: 15px; color: #aab1c5; }
+.xmap-lead-small a { color: #f2b544; }
+
+/* ---------- the map ---------- */
+.xmap-wrap { display: flex; flex-direction: column; gap: 24px; align-items: center; }
+.xmap {
+  position: relative;
+  width: 100%;
+  margin-inline: auto;
+  box-shadow:
+    0 -6px 0 0 #f2b544, 0 6px 0 0 #f2b544, -6px 0 0 0 #f2b544, 6px 0 0 0 #f2b544,
+    0 16px 0 0 rgba(0, 0, 0, 0.45);
+  image-rendering: pixelated;
+  /* so the absolutely placed pieces scale with the picture */
+  container-type: inline-size;
+}
+/* on a phone, wait for the tall map instead of flashing the wide one */
+@media (max-width: 639px) {
+  .xmap:not([data-ready]) { visibility: hidden; }
+}
+.xmap img { image-rendering: pixelated; }
+.xmap-ground { display: block; width: 100%; height: 100%; }
+
+.xmap-items { margin: 0; padding: 0; list-style: none; }
+.xmap-items > li { position: absolute; }
+.xmap-items button {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.xmap-items button img { display: block; width: 100%; height: 100%; pointer-events: none; }
+
+/* buildings */
+.xmap-place { z-index: 2; }
+.xmap-banner {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, -55%);
+  z-index: 1;
+  padding: 0.35em 0.7em 0.45em;
+  font-family: var(--font-pixel), monospace;
+  font-size: clamp(7px, 1.35cqi, 12px);
+  line-height: 1.3;
+  white-space: nowrap;
+  color: #2b1600;
+  background: #f2b544;
+  box-shadow: 0 -2px 0 0 #2b1600, 0 2px 0 0 #2b1600, -2px 0 0 0 #2b1600, 2px 0 0 0 #2b1600, 0 4px 0 0 rgba(0, 0, 0, 0.4);
+}
+/* little swallow-tail ends, like a pennant */
+.xmap-banner::before,
+.xmap-banner::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0.5em;
+  background: #c98a2a;
+  clip-path: polygon(0 0, 100% 0, 60% 50%, 100% 100%, 0 100%);
+}
+.xmap-banner::before { left: -0.7em; transform: scaleX(-1); }
+.xmap-banner::after { right: -0.7em; clip-path: polygon(0 0, 100% 0, 40% 50%, 100% 100%, 0 100%); }
+
+.xmap-tall .xmap-banner { font-size: clamp(8px, 3cqi, 12px); }
+
+/* villagers: tap area of at least 44 × 44 px, even when the sprite is smaller */
+.xmap-villager { z-index: 3; }
+.xmap-villager button::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
+}
+.xmap-talk {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translate(-50%, -2px);
+  padding: 0 0.3em 0.15em;
+  font-family: var(--font-pixel), monospace;
+  font-size: clamp(7px, 1.2cqi, 11px);
+  line-height: 1.2;
+  color: #0b1226;
+  background: #fdf8ea;
+  box-shadow: 0 0 0 2px #0b1226;
+}
+.xmap-tall .xmap-talk { font-size: clamp(7px, 2.2cqi, 11px); }
+
+/* hover and focus: not colour alone – the piece lifts and gets a white outline */
+.xmap-items button:hover img,
+.xmap-items button:focus-visible img {
+  filter:
+    drop-shadow(2px 0 0 #fff) drop-shadow(-2px 0 0 #fff)
+    drop-shadow(0 2px 0 #fff) drop-shadow(0 -2px 0 #fff);
+}
+.xmap-items button:hover .xmap-banner,
+.xmap-items button:focus-visible .xmap-banner { background: #fff4d0; text-decoration: underline; text-underline-offset: 2px; }
+.xmap-items button:focus { outline: none; }
+.xmap-items button:focus-visible { outline: 3px solid #fff; outline-offset: 4px; box-shadow: 0 0 0 7px #0b1226; }
+@media (prefers-reduced-motion: no-preference) {
+  .xmap-items button { transition: transform 120ms steps(2); }
+  .xmap-items button:hover,
+  .xmap-items button:focus-visible { transform: translateY(-3%); }
+  .xmap-villager button:hover,
+  .xmap-villager button:focus-visible { transform: translateY(-8%); }
+}
+
+/* the player */
+.xmap-player {
+  position: absolute;
+  z-index: 4;
+  background-image: url(/experience/player.png);
+  background-size: 300% 300%;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+.xmap-player.is-left { transform: scaleX(-1); }
+.xmap-player::after { /* shadow */
+  content: "";
+  position: absolute;
+  left: 15%;
+  right: 15%;
+  bottom: -4%;
+  height: 10%;
+  z-index: -1;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* ---------- fast travel ---------- */
+.xmap-fast { width: 100%; max-width: 960px; }
+.xmap-fast-title { margin: 0 0 12px; font-family: var(--font-pixel), monospace; font-size: 12px; color: #f2b544; }
+.xmap-fast ul { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 12px; }
+.xmap-fast button {
+  min-height: 44px;
+  padding: 8px 14px;
+  font: inherit;
+  font-weight: 700;
+  font-size: 15px;
+  color: #f2b544;
+  background: rgba(11, 18, 38, 0.92);
+  border: 3px solid #f2b544;
+  cursor: pointer;
+}
+.xmap-fast-where { font-weight: 400; color: #c9cede; }
+.xmap-fast button:hover { background: #f2b544; color: #0b1226; }
+.xmap-fast button:hover .xmap-fast-where { color: #2b1600; }
+.xmap-fast button:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---------- dialogs ---------- */
+.xmap-dialog {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #f1efe8;
+  overflow: visible;
+}
+.xmap-dialog::backdrop { background: rgba(5, 8, 20, 0.72); }
+/* night: the frame glows a little, like the lanterns */
+.xmap { background: #0b1226; }
+html:has(.xmap-dialog[open]) { overflow: hidden; }
+
+/* building window */
+.xmap-window {
+  width: min(760px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100dvh - 48px);
+  margin: auto;
+}
+.xmap-window-inner {
+  max-height: calc(100dvh - 60px);
+  overflow-y: auto;
+  padding: clamp(20px, 4vw, 36px);
+  overscroll-behavior: contain;
+}
+.xmap-window-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.xmap-window-kicker { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5ec4b6; }
+.xmap-window-title:focus { outline: none; }
+.xmap-window-title:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
+.xmap-window-title { margin: 8px 0 0; font-family: var(--font-pixel), monospace; font-size: clamp(16px, 3vw, 22px); line-height: 1.4; color: #f2b544; }
+.xmap-window-intro { margin: 12px 0 0; font-size: 17px; line-height: 1.6; color: #e4e6ee; }
+.xmap-close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  font: inherit;
+  font-size: 24px;
+  line-height: 1;
+  color: #0b1226;
+  background: #f2b544;
+  border: 0;
+  cursor: pointer;
+  box-shadow: 0 4px 0 0 #8a5a12;
+}
+.xmap-close:hover { background: #fff4d0; }
+
+.xmap-entries { margin: 24px 0 0; padding: 0; list-style: none; display: grid; gap: 18px; }
+.xmap-entry {
+  padding: 18px 20px;
+  background: #131c38;
+  box-shadow: inset 4px 0 0 0 #f2b544, inset 0 0 0 2px #2a3766;
+}
+.xmap-entry-title { margin: 0; font-size: 19px; line-height: 1.35; color: #f1efe8; }
+.xmap-entry-meta { margin: 6px 0 0; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 14px; color: #aab1c5; }
+.xmap-entry-meta span + span::before { content: "·"; margin-right: 14px; color: #5ec4b6; }
+.xmap-entry-points { margin: 12px 0 0; padding-left: 1.2em; display: grid; gap: 8px; font-size: 16px; line-height: 1.55; color: #e4e6ee; }
+.xmap-entry-points li::marker { content: "▸ "; color: #f2b544; }
+.xmap-tags { margin: 14px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }
+.xmap-tags li { padding: 3px 9px; font-size: 13px; font-weight: 700; color: #0b1226; background: #5ec4b6; box-shadow: 0 2px 0 0 #3a8f84; }
+.xmap-entry-link { margin: 14px 0 0; }
+.xmap-entry-link a { color: #f2b544; font-weight: 700; }
+
+.xmap-branches { margin: 24px 0 0; display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+.xmap-branch { padding: 14px 16px; background: #131c38; box-shadow: inset 0 0 0 2px #2a3766; }
+.xmap-branch-title { margin: 0 0 10px; font-family: var(--font-pixel), monospace; font-size: 11px; line-height: 1.6; color: #f2b544; }
+.xmap-branch ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+/* skill tree: nodes joined by a line */
+.xmap-branch li { position: relative; padding-left: 20px; font-size: 15px; line-height: 1.4; }
+.xmap-branch li::before { content: ""; position: absolute; left: 3px; top: 0.45em; width: 8px; height: 8px; background: #5ec4b6; box-shadow: 0 2px 0 0 #3a8f84; }
+.xmap-branch li:not(:last-child)::after { content: ""; position: absolute; left: 6px; top: calc(0.45em + 10px); bottom: -0.6em; width: 2px; background: #2f3c6e; }
+
+.xmap-window-foot { margin: 26px 0 0; }
+
+/* villager text box: bottom of the screen, like an RPG */
+.xmap-talkbox {
+  width: min(720px, calc(100vw - 24px));
+  max-width: none;
+  margin: auto auto max(16px, env(safe-area-inset-bottom));
+}
+.xmap-talkbox::backdrop { background: rgba(5, 8, 20, 0.35); }
+.xmap-talkbox-inner {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: "face text" "face ok";
+  gap: 6px 18px;
+  align-items: start;
+  padding: 18px 20px;
+  background: #0b1226;
+  box-shadow:
+    0 -4px 0 0 #fdf8ea, 0 4px 0 0 #fdf8ea, -4px 0 0 0 #fdf8ea, 4px 0 0 0 #fdf8ea,
+    inset 0 0 0 3px #0b1226, inset 0 0 0 5px #5ec4b6;
+}
+.xmap-talk-face {
+  grid-area: face;
+  width: 64px;
+  height: auto;
+  padding: 8px;
+  image-rendering: pixelated;
+  background: #1a2550;
+  box-shadow: inset 0 0 0 2px #2f3c6e;
+}
+.xmap-talk-text { grid-area: text; }
+.xmap-talk-name { margin: 0 0 6px; font-family: var(--font-pixel), monospace; font-size: 12px; line-height: 1.5; color: #f2b544; }
+.xmap-talk-text p { margin: 0; font-size: 17px; line-height: 1.55; }
+.xmap-talk-text p + p { margin-top: 6px; color: #c9cede; }
+.xmap-talk-ok { grid-area: ok; justify-self: end; margin-top: 8px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .xmap-dialog[open] { animation: xmap-pop 160ms steps(4); }
+}
+@keyframes xmap-pop { from { transform: translateY(16px); opacity: 0; } }
+
+@media (forced-colors: active) {
+  .xmap { border: 3px solid CanvasText; }
+  .xmap-banner, .xmap-talk { border: 2px solid ButtonText; forced-color-adjust: none; background: Canvas; color: ButtonText; }
+  .xmap-entry, .xmap-branch, .xmap-talkbox-inner { border: 2px solid CanvasText; }
+}
+@media print {
+  .xmap-wrap { display: none; }
+}

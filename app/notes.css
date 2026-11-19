@@ -1,0 +1,222 @@
+/* =====================================================================
+   Notes: a quiet library. Navy shelves, cream paper for reading.
+   Import in app/layout.tsx after globals.css
+   ===================================================================== */
+
+.notes { color: #f1efe8; }
+.notes-kicker {
+  margin: 0;
+  font-family: var(--font-pixel), monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #5ec4b6;
+}
+.notes-h1 { margin: 14px 0 0; font-family: var(--font-pixel), monospace; font-size: clamp(26px, 4.5vw, 38px); line-height: 1.3; }
+.notes-lead { margin: 18px 0 0; max-width: 62ch; font-size: 19px; line-height: 1.6; color: #e4e6ee; }
+
+/* category filter: real links, so it works without JavaScript and can be bookmarked */
+.notes-filter { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 10px; }
+.notes-filter a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 14px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #f2d23a;
+  text-decoration: none;
+  border: 3px solid #f2d23a;
+}
+.notes-filter a:hover { color: #0b1226; background: #f2d23a; text-decoration: underline; text-underline-offset: 3px; }
+.notes-filter a[aria-current="page"] { color: #0b1226; background: #f2d23a; box-shadow: 0 4px 0 0 #a8861a; }
+.notes-count {
+  min-width: 26px;
+  padding: 1px 6px;
+  font-size: 13px;
+  text-align: center;
+  color: inherit;
+  border: 2px solid currentColor;
+}
+
+.notes-section { display: flex; flex-direction: column; gap: 10px; }
+.notes-h2 { margin: 0; font-family: var(--font-pixel), monospace; font-size: clamp(17px, 2.8vw, 22px); line-height: 1.4; color: #f2b544; }
+.notes-blurb { margin: 0; font-size: 17px; color: #c9cede; }
+.notes-h3 { margin: 18px 0 10px; font-size: 15px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #c9cede; }
+.notes-empty { margin: 6px 0 0; padding: 18px 20px; font-size: 16px; color: #c9cede; border: 2px dashed #3a4a7a; }
+
+.notes-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+
+/* card: one link (the title) stretched over the whole card */
+.note-card {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px;
+  background: #131c38;
+  box-shadow: inset 4px 0 0 0 #f2d23a, inset 0 0 0 2px #2a3766;
+}
+.note-card:hover { background: #18234a; box-shadow: inset 6px 0 0 0 #f2d23a, inset 0 0 0 2px #f2d23a; }
+.note-card-meta { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: #c9cede; }
+.note-card-meta span:first-child { color: #5ec4b6; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+.note-card-title { margin: 0; font-size: 19px; line-height: 1.35; }
+.note-card-title a { color: #fdf8ea; text-decoration: underline; text-decoration-color: #f2d23a; text-underline-offset: 4px; }
+.note-card-title a::after { content: ""; position: absolute; inset: 0; }
+.note-card:hover .note-card-title a { text-decoration-thickness: 3px; }
+.note-card-title a:focus-visible { outline: none; }
+.note-card:has(a:focus-visible) { outline: 3px solid #fff; outline-offset: 3px; box-shadow: inset 6px 0 0 0 #f2d23a, inset 0 0 0 2px #f2d23a, 0 0 0 6px #0b1226; }
+.note-card-excerpt { margin: 0; flex: 1; font-size: 16px; line-height: 1.55; color: #e4e6ee; }
+.note-card-foot { margin: 0; display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: #c9cede; }
+
+.note-rating { color: #f2b544; letter-spacing: 2px; }
+.note-rating-off { color: #5b6487; }
+.note-paper .note-rating { color: #9a5b00; }
+.note-paper .note-rating-off { color: #b8ad8f; }
+
+/* ---------- single note ---------- */
+.notes-crumbs { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; font-size: 15px; color: #c9cede; }
+.notes-crumbs li + li::before { content: "/"; margin-right: 6px; color: #5b6487; }
+.notes-crumbs a { color: #f2d23a; text-underline-offset: 3px; }
+.notes-crumbs a:hover { text-decoration-thickness: 3px; }
+.notes-crumbs [aria-current] { color: #e4e6ee; }
+
+.note-paper {
+  padding: clamp(24px, 6vw, 56px);
+  color: #1b1a17;
+  background: #fdf8ea;
+  box-shadow:
+    0 -6px 0 0 #fdf8ea, 0 6px 0 0 #fdf8ea, -6px 0 0 0 #fdf8ea, 6px 0 0 0 #fdf8ea,
+    0 14px 0 0 rgba(0, 0, 0, 0.45);
+}
+.note-kind {
+  margin: 0;
+  font-family: var(--font-pixel), monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8a4f00;
+}
+.note-title { margin: 12px 0 0; font-family: var(--font-pixel), monospace; font-size: clamp(20px, 3.6vw, 30px); line-height: 1.35; color: #14213d; }
+
+.note-facts {
+  margin: 22px 0 0;
+  padding: 14px 0;
+  display: grid;
+  gap: 8px 24px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  border-top: 2px solid #e2d6b4;
+  border-bottom: 2px solid #e2d6b4;
+}
+.note-facts dt { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6a5a3a; }
+.note-facts dd { margin: 2px 0 0; font-size: 16px; }
+
+.note-body { margin-top: 28px; font-family: Georgia, "Times New Roman", serif; font-size: 19px; line-height: 1.75; }
+.note-body p { margin: 0 0 1.1em; max-width: 68ch; }
+.note-body h2 { margin: 1.6em 0 0.5em; font-family: var(--font-pixel), monospace; font-size: 15px; line-height: 1.5; color: #14213d; }
+.note-body blockquote {
+  margin: 0 0 1.2em;
+  padding: 6px 0 6px 22px;
+  font-style: italic;
+  color: #3a3226;
+  border-left: 4px solid #c98a2a;
+}
+.note-body blockquote p { margin: 0; }
+
+.note-source { margin-top: 28px; padding-top: 16px; font-size: 15px; color: #4d4430; border-top: 2px solid #e2d6b4; }
+.note-source p { margin: 0 0 6px; }
+.note-source a { color: #7a3d00; font-weight: 700; text-underline-offset: 3px; }
+.note-source a:hover { color: #1b1a17; text-decoration-thickness: 3px; }
+
+/* light surface: dark focus ring with a white halo */
+.note-paper :focus-visible { outline: 3px solid #0b1226; outline-offset: 3px; box-shadow: 0 0 0 6px #fff; }
+
+.note-pager { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.note-pager-link {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 44px;
+  padding: 12px 16px;
+  font-size: 16px;
+  color: #fdf8ea;
+  text-decoration: none;
+  background: #131c38;
+  box-shadow: inset 0 0 0 2px #2a3766;
+}
+.note-pager-link:hover { box-shadow: inset 0 0 0 3px #f2d23a; text-decoration: underline; text-underline-offset: 3px; }
+.note-pager-next { text-align: right; }
+.note-pager-dir { font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #f2d23a; }
+
+@media (max-width: 560px) {
+  .note-pager { grid-template-columns: 1fr; }
+  .note-pager-next { text-align: left; }
+}
+
+@media (forced-colors: active) {
+  .note-card, .note-paper, .note-pager-link { border: 2px solid CanvasText; }
+  .note-card:has(a:focus-visible) { outline: 3px solid Highlight; }
+}
+
+@media print {
+  .notes-crumbs, .note-pager { display: none; }
+  .note-paper { box-shadow: none; padding: 0; }
+}
+
+/* ---------- code in notes ---------- */
+.note-body code {
+  padding: 1px 5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85em;
+  color: #14213d;
+  background: #efe6cc;
+}
+.note-body .note-code {
+  margin: 0 0 1.3em;
+  padding: 16px 18px;
+  overflow-x: auto;
+  font-size: 15px;
+  line-height: 1.55;
+  color: #f1efe8;
+  background: #0b1226;
+  box-shadow: inset 4px 0 0 0 #f2d23a;
+}
+.note-body .note-code code { padding: 0; font-size: inherit; color: inherit; background: none; }
+.note-body ul { margin: 0 0 1.1em; padding-left: 1.3em; max-width: 68ch; }
+.note-body li { margin-bottom: 0.35em; }
+.note-body a { color: #7a3d00; font-weight: 600; text-underline-offset: 3px; }
+.note-body a:hover { color: #1b1a17; text-decoration-thickness: 3px; }
+
+/* ---------- "Show more" on each shelf (All view) ---------- */
+.notes-more { margin-top: 16px; }
+.notes-more > .notes-list { margin-top: 16px; }
+.notes-more > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 16px;
+  list-style: none;
+  font-family: var(--font-pixel), monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #f2b544;
+  background: rgba(11, 18, 38, 0.9);
+  border: 3px solid #f2b544;
+  cursor: pointer;
+}
+.notes-more > summary::-webkit-details-marker { display: none; }
+/* arrow shows the state, the text says it too (not shape alone) */
+.notes-more > summary::before { content: "▸"; font-size: 14px; }
+.notes-more[open] > summary::before { content: "▾"; }
+.notes-more:not([open]) .notes-more-open,
+.notes-more[open] .notes-more-closed { display: none; }
+.notes-more > summary:hover { background: #f2b544; color: #0b1226; }
+.notes-more > summary:hover span { text-decoration: underline; text-underline-offset: 3px; }
+.notes-more > summary:focus-visible { outline: 3px solid #ffffff; outline-offset: 3px; }
+
+@media (forced-colors: active) {
+  .notes-more > summary { border-color: ButtonText; color: ButtonText; }
+}

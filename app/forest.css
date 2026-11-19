@@ -1,0 +1,264 @@
+/* =====================================================================
+   Forest scene + clickable folk.  Import in app/layout.tsx after globals.css
+   ===================================================================== */
+
+.scene-wrap {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #0b1428; /* matches the top of the image */
+}
+.scene-wrap > header,
+.scene-wrap > main {
+  position: relative;
+  z-index: 10;
+}
+
+.scene-main { pointer-events: none; }
+.scene-main :where(section, article, li, form, a, button, input, textarea, select, label, p, h1, h2, h3, img, table,
+  .hero-frame, .quest-card, .pixel-frame, .bg-paper) {
+  pointer-events: auto;
+}
+
+.forest-scene {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  /* margin % is relative to the width, so this is exactly half the image height (1438 × 2576) */
+  margin-top: calc(-50% * 2576 / 1438);
+  width: 100%;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+
+/* ---------- one character ---------- */
+.folk {
+  position: absolute;
+  /* below <main> by default; comes to the front when focused or talking */
+}
+.folk:focus-within,
+.folk.is-open { z-index: 20; }
+
+.folk-btn {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  transition: transform 100ms steps(2);
+}
+.folk-sprite {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+  pointer-events: none;
+  user-select: none;
+}
+
+.folk-btn::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
+}
+
+.folk-mark {
+  position: absolute;
+  left: 50%;
+  top: -22px;
+  transform: translateX(-50%);
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  font-family: var(--font-pixel), monospace;
+  font-size: 9px;
+  line-height: 1;
+  color: #0b1226;
+  background: #f2b544;
+  box-shadow: 0 -2px 0 0 #f2b544, 0 2px 0 0 #f2b544, -2px 0 0 0 #f2b544, 2px 0 0 0 #f2b544, 0 4px 0 0 rgba(0,0,0,.4);
+}
+
+/* hover / focus: bright pixel outline around the sprite, bigger marker */
+.folk-btn:hover .folk-sprite {
+  filter:
+    drop-shadow(2px 0 0 #fff4d0) drop-shadow(-2px 0 0 #fff4d0)
+    drop-shadow(0 2px 0 #fff4d0) drop-shadow(0 -2px 0 #fff4d0);
+}
+.folk-btn:hover .folk-mark,
+.folk-btn:focus-visible .folk-mark {
+  background: #fff4d0;
+  box-shadow: 0 -2px 0 0 #fff4d0, 0 2px 0 0 #fff4d0, -2px 0 0 0 #fff4d0, 2px 0 0 0 #fff4d0, 0 4px 0 0 rgba(0,0,0,.4);
+}
+.folk-btn:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.folk-btn:focus-visible .folk-sprite {
+  filter:
+    drop-shadow(2px 0 0 #ffffff) drop-shadow(-2px 0 0 #ffffff)
+    drop-shadow(0 2px 0 #ffffff) drop-shadow(0 -2px 0 #ffffff)
+    drop-shadow(2px 0 0 #0b1226) drop-shadow(-2px 0 0 #0b1226)
+    drop-shadow(0 2px 0 #0b1226) drop-shadow(0 -2px 0 #0b1226);
+}
+/* open + focused: teal inside, dark outside */
+.folk.is-open .folk-btn:focus-visible .folk-sprite {
+  filter:
+    drop-shadow(2px 0 0 #5ec4b6) drop-shadow(-2px 0 0 #5ec4b6)
+    drop-shadow(0 2px 0 #5ec4b6) drop-shadow(0 -2px 0 #5ec4b6)
+    drop-shadow(2px 0 0 #0b1226) drop-shadow(-2px 0 0 #0b1226)
+    drop-shadow(0 2px 0 #0b1226) drop-shadow(0 -2px 0 #0b1226);
+}
+/* active: pressed */
+.folk-btn:active .folk-sprite { filter: brightness(0.85); }
+
+/* open: teal outline, marker becomes a speech dot */
+.folk.is-open .folk-sprite {
+  filter:
+    drop-shadow(2px 0 0 #5ec4b6) drop-shadow(-2px 0 0 #5ec4b6)
+    drop-shadow(0 2px 0 #5ec4b6) drop-shadow(0 -2px 0 #5ec4b6);
+}
+.folk.is-open .folk-mark { visibility: hidden; }
+
+/* glow for the magical ones */
+.idle-flutter .folk-sprite,
+.idle-float .folk-sprite { filter: drop-shadow(0 0 6px rgba(166, 242, 255, 0.85)); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .folk-btn:active { transform: translateY(3px) scaleY(0.96); }
+  .folk-mark { animation: folk-bob 1.6s steps(2) infinite; }
+  .idle-float { animation: folk-float 3s ease-in-out infinite; }
+  .idle-flutter { animation: folk-flutter 1.2s steps(2) infinite; }
+}
+@keyframes folk-bob { 50% { transform: translate(-50%, -3px); } }
+@keyframes folk-float { 50% { transform: translateY(-10px); } }
+@keyframes folk-flutter { 50% { transform: translateY(-4px); } }
+
+/* ---------- pixel speech bubble ---------- */
+.folk-bubble {
+  position: absolute;
+  bottom: calc(100% + 30px);
+  width: min(300px, 78vw);
+  padding: 16px 44px 16px 18px;
+  background: #fdf8ea;
+  color: #0b1226;
+  box-shadow:
+    0 -4px 0 0 #0b1226, 0 4px 0 0 #0b1226, -4px 0 0 0 #0b1226, 4px 0 0 0 #0b1226,
+    0 10px 0 0 rgba(0, 0, 0, 0.45);
+}
+.folk-bubble[hidden] { display: none; }
+.bubble-right { left: -8px; }
+.bubble-left { right: -8px; }
+
+/* stepped pixel tail pointing down to the character */
+.folk-bubble::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  width: 4px;
+  height: 4px;
+  background: #fdf8ea;
+  box-shadow:
+    -4px 0 0 #0b1226, 4px 0 0 #fdf8ea, 8px 0 0 #0b1226,
+    0 4px 0 #fdf8ea, -4px 4px 0 #0b1226, 4px 4px 0 #0b1226,
+    0 8px 0 #0b1226;
+}
+.bubble-right::after { left: 28px; }
+.bubble-left::after { right: 28px; }
+
+.folk-name {
+  margin: 0 0 8px;
+  font-family: var(--font-pixel), monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: #7a4210;
+  text-transform: uppercase;
+}
+.folk-says {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.folk-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: #0b1226;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.folk-close:hover { background: #f2b544; }
+.folk-close:active { background: #c98a2a; }
+
+@media (prefers-contrast: more) {
+  .folk-bubble { background: #fff; color: #000; }
+}
+@media print {
+  .forest-scene { display: none; }
+}
+@media (forced-colors: active) {
+  .folk-btn:focus-visible {
+    outline: 3px solid CanvasText;
+    outline-offset: 4px;
+  }
+}
+
+/* ---------- Long pages: the forest as a fixed backdrop ----------
+   The picture is portrait (about 9:16, like a phone), so "cover" fills a phone screen almost
+   without cropping. Content scrolls over it like through a window.
+   clip-path on the wrapper keeps the fixed layer inside it (overflow: hidden can't clip fixed
+   elements), so the footer below never gets the forest painted over it. */
+.scene-wrap { clip-path: inset(0); }
+
+.forest-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-color: #0b1428;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center bottom; /* phones: the whole picture, ground at the bottom */
+  image-rendering: pixelated; /* big screens enlarge the picture: keep the pixels crisp */
+  pointer-events: none;
+}
+/* wide screens crop the top and bottom: keep the moon and the tree house in view */
+@media (min-aspect-ratio: 4/5) {
+  .forest-backdrop { background-position: center 38%; }
+}
+/* Text that sits right on the picture (logo, mode buttons) needs a calm background:
+   a dark fade at the top of the screen, and a light overall dim. */
+.forest-backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom, rgba(11, 20, 40, 0.92) 0, rgba(11, 20, 40, 0.6) 22%, rgba(11, 20, 40, 0) 48%),
+    rgba(11, 20, 40, 0.2);
+}
+@media (prefers-contrast: more) {
+  .forest-backdrop::after { background: rgba(0, 0, 0, 0.75); }
+}
+
+/* the scene stays in the page only to be measured, without a picture */
+.forest-scene.is-backdrop { visibility: hidden; }
+
+@media print {
+  .forest-backdrop { display: none; }
+}
