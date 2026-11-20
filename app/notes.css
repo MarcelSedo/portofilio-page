@@ -220,3 +220,33 @@
 @media (forced-colors: active) {
   .notes-more > summary { border-color: ButtonText; color: ButtonText; }
 }
+.bylines { display: flex; flex-direction: column; gap: 14px; }
+.bylines-primer { max-width: 68ch; }
+.bylines-primer > summary {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px;
+  font-weight: 700; color: #f2b544; cursor: pointer;
+}
+.bylines-primer > summary:hover { text-decoration: underline; text-underline-offset: 3px; }
+.bylines-primer ul { margin: 4px 0 0; padding-left: 1.2em; display: grid; gap: 6px; font-size: 15px; line-height: 1.5; color: #c9cede; }
+.bylines-list { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.byline {
+  position: relative;
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 18px 20px;
+  background: #131c38;
+  box-shadow: inset 4px 0 0 0 #5ec4b6, inset 0 0 0 2px #2a3766;
+}
+/* the whole card is clickable through its title link */
+.byline-title a::after { content: ""; position: absolute; inset: 0; }
+.byline:hover { box-shadow: inset 4px 0 0 0 #f2b544, inset 0 0 0 2px #f2b544; }
+.byline:has(a:focus-visible) { outline: 3px solid #fff; outline-offset: 3px; }
+.byline-title a:focus { outline: none; }
+.byline-meta { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: #aab1c5; }
+.byline-kind { font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5ec4b6; }
+.byline-title { margin: 0; font-size: 18px; line-height: 1.35; }
+.byline-title a { color: #f1efe8; text-decoration: none; }
+.byline:hover .byline-title a { text-decoration: underline; text-underline-offset: 3px; }
+.byline-original { margin: 0; font-size: 13px; font-style: italic; color: #aab1c5; }
+.byline-summary { margin: 0; font-size: 15px; line-height: 1.55; color: #e4e6ee; }
+.byline-lang { margin: auto 0 0; font-size: 13px; font-weight: 700; color: #f2b544; }
+@media (forced-colors: active) { .byline { border: 2px solid CanvasText; } }

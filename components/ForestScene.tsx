@@ -6,7 +6,7 @@ import { FOREST_IMAGE, folk, type FolkId } from "@/content/folk";
 import { useFolk } from "./folk/FolkProvider";
 
 // Pages that should stay calm: no forest, one primary action
-const PLAIN_PAGES = ["/contact", "/about", "/notes", "/experience"];
+const PLAIN_PAGES = ["/contact", "/about", "/notes", "/experience", "/portfolio", "/games"];
 /**
  * The forest background + clickable characters.
  * - The scene sits at the bottom of the page wrapper, full width, keeping the image's aspect ratio.

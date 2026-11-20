@@ -1,0 +1,95 @@
+/* =====================================================================
+   Time Traveller game (components/games/TimeTraveller.tsx). Import in app/layout.tsx.
+   Uses .pixel-frame, .btn-pixel, .btn-ghost from globals.css.
+   ===================================================================== */
+.tt { color: #f1efe8; }
+.tt-intro, .tt-over { padding: clamp(22px, 4vw, 40px); }
+.tt-kicker { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #5ec4b6; }
+.tt-h1 { margin: 12px 0 0; font-family: var(--font-pixel), monospace; font-size: clamp(22px, 4vw, 32px); line-height: 1.3; color: #f2b544; }
+.tt-h1:focus { outline: none; }
+.tt-guide { margin: 18px 0 0; max-width: 62ch; font-size: 18px; line-height: 1.6; }
+.tt-guide-name { font-weight: 700; color: #5ec4b6; }
+.tt-howto { margin: 14px 0 0; padding-left: 1.2em; display: grid; gap: 6px; font-size: 16px; color: #c9cede; }
+.tt-start { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 16px; }
+.tt-best { margin: 18px 0 0; font-weight: 700; color: #f2b544; }
+.tt-source { margin: 18px 0 0; font-size: 14px; color: #aab1c5; }
+.tt-source a, .tt-feedback a { color: #f2b544; }
+
+.tt-stats { margin: 22px 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px; }
+.tt-stats div { padding: 12px 14px; background: #131c38; box-shadow: inset 0 0 0 2px #2a3766; }
+.tt-stats dt { font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #aab1c5; }
+.tt-stats dd { margin: 4px 0 0; font-family: var(--font-pixel), monospace; font-size: 20px; color: #f2b544; }
+
+/* top bar */
+.tt-bar {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px;
+  padding: 12px 16px; background: #0b1226; box-shadow: 0 0 0 3px #f2b544, 0 6px 0 0 rgba(0, 0, 0, 0.4);
+}
+.tt-stat { margin: 0; font-size: 15px; color: #c9cede; }
+.tt-stat strong { margin-left: 6px; font-family: var(--font-pixel), monospace; font-size: 16px; color: #f2b544; }
+.tt-stat.is-low strong { color: #ff8a7a; }
+.tt-stat.is-low::after { content: " !"; color: #ff8a7a; font-weight: 700; }
+.tt-bar-actions { margin-left: auto; display: flex; gap: 10px; }
+.tt-paused { margin: 40px 0; text-align: center; font-size: 20px; }
+
+.tt-h2 { margin: 28px 0 12px; font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #aab1c5; }
+.tt-h2-note { margin-left: 10px; text-transform: none; letter-spacing: 0; font-weight: 400; }
+
+/* timeline: wraps onto new rows, still read left to right */
+.tt-timeline { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px 0; }
+.tt-slot-row { display: flex; align-items: stretch; }
+.tt-gap {
+  flex: none; width: 14px; margin: 0 2px; padding: 0; border: 0; background: transparent;
+  font: inherit; color: transparent;
+}
+.tt-gap.is-idle { display: block; }
+.tt-timeline.is-placing .tt-gap:not(.is-idle) {
+  width: 44px; margin: 0 4px; display: grid; place-items: center; cursor: pointer;
+  font-size: 22px; font-weight: 700; color: #0b1226; background: #5ec4b6; box-shadow: 0 3px 0 0 #3a8f84;
+}
+.tt-gap:hover, .tt-gap.is-over { background: #f2b544 !important; box-shadow: 0 3px 0 0 #8a5a12 !important; }
+.tt-gap:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+
+/* cards */
+.tt-card {
+  display: flex; flex-direction: column; gap: 4px;
+  width: 150px; min-height: 120px; padding: 10px 12px;
+  font: inherit; text-align: left; color: #0b1226;
+  background: #fdf3d6; border: 0;
+  box-shadow: 0 -3px 0 0 #2b1600, 0 3px 0 0 #2b1600, -3px 0 0 0 #2b1600, 3px 0 0 0 #2b1600, 0 6px 0 0 rgba(0, 0, 0, 0.4);
+}
+.tt-year { font-family: var(--font-pixel), monospace; font-size: 15px; color: #8a5a12; }
+.tt-title { font-weight: 700; font-size: 15px; line-height: 1.3; }
+.tt-dir { margin-top: auto; font-size: 12px; line-height: 1.3; color: #5a4a35; }
+.tt-card.is-new { background: #d9f5ec; }
+
+.tt-hand { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 18px; }
+.tt-card.is-hand { cursor: grab; }
+.tt-card.is-hand:hover { background: #fff8e6; }
+.tt-card.is-hand:hover .tt-title { text-decoration: underline; text-underline-offset: 3px; }
+.tt-card.is-hand[aria-pressed="true"] {
+  background: #f2b544;
+  box-shadow: 0 -3px 0 0 #fff, 0 3px 0 0 #fff, -3px 0 0 0 #fff, 3px 0 0 0 #fff, 0 0 0 7px #0b1226;
+}
+.tt-card.is-hand[aria-pressed="true"]::before { content: "Picked ✓"; font-size: 12px; font-weight: 700; }
+.tt-card.is-hand:focus-visible { outline: 3px solid #fff; outline-offset: 6px; }
+
+.tt-feedback { margin: 24px 0 0; padding: 12px 16px; font-size: 17px; line-height: 1.5; background: #131c38; }
+.tt-feedback.is-ok { box-shadow: inset 4px 0 0 0 #5ec4b6; }
+.tt-feedback.is-bad { box-shadow: inset 4px 0 0 0 #ff8a7a; }
+.tt-feedback.is-ok::before { content: "✓ "; color: #5ec4b6; font-weight: 700; }
+.tt-feedback.is-bad::before { content: "✗ "; color: #ff8a7a; font-weight: 700; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .tt-card.is-new { animation: tt-in 300ms steps(3); }
+}
+@keyframes tt-in { from { transform: translateY(-8px); } }
+@media (max-width: 639px) {
+  .tt-card { width: 128px; min-height: 108px; }
+  .tt-bar-actions { margin-left: 0; }
+}
+@media (forced-colors: active) {
+  .tt-card, .tt-gap { border: 2px solid ButtonText; }
+  .tt-card.is-hand[aria-pressed="true"] { border-width: 5px; }
+}
