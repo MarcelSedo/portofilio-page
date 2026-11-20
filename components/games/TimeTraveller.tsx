@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { films, type FilmCard } from "@/content/games/films";
+import { CLASSIC_FAME, films, type FilmCard } from "@/content/games/films";
+import { Poster } from "./Poster";
 
 /**
  * Time Traveller: put films on a timeline, oldest on the left.
@@ -16,6 +17,13 @@ const ROUND_SECONDS = 100;
 const HAND_SIZE = 3;
 const POINTS = 10;
 const BEST_KEY = "time-traveller-best";
+
+type DeckKind = "classics" | "all";
+const classics = films.filter((f) => f.fame >= CLASSIC_FAME);
+const DECKS: Record<DeckKind, { label: string; cards: FilmCard[]; hint: string }> = {
+  classics: { label: "Classics", cards: classics, hint: `${classics.length} films almost everyone has heard of` },
+  all: { label: "Film buff", cards: films, hint: `all ${films.length} films, from silent cinema to this year` },
+};
 
 type Mode = "timed" | "relaxed";
 type Phase = "intro" | "playing" | "paused" | "over";
@@ -56,6 +64,7 @@ const gapLabel = (timeline: FilmCard[], i: number) => {
 export function TimeTraveller() {
   const [phase, setPhase] = useState<Phase>("intro");
   const [mode, setMode] = useState<Mode>("timed");
+  const [deckKind, setDeckKind] = useState<DeckKind>("classics");
   const [deck, setDeck] = useState<FilmCard[]>([]);
   const [timeline, setTimeline] = useState<FilmCard[]>([]);
   const [hand, setHand] = useState<FilmCard[]>([]);
@@ -76,7 +85,7 @@ export function TimeTraveller() {
   useEffect(() => setBest(readBest()), []);
 
   const start = (m: Mode) => {
-    const d = shuffle(films);
+    const d = shuffle(DECKS[deckKind].cards);
     setMode(m);
     setTimeline([d[0]]);
     setHand(d.slice(1, 1 + HAND_SIZE));
@@ -196,6 +205,17 @@ export function TimeTraveller() {
           <li>Drag a card onto a gap in the timeline,</li>
           <li>or tap a card and then tap the gap. With a keyboard: Tab, Enter, and Esc to put a card back.</li>
         </ul>
+        <fieldset className="tt-decks">
+          <legend>Which films?</legend>
+          {(Object.keys(DECKS) as DeckKind[]).map((k) => (
+            <label key={k} className="tt-deck">
+              <input type="radio" name="tt-deck" value={k} checked={deckKind === k} onChange={() => setDeckKind(k)} />
+              <span>
+                <strong>{DECKS[k].label}</strong> – {DECKS[k].hint}
+              </span>
+            </label>
+          ))}
+        </fieldset>
         <div className="tt-start">
           <button type="button" className="btn-pixel" onClick={() => start("timed")}>
             Play: {ROUND_SECONDS} seconds ▶
@@ -206,11 +226,11 @@ export function TimeTraveller() {
         </div>
         {best > 0 && <p className="tt-best">Your best score: {best}</p>}
         <p className="tt-source">
-          {films.length} films. Years are the year of first release, from{" "}
+          Years are the year of first release, from{" "}
           <a href="https://www.wikidata.org/" target="_blank" rel="noreferrer">
             Wikidata<span className="sr-only"> (opens in a new tab)</span>
           </a>
-          .
+          . The pixel posters are drawn by code from each film&apos;s genre, so they hint at the mood, never the year.
         </p>
       </section>
     );
@@ -314,6 +334,7 @@ export function TimeTraveller() {
                   buttonRef={i === 0 ? firstGapRef : undefined}
                 />
                 <div className={`tt-card is-placed${feedback?.ok && feedback.card.id === c.id ? " is-new" : ""}`}>
+                  <Poster id={c.id} motif={c.motif} />
                   <span className="tt-year">{c.year}</span>
                   <span className="tt-title">{c.title}</span>
                   {c.directors && <span className="tt-dir">{c.directors}</span>}
@@ -350,6 +371,7 @@ export function TimeTraveller() {
                   onDragEnd={() => setDragging(null)}
                   onClick={() => pick(c.id)}
                 >
+                  <Poster id={c.id} motif={c.motif} />
                   <span className="tt-year" aria-hidden="true">
                     ????
                   </span>

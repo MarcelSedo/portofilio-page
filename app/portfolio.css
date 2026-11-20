@@ -17,27 +17,69 @@
 .pf-did { margin: 0; padding-left: 1.2em; display: grid; gap: 8px; font-size: 16px; line-height: 1.55; color: #e4e6ee; max-width: 72ch; }
 .pf-did li::marker { content: "▸ "; color: #f2b544; }
 
-.pf-links { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
-.pf-links li { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; background: #131c38; box-shadow: inset 0 0 0 2px #2a3766; }
-.pf-links a { color: #f2b544; font-weight: 700; }
-.pf-link-note { font-size: 14px; color: #aab1c5; }
+/* case: text left, "what was mine" right on wide screens */
+.pf-case-head { display: grid; gap: 8px 40px; }
+@media (min-width: 900px) { .pf-case-head { grid-template-columns: 1.1fr 1fr; align-items: start; } }
+.pf-did-box .pf-h3 { margin-top: 18px; }
 
-.pf-videos { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
-.pf-video { display: flex; gap: 14px; align-items: flex-start; padding: 12px 14px; color: inherit; text-decoration: none; background: #131c38; box-shadow: inset 0 0 0 2px #2a3766; }
-.pf-video:hover { box-shadow: inset 0 0 0 2px #f2b544; }
-.pf-video:hover .pf-video-title { text-decoration: underline; text-underline-offset: 3px; }
-.pf-video-play { flex: none; display: grid; place-items: center; width: 44px; height: 44px; color: #0b1226; background: #f2b544; box-shadow: 0 3px 0 0 #8a5a12; }
-.pf-video-title { display: block; font-weight: 700; font-size: 17px; color: #f1efe8; }
-.pf-video-what { display: block; margin-top: 2px; font-size: 15px; line-height: 1.5; color: #c9cede; }
-.pf-video-where { display: block; margin-top: 4px; font-size: 13px; font-weight: 700; color: #f2b544; }
+/* gallery tiles: screenshot + text, whole tile is one link */
+.pf-tiles { margin: 0; padding: 0; list-style: none; display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); }
+.pf-tiles.is-three { grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+.pf-tile, .pf-card {
+  height: 100%; display: flex; flex-direction: column;
+  color: inherit; text-decoration: none; background: #131c38; box-shadow: inset 0 0 0 2px #2a3766;
+}
+.pf-tile:hover, .pf-card:hover { box-shadow: inset 0 0 0 2px #f2b544; }
+.pf-tile:hover .pf-tile-label, .pf-card:hover .pf-card-title { text-decoration: underline; text-underline-offset: 3px; }
+.pf-tile:focus-visible, .pf-card:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+
+.pf-shot { position: relative; display: block; margin: 2px 2px 0; background: #0b1226; }
+.pf-shot-bar { display: flex; gap: 5px; padding: 6px 8px; background: #2a3766; }
+.pf-shot-bar i { width: 8px; height: 8px; background: #5ec4b6; }
+.pf-shot-bar i:nth-child(2) { background: #f2b544; }
+.pf-shot-bar i:nth-child(3) { background: #ff8a7a; }
+.pf-shot img, .pf-shot-empty { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; }
+.pf-shot-empty {
+  display: grid; place-items: center;
+  font-family: var(--font-pixel), monospace; font-size: 22px; color: #3a4677;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 15px, #18224a 15px 16px),
+    repeating-linear-gradient(90deg, transparent 0 15px, #18224a 15px 16px), #0f1731;
+}
+.pf-shot-play {
+  position: absolute; left: 50%; top: 55%; transform: translate(-50%, -50%);
+  display: grid; place-items: center; width: 52px; height: 52px;
+  color: #0b1226; background: #f2b544; box-shadow: 0 4px 0 0 #8a5a12; font-size: 20px;
+}
+.pf-tile-text, .pf-card-body { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px 14px; }
+.pf-tile-label { font-weight: 700; font-size: 16px; color: #f2b544; }
+.pf-tile-note { font-size: 14px; line-height: 1.5; color: #c9cede; }
+.pf-tile-host { margin-top: auto; padding-top: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: #8f97ad; }
+
+/* play + code cards */
+.pf-play { display: grid; gap: 22px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
+.pf-card { padding: 0; }
+.pf-card-title { margin-top: 6px; font-family: var(--font-pixel), monospace; font-size: 17px; line-height: 1.4; color: #f2b544; }
+.pf-card-text { font-size: 16px; line-height: 1.55; color: #e4e6ee; }
 
 .pf-tags { margin: 24px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }
 .pf-tags li { padding: 3px 9px; font-size: 13px; font-weight: 700; color: #0b1226; background: #5ec4b6; box-shadow: 0 2px 0 0 #3a8f84; }
 
-.pf-soon { padding: 22px 24px; border: 3px dashed #3a4677; }
-.pf-soon p { margin: 10px 0 0; font-size: 16px; line-height: 1.6; color: #e4e6ee; }
-.pf-soon a { color: #f2b544; font-weight: 700; }
-
 @media (forced-colors: active) {
-  .pf-links li, .pf-video { border: 2px solid CanvasText; }
+  .pf-tile, .pf-card { border: 2px solid CanvasText; }
+}
+
+/* five tiles: the first one gets a double-width spot, so no tile is left alone on the last row */
+@media (min-width: 760px) {
+  .pf-tiles.is-five { grid-template-columns: repeat(3, 1fr); }
+  .pf-tiles.is-five > li:first-child { grid-column: span 2; }
+  .pf-tiles.is-five > li:first-child .pf-tile { flex-direction: row; }
+  .pf-tiles.is-five > li:first-child .pf-shot { flex: 0 0 62%; margin: 2px 0 2px 2px; }
+  .pf-play .pf-card { flex-direction: row; }
+  .pf-play .pf-shot { flex: 0 0 42%; margin: 2px 0 2px 2px; }
+  .pf-play .pf-shot img, .pf-play .pf-shot-empty { aspect-ratio: 4 / 3; }
+}
+@media (min-width: 760px) {
+  .pf-tiles.is-five > li:first-child .pf-shot, .pf-play .pf-shot { display: flex; flex-direction: column; }
+  .pf-tiles.is-five > li:first-child .pf-shot :is(img, .pf-shot-empty), .pf-play .pf-shot :is(img, .pf-shot-empty) { flex: 1; aspect-ratio: auto; min-height: 180px; }
 }

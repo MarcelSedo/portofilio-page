@@ -72,7 +72,8 @@
   background: #f2b544;
   box-shadow: 0 -3px 0 0 #fff, 0 3px 0 0 #fff, -3px 0 0 0 #fff, 3px 0 0 0 #fff, 0 0 0 7px #0b1226;
 }
-.tt-card.is-hand[aria-pressed="true"]::before { content: "Picked ✓"; font-size: 12px; font-weight: 700; }
+.tt-card { position: relative; }
+.tt-card.is-hand[aria-pressed="true"]::before { content: "Picked ✓"; position: absolute; z-index: 1; top: 6px; left: 6px; padding: 2px 6px; font-size: 12px; font-weight: 700; color: #0b1226; background: #f2b544; box-shadow: 0 0 0 2px #0b1226; }
 .tt-card.is-hand:focus-visible { outline: 3px solid #fff; outline-offset: 6px; }
 
 .tt-feedback { margin: 24px 0 0; padding: 12px 16px; font-size: 17px; line-height: 1.5; background: #131c38; }
@@ -93,3 +94,22 @@
   .tt-card, .tt-gap { border: 2px solid ButtonText; }
   .tt-card.is-hand[aria-pressed="true"] { border-width: 5px; }
 }
+
+/* pixel posters (components/games/Poster.tsx) */
+.tt-poster { display: block; width: calc(100% + 24px); margin: -10px -12px 6px; aspect-ratio: 48 / 30; height: auto; image-rendering: pixelated; }
+.tt-card.is-hand[aria-pressed="true"] .tt-poster { opacity: 0.85; }
+
+/* deck choice */
+.tt-decks { margin: 22px 0 0; padding: 0; border: 0; display: grid; gap: 8px; }
+.tt-decks legend { margin-bottom: 8px; font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #aab1c5; }
+.tt-deck { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 12px; cursor: pointer; background: #131c38; box-shadow: inset 0 0 0 2px #2a3766; font-size: 16px; }
+.tt-deck:has(input:checked) { box-shadow: inset 0 0 0 2px #f2b544; }
+.tt-deck input { width: 20px; height: 20px; accent-color: #f2b544; flex: none; }
+.tt-deck strong { color: #f2b544; }
+@media (max-width: 479px) {
+  .tt-card { width: 112px; min-height: 0; }
+  .tt-timeline.is-placing .tt-gap:not(.is-idle) { width: 32px; margin: 0 3px; }
+  .tt-hand { gap: 12px; }
+}
+.tt-title { overflow-wrap: anywhere; hyphens: auto; }
+@media (max-width: 479px) { .tt-title { font-size: 14px; } }
