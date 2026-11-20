@@ -57,7 +57,7 @@
 .pf-tile-host { margin-top: auto; padding-top: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: #8f97ad; }
 
 /* play + code cards */
-.pf-play { display: grid; gap: 22px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
+.pf-play { display: grid; gap: 22px; grid-template-columns: 1fr; }
 .pf-card { padding: 0; }
 .pf-card-title { margin-top: 6px; font-family: var(--font-pixel), monospace; font-size: 17px; line-height: 1.4; color: #f2b544; }
 .pf-card-text { font-size: 16px; line-height: 1.55; color: #e4e6ee; }
@@ -83,3 +83,4 @@
   .pf-tiles.is-five > li:first-child .pf-shot, .pf-play .pf-shot { display: flex; flex-direction: column; }
   .pf-tiles.is-five > li:first-child .pf-shot :is(img, .pf-shot-empty), .pf-play .pf-shot :is(img, .pf-shot-empty) { flex: 1; aspect-ratio: auto; min-height: 180px; }
 }
+@media (max-width: 759px) { .pf-card.is-code .pf-shot { display: none; } }

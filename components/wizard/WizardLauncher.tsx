@@ -6,8 +6,9 @@ import { WIZARD_NAME } from "@/content/wizard";
 import { WizardConversation } from "./WizardConversation";
 import { useWizard } from "./WizardProvider";
 
-// The About page has the wizard inline, so the floating button would only duplicate it
-const INLINE_PAGES: string[] = [];
+const INLINE_PAGES = ["/about"];
+
+const NO_WIZARD = ["/games/emma"];
 
 /**
  * Floating "Ask the wizard" button (bottom right, every page) + chat window.
@@ -27,7 +28,7 @@ export function WizardLauncher() {
   const inputRef = useRef<HTMLInputElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
 
-  const hidden = INLINE_PAGES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  const hidden = [...INLINE_PAGES, ...NO_WIZARD].some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
   // keep the <dialog> in sync with state
   useEffect(() => {

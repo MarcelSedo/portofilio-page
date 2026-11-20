@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Metadata } from "next";
 import { Bylines } from "@/components/notes/Bylines";
-import { caseStudies, comingSoon, githubProfile, portfolioIntro, type Tile } from "@/content/portfolio";
+import { caseStudies, games, githubProfile, portfolioIntro, type Tile } from "@/content/portfolio";
 
 export const metadata: Metadata = {
   title: "Portfolio – Marcel Šedo",
@@ -13,7 +13,6 @@ export const metadata: Metadata = {
 const ext = { target: "_blank", rel: "noreferrer" } as const;
 const NewTab = () => <span className="sr-only"> (opens in a new tab)</span>;
 
-/** Use a screenshot only once its file is really in public/, so missing ones never show as broken images. */
 function hasFile(src?: string) {
   return !!src && fs.existsSync(path.join(process.cwd(), "public", src));
 }
@@ -68,7 +67,7 @@ export default function PortfolioPage() {
               </li>
             ))}
             <li>
-              <a href="#play">Play</a>
+              <a href="#play">Games</a>
             </li>
             <li>
               <a href="#writing">Writing</a>
@@ -130,17 +129,19 @@ export default function PortfolioPage() {
 
       <section id="play" aria-labelledby="play-title" className="pf-play scroll-mt-6">
         <h2 id="play-title" className="sr-only">
-          Play and code
+          Games and code
         </h2>
-        <a href={comingSoon.href} className="pf-card pixel-frame">
-          <Shot src={hasFile(comingSoon.image) ? comingSoon.image : undefined} kind="code" />
-          <span className="pf-card-body">
-            <span className="pf-kicker">Small game · Playable here</span>
-            <span className="pf-card-title">{comingSoon.title} ▶</span>
-            <span className="pf-card-text">{comingSoon.text}</span>
-          </span>
-        </a>
-        <a href={githubProfile.href} {...ext} className="pf-card pixel-frame">
+        {games.map((g) => (
+          <a key={g.href} href={g.href} className="pf-card pixel-frame">
+            <Shot src={hasFile(g.image) ? g.image : undefined} kind="code" />
+            <span className="pf-card-body">
+              <span className="pf-kicker">{g.kicker} · Playable here</span>
+              <span className="pf-card-title">{g.title} ▶</span>
+              <span className="pf-card-text">{g.text}</span>
+            </span>
+          </a>
+        ))}
+        <a href={githubProfile.href} {...ext} className="pf-card pixel-frame is-code">
           <Shot kind="code" />
           <span className="pf-card-body">
             <span className="pf-kicker">Code</span>

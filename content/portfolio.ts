@@ -9,7 +9,7 @@ export type Tile = {
   label: string;
   href: string;
   note?: string;
-  /** e.g. "/portfolio/idsk-portal.webp" */
+  /** e.g. "/portfolio/idsk_web.png" */
   image?: string;
   /** YouTube video id: its thumbnail is used when there's no own screenshot */
   youtube?: string;
@@ -55,9 +55,9 @@ export const caseStudies: CaseStudy[] = [
     tags: ["React", "Next.js", "Storybook", "Figma", "SCSS", "Tailwind CSS", "npm", "Docker", "WCAG 2.1 AA"],
     tilesHeading: "See it live",
     tiles: [
-      { kind: "site", label: "ID‑SK portal", href: "https://idsk.gov.sk/", note: "The design system's home", image: "/portfolio/idsk-portal.webp" },
-      { kind: "design", label: "ID‑SK 3.1.0 in Figma", href: "https://www.figma.com/community/file/1581301778555425083/idsk-3-1-0", note: "Design kit: documentation, testing, UX consulting", image: "/portfolio/idsk-figma.webp" },
-      { kind: "docs", label: "Storybook: components", href: "https://komponenty.idsk3.gov.sk/?path=/docs/molecules-accordion--docs", note: "Live component docs", image: "/portfolio/idsk-storybook.webp" },
+      { kind: "site", label: "ID‑SK portal", href: "https://idsk.gov.sk/", note: "The design system's home", image: "/portfolio/idsk_web.png" },
+      { kind: "design", label: "ID‑SK 3.1.0 in Figma", href: "https://www.figma.com/community/file/1581301778555425083/idsk-3-1-0", note: "Design kit: documentation, testing, UX consulting", image: "/portfolio/idsk_figma.png" },
+      { kind: "docs", label: "Storybook: components", href: "https://komponenty.idsk3.gov.sk/?path=/docs/molecules-accordion--docs", note: "Live component docs", image: "/portfolio/storybook_idsk.png" },
       { kind: "package", label: "@id-sk/react on npm", href: "https://www.npmjs.com/package/@id-sk/react?activeTab=versions", note: "Release history up to v3.2.0", image: "/portfolio/idsk-npm.webp" },
       { kind: "code", label: "IDSK 3 Frontend on GitHub", href: "https://github.com/id-sk/idsk3-frontend", note: "The previous library" },
     ],
@@ -78,10 +78,10 @@ export const caseStudies: CaseStudy[] = [
     tags: ["WordPress", "WooCommerce", "Webflow", "Wix", "JavaScript", "Analytics"],
     tilesHeading: "See it live",
     tiles: [
-      { kind: "site", label: "E-shop", href: "https://kolegium.org/obchod/", note: "kolegium.org", image: "/portfolio/kolegium-eshop.webp" },
-      { kind: "site", label: "Citadela primary school", href: "https://citadela.kolegium.org/", note: "Bratislava and Ivanka pri Dunaji", image: "/portfolio/kolegium-citadela.webp" },
-      { kind: "site", label: "The campus", href: "https://kampus.kolegium.org/", note: "Kampus Kolégia", image: "/portfolio/kolegium-kampus.webp" },
-      { kind: "site", label: "Akadémia veľkých diel", href: "https://www.akademiavelkychdiel.sk/", note: "Character education through great books", image: "/portfolio/kolegium-avd.webp" },
+      { kind: "site", label: "E-shop", href: "https://kolegium.org/obchod/", note: "kolegium.org", image: "/portfolio/kolegium-eshop.png" },
+      { kind: "site", label: "Citadela primary school", href: "https://citadela.kolegium.org/", note: "Bratislava and Ivanka pri Dunaji", image: "/portfolio/citadela.png" },
+      { kind: "site", label: "The campus", href: "https://kampus.kolegium.org/", note: "Kampus Kolégia", image: "/portfolio/kampus_kolegia.png" },
+      { kind: "site", label: "Akadémia veľkých diel", href: "https://www.akademiavelkychdiel.sk/", note: "Character education through great books", image: "/portfolio/akademia_velkych_diel.png" },
     ],
   },
   {
@@ -108,12 +108,26 @@ export const caseStudies: CaseStudy[] = [
   },
 ];
 
-export const comingSoon = {
-  title: "Time Traveller",
-  text:
-    "A small timeline game: put famous films in the right order before the clock runs out. Playable with a mouse, touch or keyboard, with a relaxed mode without a clock. 661 films with pixel posters drawn by code; every year comes from Wikidata and can be checked.",
-  href: "/games/time-traveller",
-  image: "/portfolio/time-traveller.webp",
-};
+export type Game = { title: string; kicker: string; text: string; href: string; image: string };
+
+/** Small games built for this site, playable right here. */
+export const games: Game[] = [
+  {
+    title: "Emma: The Matchmaker of Bramblewick",
+    kicker: "Detective game · Phone first",
+    text:
+      "Pay calls around a Regency village, collect gossip and proof, then make four matches on Emma's wedding board. Gossip is free and often false, so the real game is telling rumour from evidence. Drag or tap, keyboard friendly, saves in the browser.",
+    href: "/games/emma",
+    image: "/portfolio/emma.webp",
+  },
+  {
+    title: "Time Traveller",
+    kicker: "Timeline game",
+    text:
+      "Put famous films in the right order before the clock runs out, or play without a clock. 661 films with pixel posters drawn by code; every year comes from Wikidata and can be checked.",
+    href: "/games/time-traveller",
+    image: "/portfolio/time-traveller.webp",
+  },
+];
 
 export const githubProfile = { label: "GitHub: MarcelSedo", href: "https://github.com/MarcelSedo" };
