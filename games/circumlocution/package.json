@@ -1,0 +1,13 @@
+{
+  "name": "circumlocution-office",
+  "version": "0.3.0",
+  "private": true,
+  "description": "A desk game after Charles Dickens: five days at the desk of How Not To Do It.",
+  "main": "index.ts",
+  "license": "UNLICENSED",
+  "peerDependencies": {
+    "next": ">=15",
+    "react": ">=19",
+    "react-dom": ">=19"
+  }
+}

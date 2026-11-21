@@ -113,3 +113,17 @@
 }
 .tt-title { overflow-wrap: anywhere; hyphens: auto; }
 @media (max-width: 479px) { .tt-title { font-size: 14px; } }
+
+/* British culture edition: a small kind label on each card. Text, not colour alone, says the kind. */
+.tt-kind {
+  align-self: flex-start; padding: 1px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: #fdf3d6; background: #3a3a46;
+}
+.tt-kind.is-book { background: #7a1f2b; }
+.tt-kind.is-art { background: #7a5212; }
+.tt-kind.is-music { background: #1f4a7a; }
+.tt-kind.is-stage { background: #5a1a4a; }
+.tt-kind.is-film { background: #2a2e34; }
+.tt-deck .tt-kind { flex: none; min-width: 52px; text-align: center; }
+.tt-classics { margin-top: 12px; }
+@media (forced-colors: active) { .tt-kind { border: 1px solid CanvasText; } }

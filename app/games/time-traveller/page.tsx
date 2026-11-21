@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { TimeTraveller } from "@/components/games/TimeTraveller";
 
 export const metadata: Metadata = {
-  title: "Time Traveller – a film timeline game – Marcel Šedo",
-  description: "Put famous films on a timeline in the right order. Playable with a mouse, touch or keyboard.",
+  title: "Time Traveller – a timeline game of British culture – Marcel Šedo",
+  description: "Put British books, paintings, music, plays and films from Chaucer to today on a timeline. Playable with a mouse, touch or keyboard.",
 };
 
 export default function TimeTravellerPage() {

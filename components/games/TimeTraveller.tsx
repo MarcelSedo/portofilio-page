@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CLASSIC_FAME, films, type FilmCard } from "@/content/games/films";
+import { CLASSIC_FAME, KINDS, cards, sourceUrl, type CultureCard, type Kind } from "@/content/games/britain";
 import { Poster } from "./Poster";
 
 /**
- * Time Traveller: put films on a timeline, oldest on the left.
+ * Time Traveller: put British books, paintings, music, plays and films on a timeline, oldest on the left.
  *
  * Play it with a mouse (drag a card onto a gap), touch or keyboard (pick a card, then pick a gap).
  * - Drag and drop is only a shortcut: every move can be done with simple clicks (WCAG 2.5.7).
@@ -16,18 +16,27 @@ import { Poster } from "./Poster";
 const ROUND_SECONDS = 100;
 const HAND_SIZE = 3;
 const POINTS = 10;
-const BEST_KEY = "time-traveller-best";
+const BEST_KEY = "time-traveller-britain-best";
 
-type DeckKind = "classics" | "all";
-const classics = films.filter((f) => f.fame >= CLASSIC_FAME);
-const DECKS: Record<DeckKind, { label: string; cards: FilmCard[]; hint: string }> = {
-  classics: { label: "Classics", cards: classics, hint: `${classics.length} films almost everyone has heard of` },
-  all: { label: "Film buff", cards: films, hint: `all ${films.length} films, from silent cinema to this year` },
+type Card = CultureCard;
+type DeckKind = "mixed" | Kind;
+const KIND_ORDER: Kind[] = ["book", "art", "music", "stage", "film"];
+const DECKS: Record<DeckKind, { label: string; cards: Card[] }> = {
+  mixed: { label: "Everything", cards },
+  ...(Object.fromEntries(
+    KIND_ORDER.map((k) => [k, { label: KINDS[k].plural, cards: cards.filter((c) => c.kind === k) }]),
+  ) as Record<Kind, { label: string; cards: Card[] }>),
+};
+const deckCards = (k: DeckKind, classicsOnly: boolean) =>
+  classicsOnly ? DECKS[k].cards.filter((c) => c.fame >= CLASSIC_FAME) : DECKS[k].cards;
+const span = (list: Card[]) => {
+  const years = list.map((c) => c.year);
+  return `${Math.min(...years)}–${Math.max(...years)}`;
 };
 
 type Mode = "timed" | "relaxed";
 type Phase = "intro" | "playing" | "paused" | "over";
-type Feedback = { ok: boolean; card: FilmCard; text: string } | null;
+type Feedback = { ok: boolean; card: Card; text: string } | null;
 
 function shuffle<T>(list: T[]): T[] {
   const a = [...list];
@@ -39,7 +48,7 @@ function shuffle<T>(list: T[]): T[] {
 }
 
 /** Is `year` allowed in the gap before timeline[index]? Equal years fit on either side. */
-export function fits(timeline: FilmCard[], index: number, year: number) {
+export function fits(timeline: Card[], index: number, year: number) {
   const before = timeline[index - 1];
   const after = timeline[index];
   return (!before || before.year <= year) && (!after || year <= after.year);
@@ -53,7 +62,7 @@ function readBest() {
   }
 }
 
-const gapLabel = (timeline: FilmCard[], i: number) => {
+const gapLabel = (timeline: Card[], i: number) => {
   const before = timeline[i - 1];
   const after = timeline[i];
   if (!before) return `Before ${after.title} (${after.year})`;
@@ -64,10 +73,11 @@ const gapLabel = (timeline: FilmCard[], i: number) => {
 export function TimeTraveller() {
   const [phase, setPhase] = useState<Phase>("intro");
   const [mode, setMode] = useState<Mode>("timed");
-  const [deckKind, setDeckKind] = useState<DeckKind>("classics");
-  const [deck, setDeck] = useState<FilmCard[]>([]);
-  const [timeline, setTimeline] = useState<FilmCard[]>([]);
-  const [hand, setHand] = useState<FilmCard[]>([]);
+  const [deckKind, setDeckKind] = useState<DeckKind>("mixed");
+  const [classicsOnly, setClassicsOnly] = useState(true);
+  const [deck, setDeck] = useState<Card[]>([]);
+  const [timeline, setTimeline] = useState<Card[]>([]);
+  const [hand, setHand] = useState<Card[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [score, setScore] = useState(0);
@@ -85,7 +95,7 @@ export function TimeTraveller() {
   useEffect(() => setBest(readBest()), []);
 
   const start = (m: Mode) => {
-    const d = shuffle(DECKS[deckKind].cards);
+    const d = shuffle(deckCards(deckKind, classicsOnly));
     setMode(m);
     setTimeline([d[0]]);
     setHand(d.slice(1, 1 + HAND_SIZE));
@@ -150,13 +160,13 @@ export function TimeTraveller() {
       setTimeline(t);
       setScore((s) => s + POINTS);
       setRight((r) => r + 1);
-      const text = `Well placed! ${card.title} came out in ${card.year}.`;
+      const text = `Well placed! ${card.title} ${KINDS[card.kind].verb} ${card.year}.`;
       setFeedback({ ok: true, card, text });
       setAnnounce(`${text} Plus ${POINTS} points.`);
     } else {
       setScore((s) => s - POINTS);
       setWrong((w) => w + 1);
-      const text = `Not quite. ${card.title} came out in ${card.year}.`;
+      const text = `Not quite. ${card.title} ${KINDS[card.kind].verb} ${card.year}.`;
       setFeedback({ ok: false, card, text });
       setAnnounce(`${text} Minus ${POINTS} points. The card is gone.`);
     }
@@ -197,25 +207,39 @@ export function TimeTraveller() {
           Time Traveller
         </h1>
         <p className="tt-guide">
-          <span className="tt-guide-name">The Archivist:</span> Hello, time traveller. Prove you deserve the name. Put each
-          film on the timeline, oldest on the left. Every right answer is worth {POINTS} points, every wrong one costs{" "}
-          {POINTS}.
+          <span className="tt-guide-name">The Archivist:</span> Hello, time traveller. Welcome to the British collection:
+          six centuries of books, paintings, music, plays and films. Put each one on the timeline, oldest on the left.
+          Every right answer is worth {POINTS} points, every wrong one costs {POINTS}.
         </p>
         <ul className="tt-howto">
           <li>Drag a card onto a gap in the timeline,</li>
           <li>or tap a card and then tap the gap. With a keyboard: Tab, Enter, and Esc to put a card back.</li>
         </ul>
         <fieldset className="tt-decks">
-          <legend>Which films?</legend>
-          {(Object.keys(DECKS) as DeckKind[]).map((k) => (
-            <label key={k} className="tt-deck">
-              <input type="radio" name="tt-deck" value={k} checked={deckKind === k} onChange={() => setDeckKind(k)} />
-              <span>
-                <strong>{DECKS[k].label}</strong> – {DECKS[k].hint}
-              </span>
-            </label>
-          ))}
+          <legend>Which cards?</legend>
+          {(Object.keys(DECKS) as DeckKind[]).map((k) => {
+            const list = deckCards(k, classicsOnly);
+            return (
+              <label key={k} className="tt-deck">
+                <input type="radio" name="tt-deck" value={k} checked={deckKind === k} onChange={() => setDeckKind(k)} />
+                {k !== "mixed" && (
+                  <span className={`tt-kind is-${k}`} aria-hidden="true">
+                    {KINDS[k].label}
+                  </span>
+                )}
+                <span>
+                  <strong>{DECKS[k].label}</strong> – {list.length} cards, {span(list)}
+                </span>
+              </label>
+            );
+          })}
         </fieldset>
+        <label className="tt-deck tt-classics">
+          <input type="checkbox" checked={classicsOnly} onChange={(e) => setClassicsOnly(e.target.checked)} />
+          <span>
+            <strong>Classics only</strong> – the better-known half of each kind. Untick it for the deep cuts.
+          </span>
+        </label>
         <div className="tt-start">
           <button type="button" className="btn-pixel" onClick={() => start("timed")}>
             Play: {ROUND_SECONDS} seconds ▶
@@ -226,11 +250,13 @@ export function TimeTraveller() {
         </div>
         {best > 0 && <p className="tt-best">Your best score: {best}</p>}
         <p className="tt-source">
-          Years are the year of first release, from{" "}
+          Years are first publication, first performance, the year a painting was finished or a film came out. Most come
+          from{" "}
           <a href="https://www.wikidata.org/" target="_blank" rel="noreferrer">
             Wikidata<span className="sr-only"> (opens in a new tab)</span>
           </a>
-          . The pixel posters are drawn by code from each film&apos;s genre, so they hint at the mood, never the year.
+          , the rest were checked by hand. The pixel pictures are drawn by code: a cover for books, a gilded frame for
+          art, a record for music, a curtain for the stage and a genre poster for films. They never hint at the year.
         </p>
       </section>
     );
@@ -334,10 +360,14 @@ export function TimeTraveller() {
                   buttonRef={i === 0 ? firstGapRef : undefined}
                 />
                 <div className={`tt-card is-placed${feedback?.ok && feedback.card.id === c.id ? " is-new" : ""}`}>
-                  <Poster id={c.id} motif={c.motif} />
+                  <Poster id={c.id} kind={c.kind} motif={c.motif} />
+                  <span className={`tt-kind is-${c.kind}`}>{KINDS[c.kind].label}</span>
                   <span className="tt-year">{c.year}</span>
                   <span className="tt-title">{c.title}</span>
-                  {c.directors && <span className="tt-dir">{c.directors}</span>}
+                  <span className="tt-dir">
+                    <span className="sr-only">{KINDS[c.kind].by} </span>
+                    {c.creator}
+                  </span>
                 </div>
               </li>
             ))}
@@ -371,17 +401,16 @@ export function TimeTraveller() {
                   onDragEnd={() => setDragging(null)}
                   onClick={() => pick(c.id)}
                 >
-                  <Poster id={c.id} motif={c.motif} />
+                  <Poster id={c.id} kind={c.kind} motif={c.motif} />
+                  <span className={`tt-kind is-${c.kind}`}>{KINDS[c.kind].label}</span>
                   <span className="tt-year" aria-hidden="true">
                     ????
                   </span>
                   <span className="tt-title">{c.title}</span>
-                  {c.directors && (
-                    <span className="tt-dir">
-                      <span className="sr-only">Directed by </span>
-                      {c.directors}
-                    </span>
-                  )}
+                  <span className="tt-dir">
+                    <span className="sr-only">{KINDS[c.kind].by} </span>
+                    {c.creator}
+                  </span>
                 </button>
               </li>
             ))}
@@ -392,8 +421,9 @@ export function TimeTraveller() {
       {feedback && (
         <p className={`tt-feedback ${feedback.ok ? "is-ok" : "is-bad"}`}>
           <span className="tt-guide-name">The Archivist:</span> {feedback.text}{" "}
-          <a href={`https://www.wikidata.org/wiki/${feedback.card.id}`} target="_blank" rel="noreferrer">
-            More about {feedback.card.title} on Wikidata ↗<span className="sr-only"> (opens in a new tab)</span>
+          <a href={sourceUrl(feedback.card)} target="_blank" rel="noreferrer">
+            More about {feedback.card.title} on {feedback.card.id.startsWith("Q") ? "Wikidata" : "Wikipedia"} ↗
+            <span className="sr-only"> (opens in a new tab)</span>
           </a>
         </p>
       )}

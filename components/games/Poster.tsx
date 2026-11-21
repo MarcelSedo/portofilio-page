@@ -1,12 +1,14 @@
 import { memo } from "react";
-import { H, W, poster, type Motif } from "./poster";
+import type { Kind } from "@/content/games/britain";
+import { cardArt } from "./cardArt";
+import { H, W, type Motif } from "./poster";
 
-/** A decorative pixel poster. Hidden from screen readers: the card's text says everything. */
-export const Poster = memo(function Poster({ id, motif }: { id: string; motif: Motif }) {
-  const rects = poster(id, motif);
+/** A decorative pixel picture for a card. Hidden from screen readers: the card's text says everything. */
+export const Poster = memo(function Poster({ id, kind, motif }: { id: string; kind: Kind; motif?: Motif }) {
+  const rects = cardArt(id, kind, motif);
   return (
     <svg
-      className="tt-poster"
+      className={`tt-poster is-${kind}`}
       viewBox={`0 0 ${W} ${H}`}
       aria-hidden="true"
       focusable="false"

@@ -1,0 +1,576 @@
+book|Q15228|1954|The Lord of the Rings|J. R. R. Tolkien|100
+book|Q208460|1949|Nineteen Eighty-Four|George Orwell|99
+book|Q92640|1865|Alice's Adventures in Wonderland|Lewis Carroll|99
+book|Q1396889|1945|Animal Farm|George Orwell|98
+book|Q74287|1937|The Hobbit|J. R. R. Tolkien|98
+book|Q43361|1997|Harry Potter and the Philosopher's Stone|J. K. Rowling|97
+book|Q170583|1813|Pride and Prejudice|Jane Austen|97
+book|Q483034|1719|Robinson Crusoe|Daniel Defoe|96
+book|Q47209|1998|Harry Potter and the Chamber of Secrets|J. K. Rowling|95
+book|Q80817|2003|Harry Potter and the Order of the Phoenix|J. K. Rowling|95
+book|Q47598|1999|Harry Potter and the Prisoner of Azkaban|J. K. Rowling|94
+book|Q150827|1818|Frankenstein; or, The Modern Prometheus|Mary Shelley|94
+book|Q185118|1883|Treasure Island|Robert Louis Stevenson|93
+book|Q6511|1922|Ulysses|James Joyce|93
+book|Q164974|1839|Oliver Twist|Charles Dickens|92
+book|Q82464|1890|The Picture of Dorian Gray|Oscar Wilde|91
+book|Q202975|1847|Wuthering Heights|Emily Brontë|91
+book|Q41542|1897|Dracula|Bram Stoker|90
+book|Q62879|1843|A Christmas Carol|Charles Dickens|90
+book|Q28754|1667|Paradise Lost|John Milton|89
+book|Q191949|1932|Brave New World|Aldous Huxley|89
+book|Q191663|1387|The Canterbury Tales|Geoffrey Chaucer|88
+book|Q182961|1847|Jane Eyre|Charlotte Brontë|87
+book|Q219552|1861|Great Expectations|Charles Dickens|87
+book|Q189509|1894|The Jungle Book|Rudyard Kipling|86
+book|Q189811|1850|David Copperfield|Charles Dickens|86
+book|Q79762|1977|The Silmarillion|J. R. R. Tolkien|85
+book|Q213019|1897|The War of the Worlds|H. G. Wells|85
+book|Q191288|1988|The Satanic Verses|Salman Rushdie|84
+book|Q208002|1954|The Fellowship of the Ring|J. R. R. Tolkien|83
+book|Q45192|1902|The Hound of the Baskervilles|Arthur Conan Doyle|83
+book|Q271764|1954|Lord of the Flies|William Golding|82
+book|Q223131|1887|A Study in Scarlet|Arthur Conan Doyle|82
+book|Q220331|1871|Through the Looking-Glass|Lewis Carroll|81
+book|Q217352|1886|Strange Case of Dr Jekyll and Mr Hyde|Robert Louis Stevenson|81
+book|Q471726|1988|A Brief History of Time|Stephen Hawking|80
+book|Q129778|1899|Heart of Darkness|Joseph Conrad|79
+book|Q485093|1950|The Lion, the Witch, and the Wardrobe|C. S. Lewis|79
+book|Q627333|1895|The Time Machine|H. G. Wells|78
+book|Q274744|1811|Sense and Sensibility|Jane Austen|78
+book|Q466605|1964|Charlie and the Chocolate Factory|Roald Dahl|77
+book|Q128444|1986|Watchmen|Alan Moore|77
+book|Q214132|1939|And Then There Were None|Agatha Christie|76
+book|Q392147|1892|The Adventures of Sherlock Holmes|Arthur Conan Doyle|75
+book|Q692557|1962|A Clockwork Orange|Anthony Burgess|75
+book|Q840974|1819|Ivanhoe|Walter Scott|74
+book|Q662550|1609|Shakespeare's sonnets|William Shakespeare|74
+book|Q845889|1934|Murder on the Orient Express|Agatha Christie|73
+book|Q218950|1951|Prince Caspian|C. S. Lewis|73
+book|Q223880|1815|Emma|Jane Austen|72
+book|Q557867|2011|Fifty Shades of Grey|E. L. James|71
+book|Q224078|1926|The Murder of Roger Ackroyd|Agatha Christie|71
+book|Q500688|1890|The Sign of Four|Arthur Conan Doyle|70
+book|Q625764|1981|Midnight's Children|Salman Rushdie|70
+book|Q44701|1848|The Tenant of Wildfell Hall|Anne Brontë|69
+book|Q3107329|1979|The Hitchhiker's Guide to the Galaxy|Douglas Adams|69
+book|Q465360|1918|A Portrait of the Artist as a Young Man|James Joyce|68
+book|Q477831|1955|The Magician's Nephew|C. S. Lewis|67
+book|Q268211|1678|The Pilgrim’s Progress|John Bunyan|67
+book|Q750670|1928|Lady Chatterley's Lover|D. H. Lawrence|66
+book|Q333179|1817|Persuasion|Jane Austen|66
+book|Q459592|1914|Dubliners|James Joyce|65
+book|Q936276|1908|The Wind in the Willows|Kenneth Grahame|65
+book|Q238693|1136|The History of the Kings of Britain|Geoffrey of Monmouth|64
+book|Q313030|1776|The History of the Decline and Fall of the Roman Empire|Edward Gibbon|63
+book|Q472228|1920|The Mysterious Affair at Styles|Agatha Christie|63
+book|Q478016|1927|To the Lighthouse|Virginia Woolf|62
+book|Q1539509|1897|The Invisible Man|H. G. Wells|62
+book|Q595950|2001|Mortal Engines|Philip Reeve|61
+book|Q157360|1954|The Horse and His Boy|C. S. Lewis|61
+book|Q612836|1848|Vanity Fair|William Makepeace Thackeray|60
+book|Q752584|1925|Mrs Dalloway|Virginia Woolf|59
+book|Q6507|1939|Finnegans Wake|James Joyce|59
+book|Q250371|1871|Jabberwocky|Lewis Carroll|58
+book|Q1137494|1885|King Solomon's Mines|H. Rider Haggard|58
+book|Q829934|1989|The Remains of the Day|Kazuo Ishiguro|57
+book|Q514694|1938|Homage to Catalonia|George Orwell|57
+book|Q1047711|1953|Casino Royale|Ian Fleming|56
+book|Q708177|1798|The Rime of the Ancient Mariner|Samuel Taylor Coleridge|55
+book|Q727408|1900|Lord Jim|Joseph Conrad|55
+book|Q472194|1912|The Secret Garden|Frances Hodgson Burnett|54
+book|Q1638194|1944|The Road to Serfdom|Friedrich Hayek|54
+book|Q1426188|1986|Matilda|Roald Dahl|53
+book|Q649409|1891|Tess of the d'Urbervilles|Thomas Hardy|53
+book|Q718268|1895|The Island of Dr Moreau|H. G. Wells|52
+book|Q128917|1837|Goldilocks and the Three Bears|Robert Southey|51
+book|Q951587|2005|Never Let Me Go|Kazuo Ishiguro|51
+book|Q843940|1776|Common Sense|Thomas Paine|50
+book|Q880092|1877|Black Beauty|Anna Sewell|50
+book|Q936801|1972|Watership Down|Richard Adams|49
+book|Q3435337|1911|Peter Pan|J. M. Barrie|49
+book|Q248096|1749|The History of Tom Jones, a Foundling|Henry Fielding|48
+book|Q728312|1884|Flatland|Edwin Abbott Abbott|47
+book|Q1983019|1794|The Age of Reason|Thomas Paine|47
+book|Q651283|1890|The Golden Bough|James George Frazer|46
+book|Q1334940|1938|Rebecca|Daphne du Maurier|46
+book|Q475125|2002|Coraline|Neil Gaiman|45
+book|Q1164083|1759|The Life and Opinions of Tristram Shandy, Gentleman|Laurence Sterne|45
+book|Q1136104|1485|Le Morte d'Arthur|Thomas Malory|44
+book|Q876848|2003|The Curious Incident of the Dog in the Night-Time|Mark Haddon|43
+book|Q1233830|1627|New Atlantis|Francis Bacon|43
+book|Q430514|2001|American Gods|Neil Gaiman|42
+book|Q1052459|1990|Good Omens|Neil Gaiman|42
+book|Q468071|1963|The Spy Who Came in from the Cold|John le Carré|41
+book|Q3753136|2003|Predator's Gold|Philip Reeve|41
+book|Q548576|1764|The Castle of Otranto|Horace Walpole|40
+book|Q50919|1604|The Tragical History of Doctor Faustus|Christopher Marlowe|39
+book|Q585046|1620|Novum Organum|Francis Bacon|39
+book|Q306619|2001|Atonement|Ian McEwan|38
+book|Q32136|1983|The Colour of Magic|Terry Pratchett|38
+book|Q1395765|1748|Fanny Hill|John Cleland|37
+book|Q784710|1549|Book of Common Prayer|Thomas Cranmer|37
+book|Q1066765|1593|Venus and Adonis|William Shakespeare|36
+book|Q721|1982|Life, the Universe and Everything|Douglas Adams|35
+book|Q738958|1798|Lyrical Ballads|Samuel Taylor Coleridge|35
+book|Q1089037|1816|Kubla Khan|Samuel Taylor Coleridge|34
+book|Q1422745|6777|The Witches|Roald Dahl|34
+book|Q313129|1871|Middlemarch|George Eliot|33
+book|Q40205|2004|Cloud Atlas|David Mitchell|33
+book|Q169976|1995|Northern Lights|Philip Pullman|32
+book|Q3766392|1926|Winnie-the-Pooh|A. A. Milne|31
+book|Q741222|1973|Rendezvous with Rama|Arthur C. Clarke|31
+book|Q835341|1968|2001: A Space Odyssey|Arthur C. Clarke|30
+book|Q4656261|2006|A Darkling Plain|Philip Reeve|30
+book|Q6029482|2005|Infernal Devices|Philip Reeve|29
+book|Q580463|1902|The Tale of Peter Rabbit|Beatrix Potter|29
+book|Q1249536|1905|The Scarlet Pimpernel|Emma Orczy|28
+book|Q1043792|1872|Carmilla|Sheridan Le Fanu|27
+book|Q642635|1644|Areopagitica|John Milton|27
+book|Q578895|1980|The Restaurant at the End of the Universe|Douglas Adams|26
+book|Q1165753|1957|From Russia, with Love|Ian Fleming|26
+book|Q26541|1958|Dr. No|Ian Fleming|25
+book|Q772496|1953|Philosophical Investigations|Ludwig Wittgenstein|25
+book|Q1163227|1989|The Pillars of the Earth|Ken Follett|24
+book|Q2362563|1868|The Moonstone|Wilkie Collins|23
+book|Q132269|1986|Howl's Moving Castle|Diana Wynne Jones|23
+book|Q387480|1885|Little Lord Fauntleroy|Frances Hodgson Burnett|22
+book|Q1398793|1594|The Rape of Lucrece|William Shakespeare|22
+book|Q1196792|1889|The Black Arrow: A Tale of the Two Roses|Robert Louis Stevenson|21
+book|Q1245187|1900|Don Juan|Lord Byron|21
+book|Q368432|1954|Live and Let Die|Ian Fleming|20
+book|Q662166|1818|Ozymandias|Percy Bysshe Shelley|19
+book|Q80771|1913|Sons and Lovers|D. H. Lawrence|19
+book|Q1629456|1928|Orlando: A Biography|Virginia Woolf|18
+book|Q612523|1722|Moll Flanders|Daniel Defoe|18
+book|Q517172|1847|Agnes Grey|Anne Brontë|17
+book|Q955910|1889|Three Men in a Boat|Jerome K. Jerome|17
+book|Q7997840|2012|Why Nations Fail: The Origins of Power, Prosperity, and Poverty|James A. Robinson|16
+book|Q19843206|2015|The Girl on the Train|Paula Hawkins|15
+book|Q1072741|1812|Childe Harold's Pilgrimage|Lord Byron|15
+book|Q482438|1690|An Essay Concerning Human Understanding|John Locke|14
+book|Q1476462|1982|The BFG|Roald Dahl|14
+book|Q797466|1888|The Happy Prince and Other Tales|Oscar Wilde|13
+book|Q908734|1899|The White Man's Burden|Rudyard Kipling|13
+book|Q625923|1898|The Turn of the Screw|Henry James|12
+book|Q11279562|1993|Trainspotting|Irvine Welsh|11
+book|Q466057|1953|Childhood's End|Arthur C. Clarke|11
+book|Q469969|1986|The Light Fantastic|Terry Pratchett|10
+book|Q640513|1887|She: A History of Adventure|H. Rider Haggard|10
+book|Q8563|1956|The Hundred and One Dalmatians|Dodie Smith|9
+book|Q1193766|1894|The Prisoner of Zenda|Anthony Hope|9
+book|Q288020|1812|The Canterville Ghost|Oscar Wilde|8
+book|Q861017|1881|The Portrait of a Lady|Henry James|7
+book|Q135215|1934|I, Claudius|Robert Graves|7
+book|Q1585437|1739|Hark! The Herald Angels Sing|George Whitefield|6
+book|Q1216940|1951|The Day of the Triffids|John Wyndham|6
+book|Q851988|1798|An Essay on the Principle of Population|Thomas Robert Malthus|5
+book|Q1355487|1933|Down and Out in Paris and London|George Orwell|5
+book|Q6992413|1945|Brideshead Revisited|Evelyn Waugh|4
+book|Q622303|1924|A Passage to India|E. M. Forster|3
+book|Q472208|1997|The Subtle Knife|Philip Pullman|3
+book|Q843400|1987|Mort|Terry Pratchett|2
+book|Q1210939|1902|The Monkey's Paw|W. W. Jacobs|2
+book|Q26085|1971|The Day of the Jackal|Frederick Forsyth|1
+book|Q10483376|1905|A Little Princess|Frances Hodgson Burnett|1
+film|Q128518|2000|Gladiator|Ridley Scott|100
+film|Q163872|2008|The Dark Knight|Christopher Nolan|99
+film|Q13417189|2014|Interstellar|Christopher Nolan|99
+film|Q25188|2010|Inception|Christopher Nolan|98
+film|Q103474|1968|2001: A Space Odyssey|Stanley Kubrick|97
+film|Q125076|2008|Slumdog Millionaire|Danny Boyle|96
+film|Q102225|2005|Harry Potter and the Goblet of Fire|Mike Newell|96
+film|Q102235|2007|Harry Potter and the Order of the Phoenix|David Yates|95
+film|Q161687|2009|Harry Potter and the Half-Blood Prince|David Yates|94
+film|Q166262|2005|Batman Begins|Christopher Nolan|94
+film|Q103569|1979|Alien|Ridley Scott|93
+film|Q161678|2010|Harry Potter and the Deathly Hallows – Part 1|David Yates|92
+film|Q232009|2011|Harry Potter and the Deathly Hallows – Part 2|David Yates|91
+film|Q160060|2010|The King's Speech|Tom Hooper|91
+film|Q228186|1962|Lawrence of Arabia|David Lean|90
+film|Q4941|2012|Skyfall|Sam Mendes|89
+film|Q3023357|2013|12 Years a Slave|Steve McQueen|89
+film|Q102754|1962|Dr. No|Terence Young|88
+film|Q186341|1980|The Shining|Stanley Kubrick|87
+film|Q105702|1964|Dr. Strangelove|Stanley Kubrick|86
+film|Q181086|1971|A Clockwork Orange|Stanley Kubrick|86
+film|Q63026|1996|The English Patient|Anthony Minghella|85
+film|Q182944|1998|Shakespeare in Love|John Madden|84
+film|Q188718|1957|The Bridge on the River Kwai|David Lean|84
+film|Q18602670|2015|Spectre|Sam Mendes|83
+film|Q202211|1982|Gandhi|Richard Attenborough|82
+film|Q207698|2005|Kingdom of Heaven|Ridley Scott|81
+film|Q200396|2009|Sherlock Holmes|Guy Ritchie|81
+film|Q106440|1964|Goldfinger|Guy Hamilton|80
+film|Q192686|2012|Prometheus|Ridley Scott|79
+film|Q15079318|2014|The Theory of Everything|James Marsh|79
+film|Q106571|1963|From Russia with Love|Terence Young|78
+film|Q109135|1996|Trainspotting|Danny Boyle|77
+film|Q271830|1949|The Third Man|Carol Reed|76
+film|Q243643|2011|Sherlock Holmes: A Game of Shadows|Guy Ritchie|76
+film|Q212145|1999|The World Is Not Enough|Michael Apted|75
+film|Q24953|1979|Monty Python's Life of Brian|Terry Jones|74
+film|Q62721520|2019|1917|Sam Mendes|74
+film|Q207921|1981|Chariots of Fire|Hugh Hudson|73
+film|Q107761|1967|You Only Live Twice|Lewis Gilbert|72
+film|Q107724|1965|Thunderball|Terence Young|71
+film|Q107914|1971|Diamonds Are Forever|Guy Hamilton|71
+film|Q27204|1973|Live and Let Die|Guy Hamilton|70
+film|Q223884|2004|Hotel Rwanda|Terry George|69
+film|Q335160|2000|Snatch|Guy Ritchie|69
+film|Q270385|2005|Pride & Prejudice|Joe Wright|68
+film|Q272064|1987|The Living Daylights|John Glen|67
+film|Q337881|2003|Johnny English|Peter Howitt|66
+film|Q15068238|2014|Kingsman: The Secret Service|Matthew Vaughn|66
+film|Q157044|2002|The Hours|Stephen Daldry|65
+film|Q24053277|2017|Three Billboards Outside Ebbing, Missouri|Martin McDonagh|64
+film|Q153484|2002|Resident Evil|Paul W. S. Anderson|64
+film|Q204398|1983|Octopussy|John Glen|63
+film|Q200672|1999|Notting Hill|Roger Michell|62
+film|Q188850|2008|Mamma Mia!|Phyllida Lloyd|61
+film|Q107894|1969|On Her Majesty's Secret Service|Peter R. Hunt|61
+film|Q223596|2011|X-Men: First Class|Matthew Vaughn|60
+film|Q25043|1975|Monty Python and the Holy Grail|Terry Jones|59
+film|Q1626186|2007|Atonement|Joe Wright|59
+film|Q309289|1974|The Man with the Golden Gun|Guy Hamilton|58
+film|Q332368|1985|A View to a Kill|John Glen|57
+film|Q15046091|2015|Cinderella|Kenneth Branagh|56
+film|Q244931|2008|In Bruges|Martin McDonagh|56
+film|Q309086|1989|Licence to Kill|John Glen|55
+film|Q320423|1977|The Spy Who Loved Me|Lewis Gilbert|54
+film|Q334780|1979|Moonraker|Lewis Gilbert|54
+film|Q470692|2000|The Beach|Danny Boyle|53
+film|Q19347583|2015|The Danish Girl|Tom Hooper|52
+film|Q2201|2010|Kick-Ass|Matthew Vaughn|51
+film|Q25057|1985|Brazil|Terry Gilliam|51
+film|Q851095|1998|Lock, Stock and Two Smoking Barrels|Guy Ritchie|50
+film|Q302490|1986|The Mission|Roland Joffé|49
+film|Q901213|1994|Four Weddings and a Funeral|Mike Newell|49
+film|Q696057|1956|Around the World in 80 Days|Michael Anderson|48
+film|Q28234|2012|Les Misérables|Tom Hooper|47
+film|Q244398|2007|Stardust|Matthew Vaughn|46
+film|Q27958298|2017|Darkest Hour|Joe Wright|46
+film|Q269810|2011|The Iron Lady|Phyllida Lloyd|45
+film|Q221075|2002|28 Days Later|Danny Boyle|44
+film|Q501105|1935|The 39 Steps|Alfred Hitchcock|44
+film|Q174699|1978|Midnight Express|Alan Parker|43
+film|Q458629|2000|Billy Elliot|Stephen Daldry|42
+film|Q176826|2006|The Last King of Scotland|Kevin Macdonald|41
+film|Q464014|2001|Lara Croft: Tomb Raider|Simon West|41
+film|Q23016644|2017|Baby Driver|Edgar Wright|40
+film|Q157556|2008|The Boy in the Striped Pajamas|Mark Herman|39
+film|Q252409|2006|Déjà Vu|Tony Scott|39
+film|Q818710|1964|Zorba the Greek|Michael Cacoyannis|38
+film|Q624603|2012|Snow White and the Huntsman|Rupert Sanders|37
+film|Q466186|1988|A Fish Called Wanda|John Cleese|36
+film|Q313315|1963|Tom Jones|Tony Richardson|36
+film|Q753899|2010|Scott Pilgrim vs. the World|Edgar Wright|35
+film|Q16635326|2014|Ex Machina|Alex Garland|34
+film|Q775970|1997|The Full Monty|Peter Cattaneo|34
+film|Q330332|2007|Mr. Bean's Holiday|Steve Bendelack|33
+film|Q15055478|2014|Paddington|Paul King|32
+film|Q967478|2011|Johnny English Reborn|Oliver Parker|31
+film|Q1195311|1968|The Lion in Winter|Anthony Harvey|31
+film|Q20735644|2016|Me Before You|Thea Sharrock|30
+film|Q707880|2005|The Brothers Grimm|Terry Gilliam|29
+film|Q141359|1968|Oliver!|Carol Reed|29
+film|Q80204|2012|Anna Karenina|Joe Wright|28
+film|Q223367|2006|The Queen|Stephen Frears|27
+film|Q27689100|2017|Murder on the Orient Express|Kenneth Branagh|26
+film|Q27178|1948|Hamlet|Laurence Olivier|26
+film|Q591272|1967|Casino Royale|Joseph McGrath|25
+film|Q155163|2004|Alien vs. Predator|Paul W. S. Anderson|24
+film|Q858724|2004|Shaun of the Dead|Edgar Wright|24
+film|Q14513321|2016|Warcraft|Duncan Jones|23
+film|Q752103|1997|Bean|Mel Smith|22
+film|Q500044|1938|The Lady Vanishes|Alfred Hitchcock|21
+film|Q276299|2008|Revolutionary Road|Sam Mendes|21
+film|Q65032692|2020|Enola Holmes|Harry Bradbeer|20
+film|Q474082|2010|The Chronicles of Narnia: The Voyage of the Dawn Treader|Michael Apted|19
+film|Q25136228|2018|Annihilation|Alex Garland|19
+film|Q392441|2003|Girl with a Pearl Earring|Peter Webber|18
+film|Q115993222|2023|The Zone of Interest|Jonathan Glazer|17
+film|Q581859|2011|My Week with Marilyn|Simon Curtis|16
+film|Q35160593|2018|Johnny English Strikes Again|David Kerr|16
+film|Q36951175|2018|Mamma Mia! Here We Go Again|Ol Parker|15
+film|Q108456719|2023|Wonka|Paul King|14
+film|Q909445|2011|Shame|Steve McQueen|14
+film|Q752313|2001|Bridget Jones's Diary|Sharon Maguire|13
+film|Q1059914|1978|Death on the Nile|John Guillermin|12
+film|Q467053|1977|A Bridge Too Far|Richard Attenborough|11
+film|Q830553|1988|Dangerous Liaisons|Stephen Frears|11
+film|Q213683|1982|Pink Floyd – The Wall|Alan Parker|10
+film|Q494582|1984|The Killing Fields|Roland Joffé|9
+film|Q756882|1961|The Guns of Navarone|J. Lee Thompson|9
+film|Q945138|1971|Bedknobs and Broomsticks|Robert Stevenson|8
+film|Q167437|1997|The Jackal|Michael Caton-Jones|7
+film|Q684470|2006|Lucky Number Slevin|Paul McGuigan|6
+film|Q315664|2001|K-PAX|Iain Softley|6
+film|Q470073|2008|The Other Boleyn Girl|Justin Chadwick|5
+film|Q221587|1972|Frenzy|Alfred Hitchcock|4
+film|Q493807|1987|Angel Heart|Alan Parker|4
+film|Q27590871|2017|Paddington 2|Paul King|3
+film|Q282804|2006|United 93|Paul Greengrass|2
+film|Q729788|2007|Hot Fuzz|Edgar Wright|1
+film|Q567577|2003|The League of Extraordinary Gentlemen|Stephen Norrington|1
+art|Q604761|1770|The Blue Boy|Thomas Gainsborough|100
+art|Q1065493|1851|Ophelia|John Everett Millais|99
+art|Q2366825|1821|The Hay Wain|John Constable|98
+art|Q1651874|1766|A Philosopher Lecturing on the Orrery|Joseph Wright of Derby|96
+art|Q2339059|1844|Rain, Steam and Speed – The Great Western Railway|J. M. W. Turner|95
+art|Q1167796|1768|An Experiment on a Bird in the Air Pump|Joseph Wright of Derby|94
+art|Q1652023|1771|The Alchemist Discovering Phosphorus|Joseph Wright of Derby|93
+art|Q846213|1895|Flaming June|Frederic Leighton|91
+art|Q257580|1839|The Fighting Temeraire|J. M. W. Turner|90
+art|Q2317837|1781|The Nightmare|Henry Fuseli|89
+art|Q1619527|1748|Mr and Mrs Andrews|Thomas Gainsborough|88
+art|Q1782583|1785|Indian Widow|Joseph Wright of Derby|86
+art|Q276174|1888|The Roses of Heliogabalus|Lawrence Alma-Tadema|85
+art|Q477764|1856|The Blind Girl|John Everett Millais|84
+art|Q960157|1849|Christ in the House of His Parents|John Everett Millais|83
+art|Q1251572|1790|Romeo and Juliet: the Tomb Scene|Joseph Wright of Derby|81
+art|Q2324840|1794|The Ancient of Days|William Blake|80
+art|Q1757920|1853|The Light of the World|William Holman Hunt|79
+art|Q4188993|1872|The Beguiling of Merlin|Edward Burne-Jones|78
+art|Q958245|1853|The Last of England|Ford Madox Brown|76
+art|Q398973|1823|Salisbury Cathedral from the Bishop's Grounds|John Constable|75
+art|Q977777|1874|Proserpine|Dante Gabriel Rossetti|74
+art|Q2712679|1872|Beata Beatrix|Dante Gabriel Rossetti|73
+art|Q56886750|2018|Love is in the Bin|Banksy|71
+art|Q219344|1840|The Slave Ship|J. M. W. Turner|70
+art|Q3027255|1815|Dido building Carthage|J. M. W. Turner|69
+art|Q17512050|1840|The Architect's Dream|Thomas Cole|68
+art|Q822535|1849|Isabella|John Everett Millais|66
+art|Q4148585|1856|Autumn Leaves|John Everett Millais|65
+art|Q3700536|1780|Portrait of a Lady in Blue|Thomas Gainsborough|64
+art|Q7715071|1853|The Awakening Conscience|William Holman Hunt|63
+art|Q4281369|1851|Mariana|John Everett Millais|61
+art|Q1772871|1823|The Battle of Trafalgar|J. M. W. Turner|60
+art|Q58791744|1972|Portrait of an Artist (Pool with Two Figures)|David Hockney|59
+art|Q4936154|1859|Bocca Baciata|Dante Gabriel Rossetti|58
+art|Q2272625|1826|The Cornfield|John Constable|56
+art|Q2425901|1850|Ecce Ancilla Domini|Dante Gabriel Rossetti|55
+art|Q6470337|1866|Lady Lilith|Dante Gabriel Rossetti|54
+art|Q7712851|1788|The Age of Innocence|Joshua Reynolds|53
+art|Q949567|1873|The Shadow of Death|William Holman Hunt|51
+art|Q3402890|1854|The Scapegoat|William Holman Hunt|50
+art|Q18689510|1852|Our English Coasts|William Holman Hunt|49
+art|Q538859|1772|The Captive King|Joseph Wright of Derby|48
+art|Q398126|1831|Salisbury Cathedral from the Meadows|John Constable|46
+art|Q15148999|1969|Three Studies of Lucian Freud|Francis Bacon|45
+art|Q16038731|1842|Snow Storm: Steam-Boat off a Harbour's Mouth|J. M. W. Turner|44
+art|Q673984|1967|A Bigger Splash|David Hockney|43
+art|Q7739744|1851|The Hireling Shepherd|William Holman Hunt|41
+art|Q6411359|1884|King Cophetua and the Beggar Maid|Edward Burne-Jones|40
+art|Q3172259|1836|The Oxbow|Thomas Cole|39
+art|Q18208719|1884|Cymon and Iphigenia|Frederic Leighton|38
+art|Q18685536|1890|The Bath of Psyche|Frederic Leighton|36
+art|Q3451328|1742|The Graham Children|William Hogarth|35
+art|Q632603|1900|Dante's Dream|Dante Gabriel Rossetti|34
+art|Q5794826|1788|Cupid Untying the Zone of Venus|Joshua Reynolds|33
+art|Q18685555|1891|Perseus and Andromeda|Frederic Leighton|31
+art|Q7737113|1876|The Golden Stairs|Edward Burne-Jones|30
+art|Q732011|1894|Spring|Lawrence Alma-Tadema|29
+art|Q18749374|1881|Sappho and Alcaeus|Lawrence Alma-Tadema|28
+art|Q7769468|1833|The Titan's Goblet|Thomas Cole|26
+art|Q18589150|1816|Wivenhoe Park|John Constable|25
+art|Q1230842|1854|Cimabue's Celebrated Madonna|Frederic Leighton|24
+art|Q5966011|1786|The Market Cart|Thomas Gainsborough|23
+art|Q12738203|1785|Mr and Mrs William Hallett ('The Morning Walk')|Thomas Gainsborough|21
+art|Q18161868|1785|Portrait of Georgiana, Duchess of Devonshire|Thomas Gainsborough|20
+art|Q5036652|1782|Captain George K. H. Coussmaker|Joshua Reynolds|19
+art|Q6106762|1773|Lady Cockburn and Her Three Eldest Sons|Joshua Reynolds|18
+art|Q6470018|1778|Lady Caroline Howard|Joshua Reynolds|16
+art|Q24657567|1780|The Ladies Waldegrave|Joshua Reynolds|15
+art|Q3212767|1875|The Seine at Port-Marly, Piles of Sand|Alfred Sisley|14
+art|Q3235227|1874|The Regatta at Molesey|Alfred Sisley|13
+art|Q6382435|1872|The Bridge at Villeneuve-la-Garenne|Alfred Sisley|11
+art|Q4464287|1852|Work|Ford Madox Brown|10
+art|Q7767151|1829|The Subsiding of the Waters of the Deluge|Thomas Cole|9
+art|Q19900516|1825|Lake with Dead Trees (Catskill)|Thomas Cole|8
+art|Q1996494|1795|Newton|William Blake|6
+art|Q987711|1944|Three Studies for Figures at the Base of a Crucifixion|Francis Bacon|5
+art|Q28004357|1790|Thor Battering the Midgard Serpent|Henry Fuseli|4
+art|Q69662656|2009|Devolved Parliament|Banksy|3
+art|Q4164272|1743|The Shrimp Girl|William Hogarth|1
+music|Q207732|1741|Messiah|George Frideric Handel|100
+music|Q215729|1740|Rule, Britannia!|Thomas Arne|99
+music|Q278596|1717|Water Music|George Frideric Handel|99
+music|Q1147529|1749|Music for the Royal Fireworks|George Frideric Handel|98
+music|Q182268|1902|Land of Hope and Glory|Edward Elgar|97
+music|Q303508|1918|The Planets|Gustav Holst|97
+music|Q656769|1727|Zadok the Priest|George Frideric Handel|96
+music|Q662514|1734|Ariodante|George Frideric Handel|95
+music|Q552300|1744|Baa, Baa, Black Sheep|Samuel Arnold|95
+music|Q1198881|1921|I Vow to Thee, My Country|Gustav Holst|94
+music|Q934028|1899|Enigma Variations|Edward Elgar|93
+music|Q630779|1945|The Young Person's Guide to the Orchestra|Benjamin Britten|93
+music|Q2487481|1919|Cello Concerto|Edward Elgar|92
+music|Q489607|1916|Jerusalem|Hubert Parry|91
+music|Q385094|1942|A Ceremony of Carols|Benjamin Britten|91
+music|Q83875934|1914|The Lark Ascending|Ralph Vaughan Williams|90
+music|Q2673530|1889|Salut d'Amour|Edward Elgar|89
+music|Q3797415|1872|In the Bleak Midwinter|Gustav Holst|89
+music|Q2608920|1910|Fantasia on a Theme by Thomas Tallis|Ralph Vaughan Williams|88
+music|Q1823087|1941|Warsaw Concerto|Richard Addinsell|87
+music|Q163535|1908|Symphony No. 1|Edward Elgar|87
+music|Q1195062|1850|The Kiss|Gustav Holst|86
+music|Q2615181|1912|St Paul's Suite|Gustav Holst|85
+music|Q231271|1935|Symphony No. 4|Ralph Vaughan Williams|85
+music|Q240312|1943|Symphony No. 5|Ralph Vaughan Williams|84
+music|Q256668|1921|A Pastoral Symphony|Ralph Vaughan Williams|83
+music|Q985201|1949|Dirty Old Town|Ewan MacColl|83
+music|Q2307979|1939|Sinfonia da Requiem|Benjamin Britten|82
+music|Q1756894|1934|Simple Symphony|Benjamin Britten|81
+music|Q6115950|1765|Jack and Jill|Samuel Arnold|81
+music|Q1583387|1570|Spem in alium|Thomas Tallis|80
+music|Q2074151|1928|Viola Concerto|William Walton|79
+music|Q2336917|1912|On Hearing the First Cuckoo in Spring|Frederick Delius|79
+music|Q300353|1939|A Child of Our Time|Michael Tippett|78
+music|Q4051390|1784|There was an Old Woman Who Lived in a Shoe|Samuel Arnold|77
+music|Q3133625|1920|In a Persian Market|Albert Ketèlbey|77
+music|Q1471765|1939|Violin Concerto|Benjamin Britten|76
+music|Q3135083|1772|Hey Diddle Diddle|Samuel Arnold|75
+music|Q3278172|1744|Sing a Song of Sixpence|Samuel Arnold|75
+music|Q1434350|1686|Lillibullero|Henry Purcell|74
+music|Q3328504|1692|Music for a While|Henry Purcell|73
+music|Q3529211|1917|Tintagel|Arnold Bax|73
+music|Q3952772|1600|Flow My Tears|John Dowland|72
+music|Q3331204|1591|My Ladye Nevells Booke|William Byrd|71
+music|Q2905383|1930|Belshazzar's Feast|William Walton|71
+music|Q169226|1967|Sgt. Pepper's Lonely Hearts Club Band|The Beatles|70
+music|Q173643|1969|Abbey Road|The Beatles|69
+music|Q193477|1975|A Night at the Opera|Queen|69
+music|Q187745|1975|Bohemian Rhapsody|Freddie Mercury|68
+music|Q181826|1963|Please Please Me|The Beatles|67
+music|Q193490|1973|Queen|Queen|67
+music|Q238564|1977|We Are the Champions|Freddie Mercury|66
+music|Q210048|1991|Innuendo|Queen|65
+music|Q1971|1971|Imagine|John Lennon|65
+music|Q202698|1965|Yesterday|Paul McCartney|64
+music|Q131392|1969|Led Zeppelin|Led Zeppelin|63
+music|Q192023|1971|Stairway to Heaven|Jimmy Page|63
+music|Q326487|1977|We Will Rock You|Brian May|62
+music|Q201940|1971|Led Zeppelin IV|Led Zeppelin|61
+music|Q209539|1969|Led Zeppelin II|Led Zeppelin|61
+music|Q202996|1997|OK Computer|Radiohead|60
+music|Q607742|1968|Hey Jude|Paul McCartney|59
+music|Q1318118|1984|Last Christmas|George Michael|59
+music|Q605031|1983|Radio Ga Ga|Roger Taylor|58
+music|Q155169|2011|21|Adele|57
+music|Q517591|1991|The Show Must Go On|Freddie Mercury|57
+music|Q223858|1982|The Number of the Beast|Iron Maiden|56
+music|Q213718|1967|Strawberry Fields Forever|Paul McCartney|55
+music|Q158738|2005|X&Y|Coldplay|55
+music|Q158740|2008|Viva la Vida or Death and All His Friends|Coldplay|54
+music|Q650284|2011|Up All Night|One Direction|53
+music|Q21168841|2015|25|Adele|53
+music|Q568065|1980|Another One Bites the Dust|John Deacon|52
+music|Q209646|1980|Iron Maiden|Iron Maiden|51
+music|Q476977|1983|Piece of Mind|Iron Maiden|51
+music|Q220726|2000|Kid A|Radiohead|50
+music|Q223295|2007|In Rainbows|Radiohead|49
+music|Q19003|1979|London Calling|The Clash|49
+music|Q158553|1965|(I Can't Get No) Satisfaction|Mick Jagger|48
+music|Q836667|1981|Under Pressure|David Bowie|47
+music|Q626490|2008|Viva la Vida|Guy Berryman|47
+music|Q682846|1972|The Rise and Fall of Ziggy Stardust and the Spiders from Mars|David Bowie|46
+music|Q208902|2008|19|Adele|45
+music|Q567940|1979|Another Brick in the Wall|Roger Waters|45
+music|Q219209|1984|I Want to Break Free|John Deacon|44
+music|Q839848|1975|You're My Best Friend|John Deacon|43
+music|Q131977|2000|Parachutes|Coldplay|43
+music|Q457275|1977|Never Mind the Bollocks, Here's the Sex Pistols|Sex Pistols|42
+music|Q76962209|2020|Future Nostalgia|Dua Lipa|41
+music|Q156670|2006|Back to Black|Amy Winehouse|41
+music|Q1122893|1975|Shine On You Crazy Diamond|David Gilmour|40
+music|Q838973|1972|Money|Roger Waters|39
+music|Q923966|1970|Layla|Eric Clapton|39
+music|Q217248|1972|Exile on Main St.|The Rolling Stones|38
+music|Q735573|1979|Unknown Pleasures|Joy Division|37
+music|Q210485|1969|Something|George Harrison|37
+music|Q643423|1969|Whole Lotta Love|Jimmy Page|36
+music|Q1130223|1975|Wish You Were Here|David Gilmour|35
+music|Q636399|1973|Smoke on the Water|Jon Lord|35
+music|Q835013|1987|Sweet Child o' Mine|Slash|34
+music|Q375249|1965|My Generation|The Who|33
+music|Q695405|1977|Rumours|Fleetwood Mac|33
+music|Q18003476|2014|Four|One Direction|32
+music|Q683079|1990|Violator|Depeche Mode|31
+music|Q3293037|2023|Now and Then|John Lennon|31
+music|Q641913|1972|Time|David Gilmour|30
+music|Q597273|1970|Keep Yourself Alive|Brian May|29
+music|Q1045517|1995|Wonderwall|Noel Gallagher|29
+music|Q379339|1969|Let It Bleed|The Rolling Stones|28
+music|Q391503|2012|Take Me Home|One Direction|27
+music|Q155747|2005|Playing the Angel|Depeche Mode|27
+music|Q390234|1993|Songs of Faith and Devotion|Depeche Mode|26
+music|Q755988|1971|Hunky Dory|David Bowie|25
+music|Q1046717|1966|Paint It Black|Mick Jagger|25
+music|Q605342|1968|Sympathy for the Devil|Mick Jagger|24
+music|Q548046|1968|While My Guitar Gently Weeps|George Harrison|23
+music|Q978391|1975|Kashmir|Jimmy Page|23
+music|Q726263|1990|Painkiller|Judas Priest|22
+music|Q750274|1980|British Steel|Judas Priest|21
+music|Q372055|1969|Tommy|The Who|21
+music|Q729387|1971|Who's Next|The Who|20
+music|Q842126|2006|Whatever People Say I Am, That's What I'm Not|Arctic Monkeys|19
+music|Q954934|1976|Don't Cry for Me Argentina|Andrew Lloyd Webber|19
+music|Q222586|1986|Who Wants to Live Forever|Brian May|18
+music|Q1330171|1983|Every Breath You Take|Sting|17
+music|Q389281|1966|Aftermath|The Rolling Stones|17
+music|Q13539256|2013|AM|Arctic Monkeys|16
+music|Q603000|1970|John Lennon/Plastic Ono Band|John Lennon|15
+music|Q28133332|2017|÷|Ed Sheeran|15
+music|Q1352181|1977|Stayin' Alive|Robin Gibb|14
+music|Q258609|1985|Brothers in Arms|Dire Straits|13
+music|Q615075|1982|Screaming for Vengeance|Judas Priest|13
+music|Q756930|1980|Closer|Joy Division|12
+music|Q686598|1972|Close to the Edge|Yes|11
+music|Q753593|1997|The Fat of the Land|The Prodigy|11
+music|Q182069|2003|Frank|Amy Winehouse|10
+music|Q73523694|2019|Fine Line|Harry Styles|9
+music|Q2270916|1977|Sultans of Swing|Mark Knopfler|9
+music|Q1142302|1991|November Rain|Slash|8
+music|Q300620|1967|A Whiter Shade of Pale|Gary Brooker|7
+music|Q910912|1970|Paranoid|Tony Iommi|7
+music|Q1141059|1989|Personal Jesus|Martin Gore|6
+music|Q731870|1978|Dire Straits|Dire Straits|5
+music|Q834418|2005|Demon Days|Gorillaz|5
+music|Q127152|1987|Hysteria|Def Leppard|4
+music|Q835488|1971|Fragile|Yes|3
+music|Q827363|1973|Goodbye Yellow Brick Road|Elton John|3
+music|Q591967|1980|Blizzard of Ozz|Ozzy Osbourne|2
+music|Q182537|1966|Taxman|George Harrison|1
+music|Q838829|1970|Your Song|Elton John|1
+stage|Q41567|1600|Hamlet|William Shakespeare|100
+stage|Q83186|1590|Romeo and Juliet|William Shakespeare|97
+stage|Q130283|1606|Macbeth|William Shakespeare|94
+stage|Q26833|1604|Othello|William Shakespeare|90
+stage|Q181598|1606|King Lear|William Shakespeare|87
+stage|Q104871|1595|A Midsummer Night's Dream|William Shakespeare|84
+stage|Q215750|1599|Julius Caesar|William Shakespeare|81
+stage|Q86440|1611|The Tempest|William Shakespeare|77
+stage|Q206400|1596|The Merchant of Venice|William Shakespeare|74
+stage|Q221211|1601|Twelfth Night|William Shakespeare|71
+stage|Q237572|1599|As You Like It|William Shakespeare|68
+stage|Q606830|1606|Antony and Cleopatra|William Shakespeare|65
+stage|Q232042|1591|The Two Gentlemen of Verona|William Shakespeare|61
+stage|Q332387|1591|The Taming of the Shrew|William Shakespeare|58
+stage|Q830501|1895|The Importance of Being Earnest|Oscar Wilde|55
+stage|Q637200|1912|Pygmalion|George Bernard Shaw|52
+stage|Q1143075|1895|An Ideal Husband|Oscar Wilde|48
+stage|Q1469224|1892|Lady Windermere's Fan|Oscar Wilde|45
+stage|Q1149498|1891|Salome|Oscar Wilde|42
+stage|Q1218620|1923|Saint Joan|George Bernard Shaw|39
+stage|Q2646905|1894|Arms and the Man|George Bernard Shaw|35
+stage|Q955587|1893|Mrs. Warren's Profession|George Bernard Shaw|32
+stage|Q3501409|1899|Caesar and Cleopatra|George Bernard Shaw|29
+stage|Q203585|1893|A Woman of No Importance|Oscar Wilde|26
+stage|Q3509127|1894|Candida|George Bernard Shaw|23
+stage|Q1766503|1950|The Cocktail Party|T. S. Eliot|19
+stage|Q725409|1905|Man and Superman|George Bernard Shaw|16
+stage|Q2072045|1896|The Devil's Disciple|George Bernard Shaw|13
+stage|Q724688|1892|Widowers' Houses|George Bernard Shaw|10
+stage|Q3822205|1883|The Duchess of Padua|Oscar Wilde|6
+stage|Q5692683|1917|Heartbreak House|George Bernard Shaw|3

@@ -1,0 +1,450 @@
+/* =====================================================================
+   The Circumlocution Office (components/games/circumlocution). Import in app/layout.tsx.
+   Mobile first. Victorian: IM Fell type, copperplate signatures, Fraktur masthead,
+   damask wallpaper, brass plaques, gilt cameo frames. Fonts are self-hosted (SIL OFL).
+   ===================================================================== */
+@font-face { font-family: "Co Fell"; src: url("../assets/fonts/im-fell-english-latin-400-normal.woff2") format("woff2"); font-display: swap; }
+@font-face { font-family: "Co Fell"; font-style: italic; src: url("../assets/fonts/im-fell-english-latin-400-italic.woff2") format("woff2"); font-display: swap; }
+@font-face { font-family: "Co Fell SC"; src: url("../assets/fonts/im-fell-english-sc-latin-400-normal.woff2") format("woff2"); font-display: swap; }
+@font-face { font-family: "Co Copperplate"; src: url("../assets/fonts/pinyon-script-latin-400-normal.woff2") format("woff2"); font-display: swap; }
+@font-face { font-family: "Co Fraktur"; src: url("../assets/fonts/unifrakturmaguntia-latin-400-normal.woff2") format("woff2"); font-display: swap; }
+.co {
+  --paper: #f1e8d0;
+  --paper-2: #e4d6b4;
+  --desk: #5a3a24;
+  --wall: #2e3d33;
+  --ink: #201814;
+  --muted: #5e5248;
+  --red: #b3261e;
+  --blue: #234d8a;
+  --grey: #6a5a72;
+  --brass: #b8892a;
+  --line: #201814;
+  position: relative;
+  color: var(--ink);
+  background: var(--paper);
+  border: 3px solid var(--line);
+  box-shadow: 0 6px 0 0 rgba(0, 0, 0, 0.45);
+  padding: 12px;
+  font-size: 16px;
+  line-height: 1.5;
+  min-height: 70vh;
+}
+.co :focus-visible { outline: 3px solid #1d4ed8; outline-offset: 2px; }
+.co h1:focus, .co h2:focus { outline: none; }
+.co-face { image-rendering: pixelated; flex: none; }
+.co-muted { color: var(--muted); }
+.co-small { font-size: 0.85em; }
+.co-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.co-kicker { margin: 0; font-size: 0.75em; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--red); }
+.co-h1 { margin: 6px 0 12px; font-family: Georgia, "Times New Roman", serif; font-size: 2.3em; line-height: 1.05; color: var(--wall); }
+.co-h1 span { display: block; margin-top: 8px; font-size: 0.44em; font-style: italic; color: var(--ink); }
+.co-h1.is-file { color: var(--red); }
+.co-h2 { margin: 14px 0 10px; font-family: Georgia, serif; font-size: 1.4em; line-height: 1.25; color: var(--wall); }
+.co-h3 { margin: 18px 0 8px; font-size: 0.8em; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.co-h4 { margin: 12px 0 4px; font-family: Georgia, serif; font-size: 1.05em; }
+.co-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0 0; }
+
+.co-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 48px; padding: 10px 18px; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer;
+  color: #fff; background: var(--wall); border: 3px solid var(--line); box-shadow: 0 4px 0 0 var(--line);
+}
+.co-btn:hover { background: #22302a; }
+.co-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 0 var(--line); }
+.co-btn.is-ghost { color: var(--ink); background: var(--paper); }
+.co-btn.is-ghost:hover { background: var(--paper-2); }
+.co-icon-btn {
+  min-width: 44px; min-height: 44px; padding: 0 8px; font: inherit; font-weight: 800; cursor: pointer;
+  color: var(--ink); background: var(--paper); border: 2px solid var(--line);
+}
+.co-icon-btn.is-word { padding: 0 12px; }
+
+/* ---------- title screen ---------- */
+.co-facade {
+  position: relative; display: block; height: 150px; margin: -12px -12px 14px;
+  background:
+    linear-gradient(#7a8a92, #9aaab0 60%, #6a5a4a 60%, #6a5a4a),
+    #9aaab0;
+  border-bottom: 3px solid var(--line);
+  overflow: hidden;
+}
+.co-facade::before {
+  content: ""; position: absolute; left: 10%; right: 10%; top: 26px; bottom: 0;
+  background: repeating-linear-gradient(0deg, #8a7a66 0 10px, #7a6a56 10px 12px);
+  border: 3px solid var(--line); border-bottom: 0;
+}
+.co-facade-sign {
+  position: absolute; left: 50%; top: 10px; transform: translateX(-50%); padding: 3px 10px; z-index: 2;
+  font: 800 11px/1.2 Georgia, serif; letter-spacing: 0.18em; white-space: nowrap;
+  color: #f3e2b0; background: var(--wall); border: 3px solid var(--line);
+}
+.co-facade-windows {
+  position: absolute; left: 14%; right: 14%; top: 44px; z-index: 1;
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px 14px;
+}
+.co-facade-windows i { display: block; height: 26px; background: #2a3a46; border: 3px solid var(--line); box-shadow: inset 0 -6px 0 #e7c86a; }
+.co-facade-windows i:nth-child(3n) { box-shadow: none; }
+.co-facade-door {
+  position: absolute; left: 50%; bottom: 0; width: 42px; height: 44px; transform: translateX(-50%); z-index: 1;
+  background: var(--wall); border: 3px solid var(--line); border-bottom: 0;
+}
+
+/* ---------- HUD ---------- */
+.co-hud { margin: -12px -12px 6px; padding: 8px 12px; color: #f3ead6; background: var(--wall); border-bottom: 3px solid var(--line); }
+.co-hud-top, .co-hud-bottom { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.co-hud-bottom { margin-top: 6px; }
+.co-day { margin: 0; font-size: 0.9em; }
+.co-hud-btns { display: flex; gap: 6px; }
+.co-clock { display: flex; align-items: center; gap: 8px; }
+.co-clock-time { font-weight: 800; font-family: Georgia, serif; }
+.co-hours { display: inline-flex; gap: 3px; }
+.co-hours i { width: 10px; height: 14px; background: #e7c86a; border: 2px solid var(--line); }
+.co-hours i.is-used { background: #4a5a50; }
+.co-meters { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.co-meters li {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 0.85em;
+  color: var(--ink); background: var(--paper); border: 2px solid var(--line);
+}
+.co-meter-ico { font-weight: 900; }
+.co-file .co-meters { margin: 12px 0; }
+@media (max-width: 400px) { .co-meter-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); } }
+
+/* ---------- speech ---------- */
+.co-say { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; margin: 12px 0; }
+.co-say .co-face { background: #d8c9a6; border: 3px solid var(--line); padding: 2px; }
+.co-bubble { position: relative; margin: 0; padding: 10px 12px; background: #fffaf0; border: 2px solid var(--line); box-shadow: 3px 3px 0 0 var(--paper-2); }
+.co-bubble p { margin: 0 0 8px; }
+.co-bubble p:last-child { margin: 0; }
+.co-bubble-who { font-size: 0.78em; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--red); }
+.co-bubble.is-open { font-family: Georgia, serif; font-style: italic; font-size: 1.05em; }
+
+/* ---------- desk / pile ---------- */
+.co-pile { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.co-card {
+  display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; width: 100%; min-height: 72px; padding: 8px 12px;
+  font: inherit; text-align: left; cursor: pointer; color: var(--ink);
+  background: #fffaf0; border: 3px solid var(--line); box-shadow: 0 4px 0 0 var(--line);
+}
+.co-card:hover { background: #fff3d8; }
+.co-card:disabled { opacity: 0.5; cursor: not-allowed; }
+.co-card .co-face { background: #d8c9a6; border: 2px solid var(--line); }
+.co-card-text { display: grid; gap: 2px; }
+.co-card-who { font-weight: 800; font-family: Georgia, serif; font-size: 1.05em; }
+.co-card-from { font-size: 0.85em; font-style: italic; color: var(--muted); }
+.co-card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.co-tag { padding: 0 6px; font-size: 0.72em; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; background: var(--paper-2); border: 1px solid var(--line); }
+.co-tag.is-pancks { color: #fff; background: var(--brass); }
+.co-tag.is-time { background: #fff; }
+.co-empty { padding: 12px; font-style: italic; background: var(--paper-2); border: 2px dashed var(--line); }
+.co-note { margin: 12px 0 0; padding: 8px 12px; background: #fff3c8; border: 2px solid var(--line); }
+.co-out { margin-top: 20px; }
+.co-out ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+
+/* ---------- documents ---------- */
+.co-docs { display: grid; gap: 14px; }
+.co-doc {
+  position: relative; margin: 0; padding: 12px 14px 14px;
+  background: #fffaf0 repeating-linear-gradient(transparent 0 23px, #e9dfc6 23px 24px);
+  border: 2px solid var(--line); box-shadow: 4px 4px 0 0 rgba(32, 24, 20, 0.25);
+  transform: rotate(var(--tilt, 0deg));
+}
+.co-doc.is-memo { background: #eef0f6; }
+.co-doc.is-ledger { background: #f4f7ea repeating-linear-gradient(transparent 0 23px, #c9d8b8 23px 24px); }
+.co-doc.is-certificate { border-width: 4px; border-style: double; }
+.co-doc.is-letter { background: #fbf4e6; }
+.co-doc.is-notice { background: #f6eedd; border-style: dashed; }
+.co-doc header { margin-bottom: 6px; padding-bottom: 4px; border-bottom: 2px solid var(--line); }
+.co-doc-title { margin: 0; font-family: Georgia, serif; font-size: 1.02em; }
+.co-doc-ref { margin: 0; font-size: 0.75em; font-family: "Courier New", monospace; color: var(--muted); }
+.co-doc-p { margin: 6px 0; }
+.co-fields { display: grid; gap: 4px; margin: 0; }
+.co-field { display: grid; grid-template-columns: minmax(90px, 38%) 1fr; gap: 8px; }
+.co-field dt { font-size: 0.8em; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.co-field dd { margin: 0; font-family: "Courier New", monospace; font-size: 0.95em; }
+.is-ledger .co-field dd { text-align: right; }
+.co-sig-wrap { display: inline-grid; gap: 0; margin-top: 10px; }
+.co-sig {
+  display: inline-block; font-family: "Segoe Script", "Snell Roundhand", "Brush Script MT", "URW Chancery L", cursive;
+  font-size: 1.45em; line-height: 1.2; color: #1d2a5a; transform-origin: bottom left; padding-right: 6px;
+}
+.co-sig.has-flourish { border-bottom: 2px solid #1d2a5a; border-bottom-left-radius: 60% 6px; border-bottom-right-radius: 90% 14px; }
+.co-signer { font-size: 0.72em; color: var(--muted); }
+.co-doc-stamp { position: absolute; right: 10px; top: 34%; pointer-events: none; }
+
+/* ---------- stamps ---------- */
+.co-stamp {
+  display: inline-block; padding: 0 6px; font: 900 0.72em/1.6 "Courier New", monospace; letter-spacing: 0.1em; white-space: nowrap;
+  border: 2px solid currentColor; border-radius: 3px; transform: rotate(-4deg);
+}
+.co-stamp.is-red { color: var(--red); }
+.co-stamp.is-blue { color: var(--blue); }
+.co-stamp.is-grey { color: var(--grey); }
+.co-stamp.is-big { padding: 4px 12px; font-size: 1.5em; border-width: 4px; transform: rotate(-12deg); opacity: 0.85; background: rgba(255, 250, 240, 0.4); }
+@media (prefers-reduced-motion: no-preference) {
+  .is-stamped .co-stamp.is-big { animation: co-thump 0.28s ease-out both; }
+}
+@keyframes co-thump {
+  from { transform: rotate(-12deg) scale(2.2); opacity: 0; }
+  70% { transform: rotate(-12deg) scale(0.94); opacity: 0.9; }
+  to { transform: rotate(-12deg) scale(1); opacity: 0.85; }
+}
+
+/* ---------- findings & tools ---------- */
+.co-found { margin-top: 14px; padding: 10px 12px; background: #e9efe2; border: 2px solid var(--line); }
+.co-found ul { margin: 0 0 8px; padding-left: 20px; }
+.co-found .co-h3 { margin-top: 0; }
+.co-found.is-pancks { background: #f6ecd0; padding: 0 10px; }
+.co-tools { display: grid; gap: 8px; }
+.co-tool {
+  display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 8px 12px; font: inherit; font-weight: 700; text-align: left; cursor: pointer;
+  color: var(--ink); background: #fff; border: 2px solid var(--line); box-shadow: 0 3px 0 0 var(--line);
+}
+.co-tool small { margin-left: auto; font-weight: 600; color: var(--muted); }
+.co-tool:disabled { opacity: 0.55; cursor: not-allowed; }
+.co-choices { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.co-choice {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 52px; padding: 8px 12px; font: inherit; text-align: left; cursor: pointer;
+  color: var(--ink); background: #fffaf0; border: 3px solid var(--line); box-shadow: 0 4px 0 0 var(--line);
+}
+.co-choice:hover:not(:disabled) { background: #fff0c8; }
+.co-choice:disabled { cursor: not-allowed; background: var(--paper-2); box-shadow: none; opacity: 0.75; }
+.co-choice .co-stamp { flex: none; }
+.co-choice-label { font-weight: 700; }
+.co-why { display: block; margin: 4px 0 0 4px; font-size: 0.85em; font-style: italic; color: var(--muted); }
+.co-effect { margin: 10px 0 0; font-weight: 800; font-size: 0.9em; color: var(--muted); }
+.co-case-head { display: flex; align-items: center; gap: 12px; }
+.co-case-head .co-h2 { margin: 0; }
+.co-case-face { background: #d8c9a6; border: 3px solid var(--line); padding: 2px; }
+.co-sigs { display: grid; gap: 10px; margin: 10px 0; padding: 0; list-style: none; }
+.co-sigs li { padding: 8px 12px; background: #fffaf0; border: 2px solid var(--line); }
+.co-sigs .co-sig { font-size: 1.9em; }
+@media (min-width: 560px) { .co-sigs { grid-template-columns: 1fr 1fr; } }
+
+/* ---------- gazette ---------- */
+.co-gazette { margin-top: 12px; padding: 12px 14px; background: #ece4d2; border: 3px solid var(--line); font-family: Georgia, "Times New Roman", serif; }
+.co-gz-mast { margin: 0; text-align: center; font: 900 2.1em/1 "Old English Text MT", "UnifrakturMaguntia", Georgia, serif; letter-spacing: 0.02em; }
+.co-gz-date { margin: 6px 0 10px; padding: 3px 0; text-align: center; font-size: 0.8em; font-style: italic; border-top: 2px solid var(--line); border-bottom: 2px solid var(--line); }
+.co-gz-h { margin: 6px 0 10px; font-size: 1.35em; line-height: 1.2; text-transform: none; }
+.co-gz-list { margin: 0; padding: 0; list-style: none; }
+.co-gz-list li { padding: 8px 0; border-top: 1px solid #a89878; }
+@media (min-width: 560px) { .co-gz-list { columns: 2; column-gap: 20px; column-rule: 1px solid #a89878; } .co-gz-list li { break-inside: avoid; } }
+
+/* ---------- logs, file ---------- */
+.co-log { display: grid; gap: 8px; margin: 10px 0 0; padding: 0; list-style: none; }
+.co-log li { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; padding: 6px 8px; background: #fffaf0; border: 2px solid var(--line); }
+.co-log li.is-ignored { background: var(--paper-2); font-style: italic; }
+.co-epilogue { display: grid; gap: 8px; margin: 0; padding-left: 20px; }
+.co-details { margin-top: 18px; }
+.co-details summary { min-height: 44px; display: flex; align-items: center; font-weight: 800; cursor: pointer; }
+.co-help { display: grid; gap: 10px; padding-left: 18px; }
+
+/* ---------- sheet ---------- */
+.co-sheet {
+  width: min(100vw, 560px); max-width: 100vw; max-height: 85vh; margin: auto auto 0; padding: 0;
+  color: #201814; background: #f1e8d0; border: 3px solid #201814; border-bottom: 0; font-family: Georgia, "Times New Roman", serif;
+}
+.co-sheet::backdrop { background: rgba(16, 20, 16, 0.6); }
+.co-sheet-body { padding: 16px; }
+@media (min-width: 640px) {
+  .co-sheet { margin: auto; border-bottom: 3px solid #201814; box-shadow: 0 6px 0 0 rgba(0, 0, 0, 0.45); }
+  .co-sheet.is-wide { width: min(92vw, 720px); }
+}
+
+/* =====================================================================
+   v2: the Victorian dress. These rules come last and override the above.
+   ===================================================================== */
+.co {
+  --paper: #efe3c4;
+  --paper-2: #dcc9a0;
+  --ink: #241a12;
+  --muted: #5a4a38;
+  --wall: #233a2c;
+  --wall-2: #1a2c21;
+  --brass: #b8892a;
+  --brass-l: #e2c06a;
+  --red: #9e2018;
+  --blue: #1f3f78;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 17px;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 240, 200, 0.5), transparent 60%),
+    radial-gradient(circle at 12% 88%, rgba(140, 100, 40, 0.12) 0 18px, transparent 19px),
+    radial-gradient(circle at 86% 30%, rgba(140, 100, 40, 0.1) 0 10px, transparent 11px),
+    var(--paper);
+  border: 3px solid var(--ink);
+  outline: 2px solid var(--brass);
+  outline-offset: -9px;
+}
+.co-h1, .co-h2, .co-h4, .co-doc-title, .co-card-who, .co-bubble.is-open, .co-gz-h, .co-gz-list, .co-clock-time { font-family: "Co Fell", Georgia, serif; font-weight: 400; }
+.co-h1 { font-size: 2.6em; color: var(--wall-2); letter-spacing: 0.01em; }
+.co-h1 span { font-family: "Co Fell", Georgia, serif; font-style: italic; color: var(--muted); }
+.co-h2 { font-size: 1.6em; color: var(--wall-2); }
+.co-h2::after { content: "❧"; display: block; margin-top: 2px; font-size: 0.6em; color: var(--brass); }
+.co-case-head .co-h2::after { content: none; }
+.co-h3, .co-kicker, .co-bubble-who, .co-tag, .co-field dt, .co-meters li, .co-day { font-family: "Co Fell SC", Georgia, serif; letter-spacing: 0.08em; }
+.co-h3 { font-size: 0.95em; font-weight: 400; text-transform: none; color: var(--red); }
+.co-h3::before, .co-h3::after { content: " — "; color: var(--brass); }
+.co-kicker { font-weight: 400; font-size: 0.85em; text-transform: none; }
+
+/* title picture */
+.co-facade { height: auto; margin: -12px -12px 16px; padding: 0; background: #2b3140; border-bottom: 3px solid var(--ink); }
+.co-facade::before { content: none; }
+.co-facade img { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+
+/* HUD: damask wallpaper and a brass rail */
+.co-hud {
+  background-color: var(--wall);
+  background-image:
+    radial-gradient(ellipse 7px 11px at 50% 50%, rgba(226, 192, 106, 0.16) 60%, transparent 62%),
+    radial-gradient(circle 3px at 0 0, rgba(226, 192, 106, 0.16) 90%, transparent),
+    radial-gradient(circle 3px at 100% 100%, rgba(226, 192, 106, 0.16) 90%, transparent);
+  background-size: 22px 26px;
+  border-bottom: 4px solid var(--brass);
+  box-shadow: inset 0 -2px 0 var(--ink), 0 2px 0 var(--ink);
+}
+.co-day { font-size: 1em; }
+.co-wage { opacity: 0.85; }
+.co-meters li { font-weight: 400; background: linear-gradient(#f6ecd2, #e2d2aa); border: 2px solid var(--ink); }
+.co-meters li.is-danger { color: #fff; background: var(--red); animation: none; }
+.co-hours i { background: radial-gradient(circle at 50% 35%, #fff2b0, #e2b23a 60%, #9a6a12); border-radius: 2px 2px 0 0; }
+.co-hours i.is-used { background: #3a4a40; }
+
+/* gilt cameo frames for portraits */
+.co-cameo {
+  display: inline-flex; align-items: flex-end; justify-content: center; flex: none;
+  width: 66px; height: 82px; overflow: hidden; border-radius: 50% / 50%;
+  background: radial-gradient(ellipse at 50% 35%, #5a2a2a, #2a1014 75%);
+  border: 4px double var(--brass);
+  box-shadow: 0 0 0 2px var(--ink), 2px 3px 0 2px rgba(0, 0, 0, 0.3);
+}
+.co-cameo .co-face { background: none !important; border: 0 !important; padding: 0 !important; margin-bottom: -2px; }
+.co-cameo.is-big { width: 84px; height: 104px; }
+.co-say { grid-template-columns: 66px 1fr; }
+.co-card { grid-template-columns: 52px 1fr; }
+.co-card .co-cameo { width: 52px; height: 64px; border-width: 3px; }
+
+/* speech: a printed card with a hairline border */
+.co-bubble { background: #fbf4e0; border: 1px solid var(--ink); outline: 1px solid var(--ink); outline-offset: 2px; box-shadow: 4px 5px 0 0 rgba(36, 26, 18, 0.18); }
+.co-bubble.is-open { font-style: italic; font-size: 1.12em; }
+
+/* papers: foxing, ruled margin, corner fleurons */
+.co-doc {
+  background-color: #f8eed6;
+  background-image:
+    radial-gradient(circle at 88% 12%, rgba(150, 100, 40, 0.14) 0 8px, transparent 9px),
+    radial-gradient(circle at 8% 80%, rgba(150, 100, 40, 0.1) 0 12px, transparent 13px),
+    linear-gradient(90deg, transparent 22px, rgba(158, 32, 24, 0.35) 22px 23px, transparent 23px),
+    repeating-linear-gradient(transparent 0 25px, rgba(31, 63, 120, 0.13) 25px 26px);
+  padding-left: 32px;
+  border: 1px solid #6a5434;
+  box-shadow: 0 0 0 1px #f8eed6, 0 0 0 2px #6a5434, 5px 6px 0 0 rgba(36, 26, 18, 0.22);
+}
+.co-doc::before, .co-doc::after { position: absolute; font-size: 14px; color: var(--brass); line-height: 1; }
+.co-doc::before { content: "✥"; left: 6px; top: 6px; }
+.co-doc::after { content: "✥"; right: 6px; bottom: 6px; }
+.co-doc.is-memo { background-color: #eceadf; }
+.co-doc.is-ledger { background-image: linear-gradient(90deg, transparent 22px, rgba(158, 32, 24, 0.35) 22px 23px, transparent 23px), repeating-linear-gradient(transparent 0 25px, rgba(60, 100, 50, 0.2) 25px 26px); background-color: #eef0dc; }
+.co-doc.is-certificate { border: 3px double #6a5434; }
+.co-doc header { border-bottom: 1px solid var(--ink); box-shadow: 0 2px 0 #f8eed6, 0 3px 0 var(--ink); }
+.co-doc-title { font-size: 1.15em; }
+.co-doc-ref { font-family: "Co Fell", Georgia, serif; font-style: italic; }
+.co-field dd { font-family: "Co Fell", Georgia, serif; font-size: 1.05em; }
+.co-field dt { font-weight: 400; font-size: 0.85em; text-transform: none; }
+.co-sig { font-family: "Co Copperplate", "Snell Roundhand", cursive; font-size: 1.9em; color: #1b2c5c; }
+.co-sigs .co-sig { font-size: 2.4em; }
+.co-sig.has-flourish { border-bottom: 1.5px solid #1b2c5c; }
+
+/* rubber stamps with uneven ink */
+.co-stamp { font-family: "Co Fell SC", Georgia, serif; letter-spacing: 0.12em; border-style: double; border-width: 3px; text-shadow: 0.5px 0 currentColor; }
+.co-stamp.is-big { border-width: 5px; mix-blend-mode: multiply; -webkit-mask-image: radial-gradient(circle at 30% 40%, #000 55%, rgba(0, 0, 0, 0.65) 75%, #000 90%); mask-image: radial-gradient(circle at 30% 40%, #000 55%, rgba(0, 0, 0, 0.65) 75%, #000 90%); }
+
+/* brass-plaque buttons */
+.co-btn {
+  font-family: "Co Fell SC", Georgia, serif; font-weight: 400; font-size: 1.05em; letter-spacing: 0.06em;
+  color: #2a1a08; background: linear-gradient(#f0d488, #c99a3a 55%, #a87a22);
+  border: 3px solid var(--ink); box-shadow: inset 0 1px 0 #fff3c4, inset 0 -2px 0 #7a5410, 0 4px 0 0 var(--ink);
+  text-shadow: 0 1px 0 rgba(255, 240, 190, 0.6);
+}
+.co-btn:hover { background: linear-gradient(#f6de9a, #d4a646 55%, #b0822a); }
+.co-btn.is-ghost { color: var(--ink); background: linear-gradient(#fbf3dc, #e6d5ac); box-shadow: inset 0 1px 0 #fff, 0 4px 0 0 var(--ink); text-shadow: none; }
+.co-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.co-icon-btn { background: linear-gradient(#fbf3dc, #e6d5ac); border: 2px solid var(--ink); font-family: "Co Fell SC", Georgia, serif; }
+.co-tool, .co-choice, .co-card { background: #fbf4e0; border-width: 2px; box-shadow: 0 3px 0 0 var(--ink); }
+.co-choice { align-items: flex-start; }
+.co-choice-text { display: grid; gap: 2px; }
+.co-choice-label { font-weight: 400; font-family: "Co Fell", Georgia, serif; font-size: 1.08em; }
+.co-costs { font-size: 0.82em; color: var(--muted); font-style: italic; }
+.co-tag { font-weight: 400; text-transform: none; }
+.co-tag.is-pancks { color: #2a1a08; background: var(--brass-l); }
+
+/* the Gazette */
+.co-gazette { background: #ede3c8; border: 1px solid var(--ink); box-shadow: 0 0 0 4px #ede3c8, 0 0 0 5px var(--ink), 5px 7px 0 4px rgba(0, 0, 0, 0.2); margin: 18px 6px 6px; }
+.co-gz-mast { font-family: "Co Fraktur", "Old English Text MT", serif; font-weight: 400; font-size: 2.8em; }
+.co-gz-date { font-family: "Co Fell", Georgia, serif; border-top: 3px double var(--ink); border-bottom: 3px double var(--ink); }
+.co-gz-h { font-size: 1.5em; text-align: center; }
+.co-gz-list li { text-align: justify; hyphens: auto; }
+.co-gz-list li::first-letter { font-family: "Co Fell", serif; font-size: 1.6em; line-height: 0.8; }
+
+/* home: the evening bills */
+.co-home { margin-top: 18px; padding: 12px 14px; background: #e9dcc0; border: 1px solid var(--ink); box-shadow: 0 0 0 3px #e9dcc0, 0 0 0 4px var(--ink); }
+.co-home p { margin: 6px 0; }
+.co-bills { margin: 10px 0; padding: 0; border: 0; display: grid; gap: 8px; }
+.co-bills legend { margin-bottom: 6px; font-family: "Co Fell", Georgia, serif; font-size: 1.1em; }
+.co-bill {
+  display: grid; grid-template-columns: 28px 1fr auto; grid-template-rows: auto auto; column-gap: 8px; align-items: center;
+  min-height: 52px; padding: 6px 10px; cursor: pointer; background: #fbf4e0; border: 2px solid var(--ink);
+}
+.co-bill input { width: 22px; height: 22px; accent-color: var(--wall); grid-row: span 2; }
+.co-bill-name { font-family: "Co Fell SC", Georgia, serif; font-size: 1.05em; }
+.co-bill-cost { font-weight: 700; }
+.co-bill-note { grid-column: 2 / span 2; font-size: 0.85em; font-style: italic; color: var(--muted); }
+.co-bad { color: var(--red); font-weight: 700; }
+.co-note.is-home { background: #f3e2c0; }
+.co-file.is-over .co-h1 { color: var(--red); }
+.co-empty, .co-note, .co-found { border-width: 1px; }
+.co-gazette, .co-home, .co-doc { break-inside: avoid; }
+
+/* ---------- the corkboard ---------- */
+.co-cork {
+  position: relative; width: 100%; margin: 10px 0 4px;
+  background-color: #b08a5a;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(90, 60, 30, 0.35) 1px, transparent 2px),
+    radial-gradient(circle at 70% 60%, rgba(60, 40, 20, 0.3) 1px, transparent 2px),
+    radial-gradient(circle at 40% 80%, rgba(230, 200, 150, 0.35) 1px, transparent 2px);
+  background-size: 7px 7px, 9px 9px, 11px 11px;
+  border: 10px solid #5a3a20;
+  border-image: linear-gradient(135deg, #7a5230, #4a2c16 50%, #7a5230) 10;
+  box-shadow: inset 0 0 18px rgba(40, 20, 0, 0.5), 0 0 0 2px var(--ink);
+}
+.co-cork-strings { position: absolute; inset: 0; z-index: 3; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.co-pin-head { z-index: 4; }
+.co-string, .co-string path { fill: none; stroke: #a8201a; stroke-width: 2.2; stroke-linecap: round; filter: drop-shadow(1px 2px 0 rgba(0, 0, 0, 0.3)); }
+.co-string.is-strong, .co-string.is-strong path { stroke-width: 4; stroke: #8a1610; }
+.co-string.is-strained, .co-string.is-strained path { stroke-dasharray: 6 4; stroke: #c4561a; }
+.co-string.is-cut path { stroke: #7a5a50; }
+.co-string.is-dim, .co-string.is-dim path { opacity: 0.18; }
+@media (prefers-reduced-motion: no-preference) {
+  .co-string.is-fresh { animation: co-draw 1.2s ease-out both; stroke-dasharray: 600; }
+  @keyframes co-draw { from { stroke-dashoffset: 600; } to { stroke-dashoffset: 0; } }
+}
+.co-pin {
+  position: absolute; display: grid; justify-items: center; gap: 2px; padding: 8px 4px 5px; min-height: 44px;
+  font: inherit; cursor: pointer; color: var(--ink); background: #f8eed6;
+  border: 1px solid #6a5434; box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.35); transform: rotate(-1.5deg);
+}
+.co-pin:nth-child(3n) { transform: rotate(1.5deg); }
+.co-pin.is-on { outline: 3px solid var(--blue); outline-offset: 1px; z-index: 2; }
+.co-pin-head { position: absolute; top: -6px; left: 50%; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ff8a7a, #b3261e 60%, #5a0e0a); box-shadow: 1px 2px 0 rgba(0, 0, 0, 0.4); }
+.co-pin-face { display: block; width: 34px; height: 42px; overflow: hidden; border-radius: 50%; background: radial-gradient(ellipse at 50% 35%, #5a2a2a, #2a1014 75%); border: 2px solid var(--brass); }
+.co-pin-name { font-family: "Co Fell", Georgia, serif; font-size: clamp(10px, 2.9vw, 13px); line-height: 1.1; text-align: center; }
+.co-strands { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.co-strand { display: grid; gap: 2px; padding: 8px 10px; background: #fbf4e0; border: 1px solid var(--ink); border-left: 5px solid #a8201a; }
+.co-strand.is-strong { border-left-color: #6a0e08; }
+.co-strand.is-strained { border-left-style: dashed; border-left-color: #c4561a; }
+.co-strand.is-cut { border-left-color: #7a5a50; }
+.co-strand-who { font-family: "Co Fell SC", Georgia, serif; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.co-strand-note { font-style: italic; color: var(--muted); }
+.co-badge { display: inline-block; min-width: 20px; padding: 0 5px; color: #fff; background: var(--red); border-radius: 10px; font-family: system-ui, sans-serif; font-size: 0.8em; }
+.co-hud-btns { flex-wrap: wrap; }
