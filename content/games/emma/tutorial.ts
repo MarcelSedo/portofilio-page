@@ -74,6 +74,6 @@ export const tutorial: Scenario = {
     { say: "Home to Hartfield, and my wedding board!", target: { kind: "place", id: "hartfield" }, done: (p) => p.screen === "board" || p.screen === "ending" },
     { say: "Tap a lady, then the gentleman she belongs with. Do it for both ladies.", target: { kind: "board" }, done: (p) => Object.keys(p.matches).length >= 2 },
     { say: "Now give each engagement its best proof: a true clue that shows they belong together.", target: { kind: "proof" }, done: (p) => Object.keys(p.proofs).length >= 2 },
-    { say: "Announce the engagements! In the real season I will only tell you whether all four are right.", target: { kind: "announce" }, done: (p) => p.screen === "ending" },
+    { say: "Announce the engagements! In the real season I shall ask you a question about each lady first, and then we announce them at the ball, one by one.", target: { kind: "announce" }, done: (p) => p.screen === "ending" },
   ],
 };

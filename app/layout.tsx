@@ -11,6 +11,7 @@ import "./experience-map.css";
 import "./portfolio.css";
 import "./time-traveller.css";
 import "./emma.css";
+import "./circumlocution.css";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { ForestScene } from "@/components/ForestScene";

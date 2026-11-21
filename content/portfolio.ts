@@ -57,7 +57,7 @@ export const caseStudies: CaseStudy[] = [
     tiles: [
       { kind: "site", label: "ID‑SK portal", href: "https://idsk.gov.sk/", note: "The design system's home", image: "/portfolio/idsk_web.png" },
       { kind: "design", label: "ID‑SK 3.1.0 in Figma", href: "https://www.figma.com/community/file/1581301778555425083/idsk-3-1-0", note: "Design kit: documentation, testing, UX consulting", image: "/portfolio/idsk_figma.png" },
-      { kind: "docs", label: "Storybook: components", href: "https://komponenty.idsk3.gov.sk/?path=/docs/molecules-accordion--docs", note: "Live component docs", image: "/portfolio/storybook_idsk.png" },
+      { kind: "docs", label: "Storybook: components", href: "https://komponenty.idsk3.gov.sk/?path=/docs/molecules-accordion--docs", note: "Live component docs", image: "/portfolio/idsk-storybook.webp" },
       { kind: "package", label: "@id-sk/react on npm", href: "https://www.npmjs.com/package/@id-sk/react?activeTab=versions", note: "Release history up to v3.2.0", image: "/portfolio/idsk-npm.webp" },
       { kind: "code", label: "IDSK 3 Frontend on GitHub", href: "https://github.com/id-sk/idsk3-frontend", note: "The previous library" },
     ],
@@ -108,25 +108,47 @@ export const caseStudies: CaseStudy[] = [
   },
 ];
 
-export type Game = { title: string; kicker: string; text: string; href: string; image: string };
+export type Game = { title: string; kicker: string; note: string; href: string; image: string };
 
-/** Small games built for this site, playable right here. */
+/** The Games section: built like the case studies above, with one card kept free for the next game. */
+export const gamesIntro = {
+  kicker: "Games · Built for this site",
+  title: "Small games, playable here",
+  role: "Game design, writing, pixel art by code, frontend",
+  period: "2026",
+  summary:
+    "Short browser games made the way I made levels for Diggy's Adventure: a clear goal, clues the player has to read, and a story that pays off. Phone first, and every one of them playable with a keyboard and a screen reader.",
+  did: [
+    "Designed the rules, wrote every line and planned the clue chains, borrowing plots from Jane Austen for Emma and two dozen Dickens characters for the Circumlocution Office.",
+    "Drew the pixel art with a small Python generator, so pictures and tap targets always line up.",
+    "Built them in React and TypeScript, without a backend: saves live in the browser.",
+    "Accessible by design: real buttons, focus management, no time pressure unless you ask for it, calmer modes.",
+  ],
+  tags: ["Game design", "Narrative design", "React", "TypeScript", "Pixel art", "Accessibility", "Wikidata", "Service design"],
+  comingSoon: { label: "The next game", note: "In the workshop. A ghost story with collectable spirits, perhaps." },
+};
+
 export const games: Game[] = [
   {
     title: "Emma: The Matchmaker of Bramblewick",
     kicker: "Detective game · Phone first",
-    text:
-      "Pay calls around a Regency village, collect gossip and proof, then make four matches on Emma's wedding board. Gossip is free and often false, so the real game is telling rumour from evidence. Drag or tap, keyboard friendly, saves in the browser.",
+    note: "Walk a Regency village, follow four love stories through gossip and proof, and announce all the matches at once.",
     href: "/games/emma",
     image: "/portfolio/emma.webp",
   },
   {
     title: "Time Traveller",
     kicker: "Timeline game",
-    text:
-      "Put famous films in the right order before the clock runs out, or play without a clock. 661 films with pixel posters drawn by code; every year comes from Wikidata and can be checked.",
+    note: "Put 661 films in order, with or without a clock. Every year comes from Wikidata; the posters are drawn by code.",
     href: "/games/time-traveller",
     image: "/portfolio/time-traveller.webp",
+  },
+  {
+    title: "The Circumlocution Office",
+    kicker: "Desk game after Dickens · Phone first",
+    note: "Five days as a Victorian clerk. Micawber, Heep and Scrooge bring papers; check signatures, stamp them, read the consequences in the morning paper.",
+    href: "/games/circumlocution",
+    image: "/portfolio/circumlocution.webp",
   },
 ];
 

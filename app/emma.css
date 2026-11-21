@@ -362,3 +362,117 @@
 .em-verdict.is-true > span:first-child { color: var(--sage); font-weight: 900; }
 .em-verdict.is-false > span:first-child { color: var(--rose); font-weight: 900; }
 .em-btn.is-target { box-shadow: 0 4px 0 0 var(--line), 0 0 0 4px #f2c040, 0 0 0 7px var(--ink); }
+
+/* ---------- v4: pocket, ribbons, glints, puzzles ---------- */
+.em-pocket { margin: 0; display: flex; gap: 4px; font-size: 1.2em; }
+.em-pocket > span { display: grid; place-items: center; width: 34px; height: 34px; background: var(--paper); border: 2px solid #f2c040; }
+.em-ribbons { margin: 0 0 10px; padding: 8px 10px; list-style: none; display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 14px; background: #fffaf0; border: 2px solid var(--line); }
+.em-ribbons li { display: grid; gap: 2px; font-size: 0.78em; font-weight: 700; }
+.em-ribbon { display: block; height: 8px; background: #e8dcc0; border: 1px solid var(--line); }
+.em-ribbon > span { display: block; height: 100%; background: linear-gradient(90deg, var(--rose), #e87a96); transition: width 400ms; }
+.em-spot.is-glint { z-index: 5; }
+.em-glint { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); font-size: 13px; color: #fff4c8; text-shadow: 0 0 4px #fff4c8, 0 0 8px #f2c040; }
+.em-spot.is-glint.is-meeting .em-glint { top: 10%; font-size: 16px; color: #ffd0e0; text-shadow: 0 0 6px #ff9ab8; }
+@media (prefers-reduced-motion: no-preference) {
+  .em:not(.is-calm) .em-glint { animation: em-twinkle 1s steps(2) infinite; }
+}
+.em-note { display: inline-block; margin: 0 0 10px !important; padding: 2px 8px; font-weight: 800; font-size: 0.9em; color: #fff; background: var(--sage); }
+.em-verse { margin: 12px 0; padding: 12px 16px; display: grid; gap: 2px; font-family: Georgia, serif; font-style: italic; font-size: 1.05em; background: #fffaf0; border-left: 5px solid var(--rose); }
+.em-slots { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+.em-slot { width: 40px; height: 48px; font: inherit; font-size: 1.4em; font-weight: 800; color: var(--ink); background: #fffaf0; border: 0; border-bottom: 4px solid var(--line); cursor: pointer; }
+.em-slot:disabled { cursor: default; }
+.em-tiles { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.em-tile { width: 44px; height: 48px; font: inherit; font-size: 1.3em; font-weight: 800; cursor: pointer; color: var(--ink); background: #f2e2b8; border: 3px solid var(--line); box-shadow: 0 3px 0 0 var(--line); }
+.em-tile:disabled { opacity: 0.3; cursor: default; box-shadow: none; }
+.em-type { display: grid; gap: 4px; max-width: 260px; font-size: 0.9em; font-weight: 700; }
+.em-type input { min-height: 44px; padding: 6px 10px; font: inherit; font-size: 1.1em; text-transform: uppercase; letter-spacing: 0.15em; border: 2px solid var(--line); background: #fff; }
+.em-puzzle-msg { min-height: 1.5em; margin: 8px 0 0; font-weight: 700; color: var(--rose-d); }
+.em-strips { margin: 12px 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.em-strip { display: flex; align-items: stretch; gap: 6px; transition: rotate 300ms; }
+.em-strip-text {
+  flex: 1; min-height: 48px; padding: 8px 12px; text-align: left; font-family: Georgia, serif; font-style: italic; font-size: 1em; cursor: pointer;
+  color: var(--ink); background: #fbf6e8; border: 1px solid #c8b8a0; box-shadow: 2px 2px 0 0 #b8a890;
+  clip-path: polygon(0 6%, 4% 0, 30% 5%, 60% 0, 100% 4%, 98% 50%, 100% 96%, 70% 100%, 40% 94%, 10% 100%, 0 92%);
+}
+.em-strip.is-picked .em-strip-text { background: #fff1c8; box-shadow: 0 0 0 3px var(--rose); clip-path: none; }
+.em-strips.is-done .em-strip-text { clip-path: none; background: #fffaf0; border-color: transparent; box-shadow: none; }
+.em-strip-moves { display: flex; flex-direction: column; gap: 2px; }
+.em-strip-moves button { width: 40px; flex: 1; min-height: 22px; font: inherit; font-weight: 900; cursor: pointer; background: var(--paper); border: 2px solid var(--line); }
+.em-strip-moves button:disabled { opacity: 0.3; }
+
+/* =====================================================================
+   v4: a bigger village to wander, Austen's own people out walking, Emma's questions,
+   the announcement at the ball, and a softer, more floral dress for the whole thing.
+   ===================================================================== */
+.em {
+  --sprig: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' shape-rendering='crispEdges'%3E%3Crect x='2' y='21' width='1' height='1' fill='%234a7a3a'/%3E%3Crect x='3' y='20' width='1' height='1' fill='%234a7a3a'/%3E%3Crect x='4' y='19' width='1' height='1' fill='%234a7a3a'/%3E%3Crect x='5' y='18' width='1' height='1' fill='%234a7a3a'/%3E%3Crect x='6' y='17' width='1' height='1' fill='%234a7a3a'/%3E%3Crect x='7' y='16' width='1' height='1' fill='%234a7a3a'/%3E%3Crect x='8' y='15' width='1' height='1' fill='%234a7a3a'/%3E%3Crect x='9' y='14' width='1' height='1' fill='%234a7a3a'/%3E%3Crect x='10' y='13' width='1' height='1' fill='%234a7a3a'/%3E%3Crect x='11' y='12' width='1' height='1' fill='%234a7a3a'/%3E%3Crect x='4' y='16' width='2' height='2' fill='%235e9a46'/%3E%3Crect x='7' y='19' width='2' height='2' fill='%235e9a46'/%3E%3Crect x='9' y='11' width='2' height='1' fill='%235e9a46'/%3E%3Crect x='13' y='14' width='2' height='2' fill='%235e9a46'/%3E%3Crect x='12' y='9' width='3' height='1' fill='%23e88aac'/%3E%3Crect x='13' y='8' width='1' height='3' fill='%23e88aac'/%3E%3Crect x='13' y='9' width='1' height='1' fill='%23fff4e0'/%3E%3Crect x='4' y='13' width='3' height='1' fill='%23f4c8d8'/%3E%3Crect x='5' y='12' width='1' height='3' fill='%23f4c8d8'/%3E%3Crect x='5' y='13' width='1' height='1' fill='%23fff4e0'/%3E%3Crect x='16' y='15' width='3' height='1' fill='%23f2d27a'/%3E%3Crect x='17' y='14' width='1' height='3' fill='%23f2d27a'/%3E%3Crect x='17' y='15' width='1' height='1' fill='%23fff4e0'/%3E%3C/svg%3E");
+  --blush: #f6dce4;
+  background:
+    var(--sprig) top 4px left 4px / 28px 28px no-repeat,
+    var(--sprig) bottom 4px right 4px / 28px 28px no-repeat,
+    radial-gradient(circle at 20% 0%, rgba(246, 210, 224, 0.5), transparent 45%),
+    radial-gradient(circle at 100% 100%, rgba(214, 232, 200, 0.5), transparent 45%),
+    var(--paper);
+}
+.em-h1, .em-h2 { letter-spacing: 0.01em; }
+.em-h2::after { content: ""; display: block; width: 72px; height: 6px; margin-top: 6px;
+  background: radial-gradient(circle, var(--rose) 2px, transparent 2.5px) 0 0 / 12px 6px repeat-x; opacity: 0.7; }
+.em-letter, .em-menu-card, .em-sheet-body, .em-finale-card { position: relative; }
+.em-letter::after, .em-menu-card::after, .em-finale-card::after {
+  content: ""; position: absolute; right: -6px; top: -10px; width: 36px; height: 36px;
+  background: var(--sprig) center / contain no-repeat; transform: scaleX(-1); pointer-events: none;
+}
+.em-say-bust, .em-intro-bust { border-radius: 50% / 46%; background: radial-gradient(ellipse at 50% 35%, #fbe8ee, #e8c8d4 70%); border: 3px double var(--rose-d); }
+.em-person-card img, .em-letter-head img, .em-engaged-pair img { border-radius: 50% / 46%; background: radial-gradient(ellipse at 50% 35%, #fbe8ee, #e8c8d4 70%); }
+
+/* the big village: scroll and drag to look around */
+.em-mapwrap.is-big {
+  position: relative; overflow: auto; max-height: min(74vh, 720px); border: 3px solid var(--line);
+  background: #2a2030; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; scrollbar-width: thin;
+}
+.em-mapwrap.is-big > .em-map { border: 0; max-width: none; }
+.em-mapwrap.is-big .em-label { font-size: 12px; }
+.em-travel[open] > ul { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+
+/* Austen's people strolling about */
+.em-spot.is-cameo { z-index: 2; background: none; border: 0; padding: 0; cursor: pointer; }
+.em-spot.is-cameo::before { content: none; }
+.em-cameo-sprite { display: block; width: 100%; height: 100%; background-size: 300% 300%; image-rendering: pixelated; filter: drop-shadow(0 1px 0 rgba(0,0,0,0.5)); }
+.em-spot.is-cameo::after { content: "❦"; position: absolute; left: 50%; top: -14px; transform: translateX(-50%); font-size: 13px; color: #ffd6e4; text-shadow: 0 1px 0 #2a1a22; pointer-events: none; }
+.em-quote { margin: 0 0 12px; padding: 12px 14px; background: #fff7f9; border-left: 5px solid var(--rose); }
+.em-quote blockquote { margin: 0; font-family: Georgia, serif; font-size: 1.12em; font-style: italic; }
+.em-quote blockquote p { margin: 0; }
+.em-quote figcaption { margin-top: 6px; font-size: 0.85em; color: var(--muted); }
+
+/* Emma's questions */
+.em-quiz { display: grid; gap: 12px; margin-top: 12px; }
+.em-quiz-q { margin: 0; padding: 10px 12px; background: #fffaf0; border: 2px solid var(--line); }
+.em-quiz-q legend { display: flex; align-items: center; gap: 8px; padding: 0 4px; font-family: Georgia, serif; }
+.em-quiz-q legend img, .em-quiz-done img, .em-quiz-locked img { border-radius: 50%; background: #f4dce4; flex: none; }
+.em-quiz-opt { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 6px; cursor: pointer; }
+.em-quiz-opt input { width: 20px; height: 20px; accent-color: var(--rose); }
+.em-quiz-done, .em-quiz-locked { display: flex; align-items: center; gap: 8px; margin: 0; padding: 8px 10px; border: 2px dashed var(--line); }
+.em-quiz-done { background: #e6f2e0; border-style: solid; }
+.em-quiz-locked { background: var(--paper-2); font-style: italic; }
+
+/* the announcement at the ball */
+.em-finale { position: relative; display: grid; min-height: 70vh; }
+.em-finale-room { grid-area: 1 / 1; width: 100%; height: 100%; object-fit: cover; opacity: 0.45; image-rendering: pixelated; }
+.em-finale-card { grid-area: 1 / 1; z-index: 1; align-self: center; margin: 16px 6px; padding: 18px 16px; background: rgba(255, 250, 240, 0.96); border: 3px solid var(--line); box-shadow: 0 5px 0 0 var(--line); }
+.em-finale-card.is-right { border-color: var(--sage); box-shadow: 0 5px 0 0 var(--sage); }
+.em-finale-card.is-wrong { border-color: var(--rose-d); }
+.em-finale-pair { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 10px 0; }
+.em-finale-pair img { width: 96px; height: 96px; border-radius: 50% / 46%; background: radial-gradient(ellipse at 50% 35%, #fbe8ee, #e8c8d4 70%); border: 3px double var(--rose-d); }
+.em-finale-heart { font-size: 2em; color: var(--rose); }
+.is-wrong .em-finale-heart { color: #6a5560; }
+.em-finale-line { font-family: Georgia, serif; font-size: 1.08em; }
+.em-finale-story { margin-top: 10px; padding: 10px 12px; background: #eef6e8; border: 2px solid var(--sage); }
+.em-finale-story p { margin: 0 0 4px; }
+.em-finale-title { font-weight: 700; font-family: Georgia, serif; color: var(--sage); }
+@media (prefers-reduced-motion: no-preference) {
+  .em-finale-card.is-animated { animation: em-curtsey 0.5s ease-out both; }
+  .em-finale-card.is-animated.is-wrong { animation: em-shudder 0.5s ease-out both; }
+}
+@keyframes em-curtsey { from { opacity: 0; transform: translateY(14px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes em-shudder { 0% { opacity: 0; } 30% { opacity: 1; transform: translateX(-6px); } 55% { transform: translateX(5px); } 80% { transform: translateX(-2px); } 100% { transform: none; } }
+.em.is-calm .em-finale-card { animation: none !important; }

@@ -48,6 +48,27 @@ PEOPLE = {
     "pike": dict(hair=(216, 216, 216, 255), style="short", top=(184, 48, 42, 255), pants=(230, 226, 214, 255), acc="epaulette"),
     "lake": dict(hair=(184, 90, 42, 255), style="long", top=(122, 192, 224, 255), dress=True, hat="ribbon"),
     "fiddle": dict(hair=(74, 58, 58, 255), style="bald", top=(74, 58, 90, 255), pants=(50, 44, 60, 255), acc="violin"),
+    # season two: three new love stories
+    "sophia": dict(hair=(150, 70, 40, 255), style="long", top=(236, 236, 246, 255), dress=True, hat="ribbon", acc="book"),
+    "hartley": dict(hair=(90, 70, 50, 255), style="short", top=(70, 80, 60, 255), pants=(220, 210, 180, 255), acc="kerchief"),
+    "fanny": dict(hair=(110, 80, 50, 255), style="bun", top=(150, 170, 200, 255), dress=True, hat="cap", acc="cross"),
+    "edmund": dict(hair=(60, 44, 30, 255), style="short", top=(40, 44, 56, 255), pants=(40, 44, 56, 255), acc="bands"),
+    "kate": dict(hair=(70, 46, 30, 255), style="long", top=(220, 170, 190, 255), dress=True, hat="bonnet", acc="book"),
+    "henry": dict(hair=(140, 100, 60, 255), style="short", top=(150, 60, 50, 255), pants=(226, 210, 170, 255), hat="tophat"),
+    "mrslyle": dict(hair=(170, 150, 140, 255), style="bun", top=(110, 90, 130, 255), dress=True, hat="mobcap"),
+    "willard": dict(hair=(40, 30, 26, 255), style="short", top=(150, 40, 50, 255), pants=(226, 210, 170, 255), hat="tophat"),
+    "crawley": dict(hair=(30, 20, 20, 255), style="bun", top=(200, 60, 80, 255), dress=True, hat="feather"),
+    "general": dict(hair=(220, 220, 220, 255), style="short", top=(40, 50, 100, 255), pants=(230, 226, 214, 255), acc="epaulette", hat="bicorne"),
+    "thrupp": dict(hair=(200, 120, 50, 255), style="short", top=(200, 160, 60, 255), pants=(100, 80, 60, 255), hat="flatcap", acc="kerchief"),
+    # Austen's own people, out for a walk
+    "mrsbennet": dict(hair=(150, 110, 80, 255), style="bun", top=(200, 120, 160, 255), dress=True, hat="mobcap", acc="shawl"),
+    "lizzy": dict(hair=(80, 50, 30, 255), style="bun", top=(230, 200, 140, 255), dress=True, hat="bonnet"),
+    "darcy": dict(hair=(30, 22, 20, 255), style="short", top=(30, 40, 70, 255), pants=(226, 210, 170, 255), hat="tophat"),
+    "collins": dict(hair=(60, 50, 40, 255), style="bald", top=(30, 30, 36, 255), pants=(30, 30, 36, 255), acc="bands"),
+    "ladycath": dict(hair=(190, 190, 200, 255), style="bun", top=(110, 40, 90, 255), dress=True, hat="turban"),
+    "woodhouse": dict(hair=(230, 230, 230, 255), style="bald", top=(120, 100, 80, 255), pants=(90, 80, 70, 255), acc="shawl"),
+    "bates": dict(hair=(170, 170, 180, 255), style="bun", top=(160, 140, 110, 255), dress=True, hat="cap", acc="specs"),
+    "knightley": dict(hair=(70, 50, 36, 255), style="short", top=(60, 80, 50, 255), pants=(226, 210, 170, 255), hat="tophat"),
     # the tutorial: Donwell Lane
     "lucy": dict(hair=(150, 90, 50, 255), style="bun", top=(230, 150, 120, 255), dress=True, hat="cap", acc="apron"),
     "anne": dict(hair=(60, 44, 40, 255), style="bun", top=(110, 110, 130, 255), dress=True, acc="book"),
@@ -111,6 +132,8 @@ def regency(pid, frame=0, facing="down"):
             R(im, 5, 12, 1, 5, (242, 208, 64, 255)); R(im, 8, 12, 1, 5, (242, 208, 64, 255))
         if a == "specs":
             R(im, 4, 7, 2, 1, OUTL); R(im, 8, 7, 2, 1, OUTL)
+        if a == "cross":
+            P(im, 7, 13, (232, 150, 40, 255)); P(im, 7, 14, (232, 150, 40, 255)); P(im, 6, 13, (232, 150, 40, 255)); P(im, 8, 13, (232, 150, 40, 255))
         if a == "violin":
             R(im, 9, 13, 3, 4, (150, 80, 40, 255)); R(im, 10, 10, 1, 3, (80, 50, 30, 255))
     if a == "epaulette":
@@ -118,7 +141,7 @@ def regency(pid, frame=0, facing="down"):
     return finish(im)
 
 
-PEOPLE_NIGHT = dict(k=(0.86, 0.84, 0.94), add=(2, 4, 16))
+PEOPLE_NIGHT = dict(k=(0.92, 0.88, 0.9), add=(10, 6, 8))
 for pid in PEOPLE:
     s = regency(pid)
     s.save(os.path.join(OUT, f"p-{pid}.png"))
@@ -129,6 +152,13 @@ for r_, facing in enumerate(("down", "up", "side")):
     for c in range(3):
         walk.alpha_composite(night(regency("emma", c, facing), **PEOPLE_NIGHT), (c * 14, r_ * 22))
 walk.save(os.path.join(OUT, "emma-walk.png"))
+CAMEOS = ["mrsbennet", "lizzy", "darcy", "collins", "ladycath", "woodhouse", "bates", "knightley"]
+for cid in CAMEOS:
+    sheet = img(42, 66)
+    for r_, facing in enumerate(("down", "up", "side")):
+        for c in range(3):
+            sheet.alpha_composite(night(regency(cid, c, facing), **PEOPLE_NIGHT), (c * 14, r_ * 22))
+    sheet.save(os.path.join(OUT, f"walk-{cid}.png"))
 
 # portraits for dialogues (the chunky busts)
 for pid in busts.P:
@@ -279,6 +309,25 @@ def drapery():
     return kit.market()
 
 
+def abbey():
+    """Abbey House: grey stone, pointed windows and a little tower. Very gothic. Kate is thrilled."""
+    im = manor(roof=(kit.SLATE, kit.SLATED, kit.SLATEL), stone=((150, 146, 160, 255), (118, 114, 130, 255), (176, 172, 186, 255)))
+    tower = img(16, 40)
+    R(tower, 0, 6, 16, 34, (150, 146, 160, 255)); R(tower, 12, 6, 4, 34, (118, 114, 130, 255))
+    for x in range(0, 16, 4): R(tower, x, 2, 2, 4, (150, 146, 160, 255))
+    R(tower, 5, 14, 6, 10, OUTL); R(tower, 6, 16, 4, 8, kit.GLOWD); R(tower, 7, 15, 2, 1, kit.GLOWD)
+    tower = finish(tower)
+    out = img(im.width + 8, im.height)
+    out.alpha_composite(im, (8, 0))
+    out.alpha_composite(tower, (0, out.height - 40))
+    return out
+
+def library():
+    im = townhouse("stone", 46, seed=8, roof="slate")
+    R(im, 34, 22, 10, 8, OUTL); R(im, 35, 23, 8, 6, (138, 42, 42, 255)); R(im, 36, 24, 6, 1, (242, 210, 120, 255))
+    R(im, 39, 20, 1, 2, OUTL)
+    return im
+
 BUILD = {
     "hartfield": lambda: manor(roof=(kit.SLATE, kit.SLATED, kit.SLATEL)),
     "ashby": lambda: manor(roof=((150, 60, 90, 255), (112, 40, 66, 255), (182, 90, 120, 255)), stone=((240, 222, 226, 255), (210, 190, 196, 255), (252, 240, 242, 255))),
@@ -291,8 +340,13 @@ BUILD = {
     "post": lambda: cottage("brick", "tile", 42, "letter", seed=7),
     "assembly": hall,
     "farm": farm,
+    "abbey": abbey,
+    "library": library,
+    "grange": lambda: manor(roof=(kit.ROOF, kit.ROOFD, kit.ROOFL), stone=((214, 196, 160, 255), (184, 164, 126, 255), (232, 218, 186, 255))),
+    "lyle": lambda: cottage("plaster", "thatch", 44, "flowers", seed=31),
+    "cleve": lambda: cottage("stone", "slate", 48, None, seed=32),
 }
-SPRITE_NIGHT = dict(k=(0.66, 0.7, 0.84), add=(8, 12, 30))
+SPRITE_NIGHT = dict(k=(0.84, 0.78, 0.82), add=(18, 10, 14))
 SPR = {k: night(f(), **SPRITE_NIGHT) for k, f in BUILD.items()}
 
 # ================================================================ maps (village + tutorial lane)
@@ -316,37 +370,46 @@ def doors(places, sprites, extra):
     n.update(extra)
     return n
 
-# --- the village: Hartfield in the middle, everyone else around it
+# --- the village: bigger than one screen. Hartfield in the middle, everyone else scattered around it
 VILLAGE = dict(
-    name="village", W=224, H=400, night=True, seed=7,
+    name="village", W=320, H=560, night=True, seed=7,
     places={
-        "ashby": (4, 8), "vicarage": (90, 20), "assembly": (146, 8),
-        "pryce": (4, 92), "whitlock": (174, 90),
-        "inn": (4, 168), "hartfield": (79, 152), "school": (164, 166),
-        "draper": (6, 252), "post": (176, 250),
-        "farm": (156, 320),
+        "abbey": (4, 8), "vicarage": (92, 24), "assembly": (150, 8), "ashby": (250, 10),
+        "library": (8, 110), "pryce": (72, 126), "whitlock": (266, 106),
+        "grange": (186, 198), "hartfield": (112, 212), "inn": (6, 216), "lyle": (268, 246),
+        "school": (8, 300), "draper": (190, 312),
+        "post": (8, 392), "cleve": (266, 394),
+        "farm": (200, 474),
     },
     junctions={
-        "jw3": [70, 82], "jn": [113, 82], "je3": [156, 82],
-        "jw2": [70, 150], "je2": [156, 146],
-        "jw1": [70, 226], "front": [112, 230], "je1": [156, 226],
-        "green": [112, 254], "jw0": [72, 306], "je0": [156, 304], "jfarm": [150, 380],
+        "jW1": [60, 90], "jN1": [145, 90], "jE1": [256, 90],
+        "jW2": [60, 190], "jN2": [145, 190], "jE2": [256, 190],
+        "jW3": [60, 292], "jC": [145, 292], "jE3": [256, 292],
+        "green": [145, 334],
+        "jW4": [60, 382], "jS1": [145, 382], "jE4": [256, 382],
+        "jP": [60, 452], "jC2": [256, 452], "jS2": [145, 462], "jF2": [186, 542],
     },
-    folk={"nettle": (84, 238), "polly": (128, 236), "jenkins": (86, 266), "tom": (126, 268)},
+    folk={"nettle": (110, 312), "polly": (166, 312), "jenkins": (110, 342), "tom": (166, 342)},
     edges=[
-        ["ashby", "jw3"], ["jw3", "jn"], ["jn", "vicarage"], ["jn", "je3"], ["je3", "assembly"],
-        ["jw3", "jw2"], ["jw2", "pryce"], ["je3", "je2"], ["je2", "whitlock"],
-        ["jw2", "jw1"], ["je2", "je1"], ["jw1", "inn"], ["je1", "school"],
-        ["jw1", "front"], ["front", "je1"], ["front", "hartfield"], ["front", "green"],
-        ["green", "nettle"], ["green", "polly"], ["green", "jenkins"], ["green", "tom"],
-        ["jw1", "jw0"], ["jw0", "draper"], ["je1", "je0"], ["je0", "post"], ["je0", "jfarm"], ["jfarm", "farm"],
+        ["abbey", "jW1"], ["jW1", "jN1"], ["jN1", "vicarage"], ["jN1", "assembly"], ["jN1", "jE1"], ["jE1", "ashby"],
+        ["jW1", "jW2"], ["jN1", "jN2"], ["jE1", "jE2"],
+        ["jW2", "library"], ["jW2", "pryce"], ["jW2", "jN2"], ["jN2", "jE2"], ["jE2", "whitlock"],
+        ["jW2", "jW3"], ["jE2", "jE3"],
+        ["jW3", "inn"], ["jW3", "jC"], ["jC", "hartfield"], ["jC", "jE3"], ["jE3", "grange"], ["jE3", "lyle"],
+        ["jC", "green"], ["green", "nettle"], ["green", "polly"], ["green", "jenkins"], ["green", "tom"], ["green", "jS1"],
+        ["jW3", "jW4"], ["jE3", "jE4"], ["jW4", "school"], ["jW4", "jS1"], ["jS1", "jE4"], ["jE4", "draper"],
+        ["jW4", "jP"], ["jP", "post"], ["jE4", "jC2"], ["jC2", "cleve"],
+        ["jS1", "jS2"], ["jS2", "jF2"], ["jF2", "farm"],
     ],
-    green=(112, 254, 20), pond=(112, 118, 24, 10), meadow=(84, 334, 144, 396),
-    sheep=[(92, 346), (114, 352), (130, 366), (100, 376), (122, 384)], hay=[(204, 300)],
-    strings=[[[86, 236], [138, 236]], [[86, 276], [138, 276]], [[60, 232], [86, 236]], [[138, 236], [162, 232]]],
-    clumps=[(70, 88, 0, 24), (132, 146, 0, 30), (0, 30, 64, 90), (40, 66, 96, 140), (156, 174, 96, 140), (196, 224, 140, 166),
-            (0, 30, 226, 250), (196, 224, 200, 246), (0, 80, 330, 400), (196, 224, 378, 400), (64, 84, 236, 300), (146, 168, 236, 300), (86, 142, 296, 330)],
-    flies=[(30, 330), (200, 380), (60, 60), (190, 160), (100, 300)],
+    green=(145, 334, 20), pond=(196, 128, 22, 10), meadow=(24, 474, 140, 552),
+    sheep=[(40, 490), (64, 500), (90, 520), (54, 532), (110, 496)], hay=[(120, 530)],
+    strings=[[[110, 312], [180, 312]], [[110, 354], [180, 354]], [[84, 290], [110, 312]], [[180, 312], [206, 290]]],
+    clumps=[(70, 90, 0, 22), (226, 248, 0, 30), (0, 40, 70, 104), (110, 140, 104, 176), (224, 262, 104, 170), (0, 56, 176, 212),
+            (292, 320, 180, 244), (66, 108, 196, 264), (0, 30, 352, 392), (64, 120, 392, 456), (160, 250, 390, 460),
+            (0, 24, 456, 560), (260, 320, 456, 560), (150, 196, 470, 540), (290, 320, 300, 390), (100, 140, 140, 196)],
+    flies=[(30, 520), (300, 470), (60, 60), (300, 200), (100, 420), (220, 420), (150, 150)],
+    spots={"willow": (162, 102, 22, 28), "reeds": (214, 128, 14, 10)},
+    beds=True,
 )
 
 # --- the tutorial lane: a small sunny afternoon
@@ -359,8 +422,42 @@ LANE = dict(
            ["mid", "hartfield"], ["west", "school2"], ["east", "cottage"], ["mid", "jenkins"]],
     green=(88, 142, 12), pond=(30, 112, 14, 7), meadow=None, sheep=[(60, 200), (100, 206)], hay=[],
     strings=[], clumps=[(64, 112, 0, 20), (0, 20, 80, 104), (156, 176, 80, 120), (60, 116, 196, 224), (0, 30, 200, 224)],
-    flies=[],
+    flies=[], spots={},
 )
+
+def blossom(rng, big=False):
+    """A tree in blossom: pink and white instead of green."""
+    t = kit.tree(rng, big)
+    px = t.load()
+    PINK = [(244, 170, 196, 255), (250, 204, 222, 255), (226, 136, 170, 255), (255, 236, 244, 255)]
+    greens = {kit.TD[:3], kit.TM[:3], kit.TL[:3], kit.TH[:3]}
+    for y in range(t.height):
+        for x in range(t.width):
+            c = px[x, y]
+            if c[3] and c[:3] in greens:
+                px[x, y] = PINK[(x * 7 + y * 3 + rng.randrange(0, 2)) % 4]
+    return t
+
+def willow():
+    im = img(22, 28)
+    R(im, 9, 14, 3, 14, kit.TRUNK); R(im, 11, 14, 1, 14, kit.TRUNKD)
+    R(im, 3, 2, 16, 6, kit.TM); R(im, 1, 5, 20, 4, kit.TM)
+    rng = random.Random(5)
+    for x in range(1, 21):
+        top = 3 if 3 < x < 18 else 6
+        length = 12 + rng.randrange(0, 8) - abs(x - 10) // 3
+        for y in range(top, min(27, top + length)):
+            if (x + y) % 2 == 0 or rng.random() < 0.6:
+                P(im, x, y, rng.choice((kit.TL, kit.TM, kit.TH)) if y < top + length - 2 else kit.TD)
+    return finish(im)
+
+def reeds():
+    im = img(14, 12)
+    for x in (1, 4, 6, 9, 12):
+        R(im, x, 3 + (x % 3), 1, 9 - (x % 3), (70, 130, 60, 255))
+        R(im, x, 1 + (x % 3), 1, 3, (120, 80, 40, 255))
+    P(im, 5, 9, (220, 220, 240, 255)); P(im, 6, 9, (200, 220, 240, 255))   # a glint of glass
+    return finish(im)
 
 def draw_map(M, sprites):
     rng = random.Random(M["seed"])
@@ -451,15 +548,39 @@ def draw_map(M, sprites):
             tx = rng.randrange(x0 - 4, max(x0 - 3, x1 - tw + 4))
             ty = rng.randrange(y0 - 6, max(y0 - 5, y1 - th + 2))
             if free(tx + 2, ty + th - 8, tx + tw - 2, ty + th) and all(abs(tx - px) > 7 or abs(ty - py) > 7 for px, py in placed):
-                deco.append((ty + th, kit.tree(rng, big), tx, ty)); placed.append((tx, ty))
+                tr = blossom(rng, big) if M.get("beds") and rng.random() < 0.28 else kit.tree(rng, big)
+                deco.append((ty + th, tr, tx, ty)); placed.append((tx, ty))
     for _ in range(W * H // 900):
         bx, by = rng.randrange(0, W - 10), rng.randrange(0, H - 7)
         if free(bx, by, bx + 10, by + 7):
             add(kit.bush(rng), bx, by)
+    if M.get("beds"):
+        # flower beds either side of every front door, and wild flowers along the paths
+        PETALS = [(250, 236, 244, 255), (240, 150, 190, 255), (250, 214, 90, 255), (200, 120, 220, 255), (255, 170, 120, 255)]
+        for pid, (x, y) in M["places"].items():
+            sp = sprites[pid]
+            dx, dy = x + sp.width // 2, y + sp.height
+            for side in (-1, 1):
+                bx0 = dx + side * 9 - (8 if side < 0 else 0)
+                for yy in range(dy - 1, dy + 3):
+                    for xx in range(bx0, bx0 + 9):
+                        if 0 <= xx < W and 0 <= yy < H and (xx, yy) not in dirt:
+                            P(im, xx, yy, (60, 104, 46, 255) if (xx + yy) % 3 else (74, 126, 54, 255))
+                for _ in range(7):
+                    xx, yy = bx0 + rng.randrange(0, 9), dy - 1 + rng.randrange(0, 4)
+                    if (xx, yy) not in dirt: P(im, xx, yy, rng.choice(PETALS))
+        for _ in range(W * H // 160):
+            x, y = rng.randrange(0, W), rng.randrange(0, H)
+            if (x, y) not in dirt and free(x, y, x + 1, y + 1):
+                P(im, x, y, rng.choice(PETALS))
+    for sid, (sx, sy, sw, sh_) in M.get("spots", {}).items():
+        art = willow() if sid == "willow" else reeds()
+        add(art, sx, sy)
     for _, s_, x, y in sorted(deco, key=lambda d: d[0]):
         kit_paste(im, s_, x, y)
     if M["night"]:
-        im = night(im, k=(0.66, 0.7, 0.86), add=(10, 14, 36))
+        # a warm, late-spring evening rather than a cold night
+        im = night(im, k=(0.82, 0.76, 0.8), add=(22, 12, 18))
         for pid, (x, y) in M["places"].items():
             s = sprites[pid]
             halo(im, x + s.width / 2, y + s.height + 2, 16, kit.WARM, 0.45)
@@ -486,6 +607,7 @@ def draw_map(M, sprites):
         "places": {k: {"x": x, "y": y, "w": sprites[k].width, "h": sprites[k].height, "node": k} for k, (x, y) in M["places"].items()},
         "folk": {k: {"x": x, "y": y, "w": 14, "h": 22, "node": k} for k, (x, y) in M["folk"].items()},
         "nodes": nodes, "edges": M["edges"], "start": "hartfield",
+        "spots": {k: {"x": x, "y": y, "w": w, "h": h} for k, (x, y, w, h) in M.get("spots", {}).items()},
     }
 
 LANE_SPR = {
@@ -555,7 +677,7 @@ def draw_ball():
 draw_ball()
 # who stands where in the ballroom (sprite top-left); "obs" are things to watch, not people to talk to
 BALL = {
-    "guests": {"pemberton": [24, 96], "pike": [160, 118], "lake": [60, 40], "fiddle": [134, 30]},
+    "guests": {"pemberton": [24, 96], "pike": [160, 118], "lake": [60, 40], "fiddle": [134, 30], "crawley": [150, 74], "thrupp": [140, 140]},
     "obs": {
         "o-dance": {"people": [["georgiana", 84, 84], ["ravel", 98, 84]]},
         "o-window": {"people": [["eleanor", 34, 20], ["hale", 44, 20]]},
@@ -569,23 +691,26 @@ BALL = {
 # ================================================================ rooms (inside the houses)
 Canvas, rgba, shade = busts.Canvas, busts.rgba, busts.shade
 RW, RH = 128, 96
-WALLPAPER = {"ashby": "f0c8d4", "vicarage": "c8ccd8", "pryce": "c8dcf0", "whitlock": "d8c8e8", "school": "f4e4b0",
+WALLPAPER = {"abbey": "a8a4bc", "library": "e8d8b8", "grange": "e4d8c4", "lyle": "f4dce4", "cleve": "d0dcc8", "ashby": "f0c8d4", "vicarage": "c8ccd8", "pryce": "c8dcf0", "whitlock": "d8c8e8", "school": "f4e4b0",
              "farm": "e8d4b0", "inn": "d8b890", "draper": "bce4dc", "post": "f0dcc0",
              "bakery": "f6e2c0", "smithy": "c8beb4", "school2": "e8f0d0", "cottage": "e6dcf2"}
-TYPE = {"ashby": "manor", "vicarage": "cottage", "pryce": "cottage", "whitlock": "manor", "school": "cottage",
+TYPE = {"abbey": "manor", "library": "shop", "grange": "manor", "lyle": "cottage", "cleve": "cottage", "ashby": "manor", "vicarage": "cottage", "pryce": "cottage", "whitlock": "manor", "school": "cottage",
         "farm": "cottage", "inn": "shop", "draper": "shop", "post": "shop",
         "bakery": "shop", "smithy": "cottage", "school2": "cottage", "cottage": "cottage"}
-FLIP = {"pryce", "school", "draper", "cottage"}
+FLIP = {"pryce", "school", "draper", "cottage", "lyle", "library"}
 DAYLIGHT = {"bakery", "smithy", "school2", "cottage"}
 ITEM_KIND = {"pianoforte": "music", "dance-card": "paper", "cowper": "book", "sermon": "paper", "borrowed": "paper", "violets": "book",
              "old-letter": "drawer", "print": "frame", "posy": "flowers", "register": "ledger", "draft": "paper", "ribbon": "book",
-             "aunt-letter": "paper", "half-letter": "paper", "order-book": "ledger", "ribbon-drawer": "drawer", "letter-rack": "rack", "parcel": "parcel",
+             "aunt-letter": "paper", "half-letter": "scraps", "music-note": "music", "riddle-book": "book", "order-book": "ledger", "ribbon-drawer": "drawer", "letter-rack": "rack", "parcel": "parcel",
+             "shawl": "shawl", "torn": "scraps", "music": "music", "desk": "drawer", "script": "paper", "workbox": "box",
+             "grant-letter": "paper", "ledger": "ledger", "udolpho": "book", "chest": "trunk",
              "horseshoe": "horseshoe", "rose": "rose", "novels": "book", "novel": "book"}
-ROOM_ITEMS = {"ashby": ["dance-card", "pianoforte"], "vicarage": ["cowper", "sermon"], "pryce": ["borrowed", "violets"],
-              "whitlock": ["old-letter", "print"], "school": ["posy", "register"], "farm": ["draft", "ribbon"],
+ROOM_ITEMS = {"lyle": ["shawl", "torn"], "cleve": ["music", "desk"], "grange": ["script", "workbox", "grant-letter"],
+              "library": ["ledger", "udolpho"], "abbey": ["chest"], "ashby": ["dance-card", "pianoforte", "music-note"], "vicarage": ["cowper", "sermon"], "pryce": ["borrowed", "violets"],
+              "whitlock": ["old-letter", "print"], "school": ["posy", "register", "riddle-book"], "farm": ["draft", "ribbon"],
               "inn": ["aunt-letter", "half-letter"], "draper": ["order-book", "ribbon-drawer"], "post": ["letter-rack", "parcel"],
               "bakery": ["horseshoe"], "smithy": ["rose"], "school2": ["novels"], "cottage": ["novel"]}
-ROOM_PEOPLE = {"inn": 2}
+ROOM_PEOPLE = {"inn": 3, "lyle": 2, "grange": 2, "abbey": 2}
 
 def item_sprite(kind):
     s = Canvas(12, 12)
@@ -613,6 +738,15 @@ def item_sprite(kind):
         s.rect(1, 3, 10, 7, rgba("c8a070")); s.rect(5, 3, 2, 7, rgba("7a5a3a")); s.rect(1, 6, 10, 1, rgba("7a5a3a"))
     elif kind == "music":
         s.rect(2, 1, 8, 10, rgba("fbf6e8")); s.rect(3, 3, 6, 1, rgba("9a9aa8")); s.rect(3, 6, 6, 1, rgba("9a9aa8")); s.rect(6, 4, 1, 4, rgba("2a1a2a")); s.rect(5, 7, 2, 1, rgba("2a1a2a"))
+    elif kind == "scraps":
+        for (x0, y0) in ((1, 6), (4, 8), (7, 5), (3, 3)):
+            s.rect(x0, y0, 4, 2, rgba("fbf6e8"))
+        s.rect(0, 10, 12, 2, rgba("3a3a40"))
+    elif kind == "shawl":
+        s.rect(1, 4, 10, 6, rgba("d8c8e8")); s.rect(1, 9, 10, 1, rgba("8a6a4a")); s.set(3, 6, rgba("8a6a4a")); s.set(7, 5, rgba("8a6a4a"))
+        for x in range(1, 11, 2): s.set(x, 10, rgba("b8a8c8"))
+    elif kind == "box":
+        s.rect(1, 4, 10, 7, rgba("c8905a")); s.rect(1, 4, 10, 2, rgba("a86a3a")); s.rect(4, 7, 4, 2, rgba("f2c040")); s.set(9, 3, rgba("e8e8f0"))
     elif kind == "horseshoe":
         s.rect(2, 2, 2, 8, rgba("b8b8c8")); s.rect(8, 2, 2, 8, rgba("b8b8c8")); s.rect(3, 9, 6, 2, rgba("b8b8c8")); s.set(5, 1, rgba("f2c040"))
     elif kind == "rose":
@@ -660,6 +794,11 @@ def deco_sprite(kind):
     return s
 
 DECOR = {  # piece, x, y (before any flip)
+    "abbey": [("clock", 6, 30), ("portrait", 100, 14)],
+    "library": [("bookcase", 100, 30), ("plant", 4, 50)],
+    "grange": [("bookcase", 4, 28), ("portrait", 100, 14)],
+    "lyle": [("piano", 2, 40), ("plant", 112, 50)],
+    "cleve": [("clock", 4, 32), ("landscape", 60, 8)],
     "ashby": [("piano", 6, 46), ("portrait", 100, 14), ("plant", 112, 50)],
     "vicarage": [("bookcase", 4, 28), ("landscape", 52, 10)],
     "pryce": [("clock", 4, 32), ("plant", 72, 48)],
@@ -702,9 +841,13 @@ def room(hid):
         r.paste(table, 80, floor_y - 4)
         slots_items = [(84, floor_y - 13), (16, floor_y + 12)]
         if hid == "ashby":
-            slots_items = [(84, floor_y - 13), (15, 38)]
+            slots_items = [(84, floor_y - 13), (15, 38), (50, floor_y - 10)]
         if hid == "whitlock":
             slots_items = [(84, floor_y - 13), (20, 20)]
+        if hid == "grange":
+            slots_items = [(84, floor_y - 13), (16, floor_y + 12), (104, floor_y + 14)]
+        if hid == "abbey":
+            slots_items = [(96, floor_y + 12)]
         slots_people = [(58, floor_y + 6), (20, floor_y + 6)]
     elif t == "cottage":
         win = Canvas(22, 20); win.rect(0, 0, 22, 20, rgba("ffffff")); win.rect(2, 2, 18, 16, rgba("2a3a6a")); win.rect(10, 2, 2, 16, rgba("ffffff"))
@@ -715,7 +858,7 @@ def room(hid):
         candle = Canvas(6, 8); candle.rect(2, 3, 2, 5, rgba("fbf6e8")); candle.rect(2, 1, 2, 2, rgba("f2c040")); candle.outline(); r.paste(candle, 100, floor_y - 35)
         table = Canvas(30, 16); table.rect(0, 0, 30, 4, rgba("8a5a2a")); table.rect(2, 4, 2, 12, rgba("6a3a1e")); table.rect(26, 4, 2, 12, rgba("6a3a1e")); table.outline()
         r.paste(table, 44, floor_y + 6)
-        slots_items = [(53, floor_y - 4), (78, floor_y + 10)]
+        slots_items = [(53, floor_y - 4), (78, floor_y + 10), (40, floor_y + 16)]
         slots_people = [(26, floor_y + 4), (84, floor_y + 6)]
     else:
         sh = Canvas(RW, 34)
@@ -730,7 +873,7 @@ def room(hid):
         for x in range(8, RW - 44, 16): counter.rect(x, 7, 10, 8, shade(rgba("8a5a2a"), 0.85))
         counter.outline(); r.paste(counter, 20, floor_y - 2)
         slots_items = [(28, floor_y - 13), (84, floor_y - 13)]
-        slots_people = [(36, floor_y + 18), (80, floor_y + 18)]
+        slots_people = [(36, floor_y + 18), (80, floor_y + 18), (58, floor_y + 30)]
     for (kind, x, y) in DECOR[hid]:
         r.paste(deco_sprite(kind) if kind != "parcel" else item_sprite("parcel"), x, y)
     item_pos = {}

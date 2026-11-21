@@ -3,24 +3,31 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { season } from "@/content/games/emma/season";
 import { tutorial } from "@/content/games/emma/tutorial";
-import type { Scenario, Speaker, Target } from "@/content/games/emma/types";
+import type { Item, Scenario, Speaker, Spot, Target } from "@/content/games/emma/types";
 import { Board } from "./Board";
+import { Cameos } from "./Cameos";
+import { castView } from "./cast";
+import { Finale } from "./Finale";
+import { PuzzleView } from "./Puzzles";
+import { sfx, startWaltz, stopWaltz, type Sfx } from "./sound";
 import { Book } from "./Book";
 import { ClueFace } from "./ClueCard";
 import { Sheet } from "./Sheet";
 import { layout } from "./layout";
 import {
-  clearGame, hasNews, isOpen, isVisible, loadGame, loadPrefs, newGame, progress, reply, rightMatches, saveGame, savePrefs, score,
+  answerQuiz, cameoLine, clearGame, endFinale, hasNews, isOpen, isVisible, loadGame, loadPrefs, newGame, progress, quizDone, reply, saveGame,
+  savePrefs, score, spotVisible, startFinale, storyProgress,
   type GameState, type Settings,
 } from "./state";
 
 const SCENARIOS: Record<Scenario["id"], Scenario> = { tutorial, season };
 
-type Talk = { who: string; title?: string; clue?: string; fresh?: boolean; wait?: string } | null;
+type Talk = { who: string; title?: string; clue?: string; fresh?: boolean; wait?: string; note?: string; quote?: string } | null;
 type MapLayout = {
   w: number;
   h: number;
   places: Record<string, { x: number; y: number; w: number; h: number; node: string }>;
+  spots?: Record<string, { x: number; y: number; w: number; h: number }>;
   folk: Record<string, { x: number; y: number; w: number; h: number; node: string }>;
   nodes: Record<string, readonly number[]>;
   edges: readonly (readonly string[])[];
@@ -30,7 +37,11 @@ const B = layout.ball;
 const ROOMS = layout.rooms as unknown as Record<string, { w: number; h: number; items: Record<string, Box>; people: Box[] }>;
 const pct = (n: number, of: number) => `${(n / of) * 100}%`;
 
+/** how big the village is drawn: bigger than a phone screen, so you can wander */
+const VILLAGE_SCALE = 2.3;
+
 const LABEL: Record<string, string> = {
+  abbey: "Abbey House", library: "Library", grange: "Elmwood Grange", lyle: "Lyle Cottage", cleve: "Cleve Lodge",
   hartfield: "Hartfield ♥", ashby: "Ashby Hall", vicarage: "Vicarage", pryce: "Dr Pryce", whitlock: "Whitlock House",
   school: "School", inn: "The Crown", draper: "Twine's", post: "Post Office", assembly: "Assembly Rooms", farm: "Brampton Farm",
   bakery: "Bakery", smithy: "Smithy", school2: "Schoolhouse", cottage: "Lavender Cottage",
@@ -61,6 +72,7 @@ export function EmmaGame() {
   const [prefs, setPrefs] = useState(() => ({ settings: { bigText: false, calm: false }, tutorialDone: false }));
   const [talk, setTalk] = useState<Talk>(null);
   const [verdict, setVerdict] = useState<number | null>(null);
+  const [puzzle, setPuzzle] = useState<string | null>(null);
   const [bookOpen, setBookOpen] = useState(false);
   const [help, setHelp] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -72,8 +84,14 @@ export function EmmaGame() {
   const [facing, setFacing] = useState<"down" | "up" | "left" | "right">("down");
   const [frame, setFrame] = useState(0);
   const anim = useRef<{ cancel: boolean } | null>(null);
+  const mapWrap = useRef<HTMLDivElement>(null);
 
+  // what's saved in this browser is only known after the page has loaded (not on the server)
+  const [seasonSave, setSeasonSave] = useState<GameState | null>(null);
   useEffect(() => setPrefs(loadPrefs()), []);
+  useEffect(() => {
+    if (menu) setSeasonSave(loadGame("season"));
+  }, [menu]);
   useEffect(() => {
     if (s && !menu) saveGame(s);
   }, [s, menu]);
@@ -89,15 +107,51 @@ export function EmmaGame() {
     requestAnimationFrame(() => setMsg(text));
   }, []);
   const update = (f: (x: GameState) => GameState) => setS((x) => (x ? f(x) : x));
+  const soundOn = !!s?.sound && !menu;
+  const play = (k: Sfx) => soundOn && sfx(k);
+  // the waltz plays at the ball, if sound is on
+  const atBall = !menu && s?.screen === "ball" && !!s?.sound;
+  useEffect(() => {
+    if (atBall) startWaltz();
+    else stopWaltz();
+    return () => stopWaltz();
+  }, [atBall]);
 
-  const sc = s ? SCENARIOS[s.scenario] : season;
+  const sc = s ? castView(SCENARIOS[s.scenario], s.cast, s.decoy) : season;
   const M = (layout[sc.map] as unknown) as MapLayout;
   const nodeXY = (n: string) => (M.nodes[n] ?? M.nodes.hartfield) as unknown as [number, number];
   const clue = (id: string) => sc.clues.find((c) => c.id === id)!;
-  const name = (id: string) => sc.people.find((p) => p.id === id)?.name ?? sc.speakers[id]?.name ?? id;
-  const role = (id: string) => sc.people.find((p) => p.id === id)?.role ?? sc.speakers[id]?.role ?? "";
+  const cameo = (id: string) => sc.cameos?.find((c) => c.id === id);
+  const name = (id: string) => sc.people.find((p) => p.id === id)?.name ?? sc.speakers[id]?.name ?? cameo(id)?.name ?? id;
+  const role = (id: string) => sc.people.find((p) => p.id === id)?.role ?? sc.speakers[id]?.role ?? (cameo(id) ? `from ${cameo(id)!.book}` : "");
+  const talkCameo = (id: string) => {
+    if (!s) return;
+    const l = cameoLine(sc, s, id);
+    if (!l) return;
+    update((x) => (x.heard.includes(l.key) ? x : { ...x, heard: [...x.heard, l.key] }));
+    setTalk({ who: id, quote: l.text });
+    play("page");
+  };
   const settings: Settings = s?.settings ?? prefs.settings;
   const calm = settings.calm;
+
+  // keep Emma in sight while the big village scrolls
+  const followKey = s?.screen === "village" ? `${Math.round(pos[0] / 12)}-${Math.round(pos[1] / 12)}` : "";
+  useEffect(() => {
+    const wrap = mapWrap.current;
+    if (!wrap || !s || s.screen !== "village") return;
+    const scale = wrap.scrollWidth / M.w;
+    const ex = pos[0] * scale;
+    const ey = pos[1] * scale;
+    const mx = wrap.clientWidth * 0.3;
+    const my = wrap.clientHeight * 0.3;
+    let left = wrap.scrollLeft;
+    let top = wrap.scrollTop;
+    if (ex < left + mx || ex > left + wrap.clientWidth - mx) left = ex - wrap.clientWidth / 2;
+    if (ey < top + my || ey > top + wrap.clientHeight - my) top = ey - wrap.clientHeight / 2;
+    if (left !== wrap.scrollLeft || top !== wrap.scrollTop) wrap.scrollTo({ left, top, behavior: calm ? "auto" : "smooth" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [followKey, s?.screen]);
 
   const start = (id: Scenario["id"], fresh: boolean) => {
     const scn = SCENARIOS[id];
@@ -116,20 +170,51 @@ export function EmmaGame() {
   const isTarget = (kind: string, id?: string) => !!target && target.kind === kind && (!("id" in target) || target.id === id);
 
   // ---------- talking ----------
+  const thing = (id: string) => sc.things?.[id] ?? { name: id, icon: "•" };
   const speak = (sp: Speaker) => {
     if (!s) return;
     const r = reply(s, sp);
     if (r.kind === "clue") {
-      update((x) => ({ ...x, found: [...x.found, r.clue] }));
-      setTalk({ who: sp.who, clue: r.clue, fresh: true });
+      update((x) => ({ ...x, found: [...x.found, r.clue], pocket: r.uses ? x.pocket.filter((p) => p !== r.uses) : x.pocket }));
+      setTalk({ who: sp.who, clue: r.clue, fresh: true, note: r.uses ? `You gave ${thing(r.uses).name.toLowerCase()} ${thing(r.uses).icon}` : undefined });
+      play("clue");
+    } else if (r.kind === "quest") {
+      update((x) => ({ ...x, flags: [...x.flags, r.flag] }));
+      setTalk({ who: sp.who, wait: r.text, note: "A favour to do" });
+      play("page");
+    } else if (r.kind === "give") {
+      update((x) => ({ ...x, flags: [...x.flags, `got-${r.item}`], pocket: [...x.pocket, r.item] }));
+      setTalk({ who: sp.who, wait: r.text, note: `${thing(r.item).icon} ${thing(r.item).name} is in your pocket` });
+      play("pick");
     } else if (r.kind === "wait") setTalk({ who: sp.who, wait: r.text });
-    else setTalk({ who: sp.who, clue: r.clue, fresh: false });
+    else setTalk(r.clue ? { who: sp.who, clue: r.clue, fresh: false } : { who: sp.who, wait: `${name(sp.who)} has nothing more to tell you.` });
   };
   const look = (label: string, id: string) => {
     if (!s) return;
     const fresh = !s.found.includes(id);
-    if (fresh) update((x) => ({ ...x, found: [...x.found, id] }));
+    if (fresh) {
+      update((x) => ({ ...x, found: [...x.found, id] }));
+      play("clue");
+    }
     setTalk({ who: "emma", title: label, clue: id, fresh });
+  };
+  const examine = (it: Item) => {
+    if (!s) return;
+    if (it.puzzle && !s.flags.includes(`solved-${it.puzzle}`)) {
+      setPuzzle(it.puzzle);
+      play("page");
+      return;
+    }
+    look(it.label, it.clue);
+  };
+  const visitSpot = (sp: Spot) => {
+    if (!s) return;
+    if (sp.give) {
+      const g = sp.give;
+      update((x) => ({ ...x, flags: [...x.flags, `got-${g.item}`], pocket: [...x.pocket, g.item] }));
+      setTalk({ who: "emma", title: sp.label, wait: g.text, note: `${thing(g.item).icon} ${thing(g.item).name} is in your pocket` });
+      play("pick");
+    } else if (sp.clue) look(sp.label, sp.clue);
   };
 
   // ---------- walking ----------
@@ -151,6 +236,7 @@ export function EmmaGame() {
       setTalk({ who: "emma", title: h.name, wait: h.locked!.text });
       return;
     }
+    play("door");
     update((x) => ({ ...x, screen: "house", house: id }));
   };
 
@@ -204,11 +290,10 @@ export function EmmaGame() {
 
   // ---------- menu ----------
   if (menu || !s) {
-    const seasonSave = typeof window !== "undefined" ? loadGame("season") : null;
     return (
       <div className={`em${settings.bigText ? " is-big" : ""}${calm ? " is-calm" : ""}`} ref={mainRef}>
         <section className="em-menu" aria-labelledby="em-title">
-          <img className="em-menu-art" src="/emma/village.png" alt="" width={224} height={400} />
+          <img className="em-menu-art" src="/emma/village.png" alt="" width={320} height={560} />
           <div className="em-menu-card">
             <p className="em-kicker">A small detective game of manners</p>
             <h1 id="em-title" className="em-h1" tabIndex={-1}>
@@ -254,8 +339,35 @@ export function EmmaGame() {
     <>
       <header className="em-hud">
         <p className="em-where">{place}</p>
+        {s.pocket.length > 0 && (
+          <p className="em-pocket">
+            <span className="sr-only">In your pocket: </span>
+            {s.pocket.map((p) => (
+              <span key={p} title={thing(p).name}>
+                <span aria-hidden="true">{thing(p).icon}</span>
+                <span className="sr-only">{thing(p).name}</span>
+              </span>
+            ))}
+          </p>
+        )}
         <div className="em-hud-actions">
-          <button type="button" className={`em-hud-btn${isTarget("book") ? " is-target" : ""}`} onClick={() => setBookOpen(true)}>
+          <button
+            type="button"
+            className="em-hud-btn is-icon"
+            aria-pressed={s.sound}
+            onClick={() => update((x) => ({ ...x, sound: !x.sound }))}
+          >
+            <span aria-hidden="true">{s.sound ? "🔊" : "🔇"}</span>
+            <span className="sr-only">Sound and music</span>
+          </button>
+          <button
+            type="button"
+            className={`em-hud-btn${isTarget("book") ? " is-target" : ""}`}
+            onClick={() => {
+              setBookOpen(true);
+              play("page");
+            }}
+          >
             <span aria-hidden="true">📖</span> Book
             {newCount > 0 && (
               <span className="em-badge">
@@ -273,6 +385,22 @@ export function EmmaGame() {
           </button>
         </div>
       </header>
+      {sc.id === "season" && (
+        <ul className="em-ribbons" aria-label="How far each love story has got">
+          {storyProgress(sc, s).map((r) => {
+            const lady = sc.people.find((p) => p.id === r.woman)!;
+            const pctDone = Math.round((r.got / r.total) * 100);
+            return (
+              <li key={r.pid}>
+                <span className="em-ribbon-name">{lady.short}</span>
+                <span className="em-ribbon" role="img" aria-label={`${lady.short}'s story: ${pctDone}%`}>
+                  <span style={{ width: `${pctDone}%` }} />
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
       {step && (
         <p className="em-guide" role="status">
           <img src="/emma/bust-emma.png" alt="" width={40} height={40} />
@@ -344,9 +472,13 @@ export function EmmaGame() {
         {hud(sc.mapName)}
         <section aria-labelledby="em-village-title">
           <h2 id="em-village-title" className="em-place" tabIndex={-1}>
-            {sc.mapName} <span className="em-muted">· tap a house or a neighbour</span>
+            {sc.mapName} <span className="em-muted">· tap a house or a neighbour; drag to look around</span>
           </h2>
-          <div className={`em-map is-village${sc.map === "lane" ? " is-day" : ""}`} style={{ aspectRatio: `${M.w} / ${M.h}` }}>
+          <div className={`em-mapwrap${sc.map === "village" ? " is-big" : ""}`} ref={mapWrap}>
+          <div
+            className={`em-map is-village${sc.map === "lane" ? " is-day" : ""}`}
+            style={{ aspectRatio: `${M.w} / ${M.h}`, width: sc.map === "village" ? `${M.w * VILLAGE_SCALE}px` : undefined }}
+          >
             <img src={`/emma/${sc.map}.png`} alt="" width={M.w} height={M.h} className="em-map-img" />
             {places.map(([id, b]) => {
               const right = b.x + b.w > M.w - 12;
@@ -402,6 +534,28 @@ export function EmmaGame() {
                 </button>
               );
             })}
+            {(sc.spots ?? []).filter((sp) => spotVisible(s, sp)).map((sp) => {
+              const b = M.spots?.[sp.id];
+              if (!b) return null;
+              return (
+                <span key={sp.id}>
+                  {sp.people?.map(([id, x, y]) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img key={id} src={`/emma/pn-${id}.png`} alt="" className="em-sprite"
+                      style={{ left: pct(b.x + x, M.w), top: pct(b.y + y, M.h), width: pct(14, M.w), height: pct(22, M.h) }} />
+                  ))}
+                  <button
+                    type="button"
+                    className={`em-spot is-glint${sp.people ? " is-meeting" : ""}`}
+                    style={{ left: pct(b.x, M.w), top: pct(b.y, M.h), width: pct(b.w, M.w), height: pct(b.h, M.h) }}
+                    onClick={() => visitSpot(sp)}
+                  >
+                    <span className="em-glint" aria-hidden="true">✦</span>
+                    <span className="sr-only">{sp.label}</span>
+                  </button>
+                </span>
+              );
+            })}
             <span
               className="em-walker"
               aria-hidden="true"
@@ -414,8 +568,10 @@ export function EmmaGame() {
                 transform: facing === "left" ? "scaleX(-1)" : undefined,
               }}
             />
+            {sc.id === "season" && sc.cameos && <Cameos M={M} cameos={sc.cameos} still={calm} onTalk={talkCameo} />}
           </div>
-          <details className="em-travel">
+          </div>
+          <details className="em-travel" open>
             <summary>Go straight to a place</summary>
             <ul>
               {places.map(([id]) => (
@@ -481,12 +637,15 @@ export function EmmaGame() {
                   type="button"
                   className={`em-spot is-item${isTarget("item", it.id) || (insideTarget && !s.found.includes(it.clue)) ? " is-target" : ""}`}
                   style={{ left: pct(box.x, R.w), top: pct(box.y, R.h), width: pct(box.w, R.w), height: pct(box.h, R.h) }}
-                  onClick={() => look(it.label, it.clue)}
+                  onClick={() => examine(it)}
                 >
                   <span className="em-mark is-look" aria-hidden="true">
-                    ?
+                    {it.puzzle && !s.flags.includes(`solved-${it.puzzle}`) ? "✎" : "?"}
                   </span>
-                  <span className="sr-only">Look at: {it.label}</span>
+                  <span className="sr-only">
+                    {it.puzzle && !s.flags.includes(`solved-${it.puzzle}`) ? "Puzzle: " : "Look at: "}
+                    {it.label}
+                  </span>
                 </button>
               );
             })}
@@ -613,18 +772,43 @@ export function EmmaGame() {
               return { ...x, proofs };
             })
           }
+          quizDone={quizDone(sc, s)}
+          onQuiz={(answers) => {
+            const r = answerQuiz(sc, s, answers);
+            setS(r.state);
+            return r.wrong;
+          }}
           onAnnounce={() => {
-            const right = rightMatches(sc, s);
-            const all = right === Object.keys(sc.pairs).length;
-            update((x) => ({ ...x, attempts: x.attempts + 1, screen: all ? "ending" : x.screen }));
-            if (all && sc.id === "tutorial") {
-              savePrefs({ tutorialDone: true });
-              setPrefs((p) => ({ ...p, tutorialDone: true }));
-            }
-            if (!all) setVerdict(right);
+            play("solve");
+            update((x) => startFinale(sc, x));
           }}
         />
       </>
+    );
+  }
+
+  if (s.screen === "finale" && s.finale) {
+    body = (
+      <Finale
+        sc={sc}
+        s={s}
+        calm={calm}
+        onNext={() => {
+          const f = s.finale!;
+          const nextLady = f.order[f.step + 1];
+          if (nextLady !== undefined) play(f.right[nextLady] ? "solve" : "wrong");
+          update((x) => ({ ...x, finale: x.finale && { ...x.finale, step: x.finale.step + 1 } }));
+        }}
+        onEnd={() => {
+          const f = s.finale!;
+          const all = f.order.every((w) => f.right[w]);
+          if (all && sc.id === "tutorial") {
+            savePrefs({ tutorialDone: true });
+            setPrefs((p) => ({ ...p, tutorialDone: true }));
+          }
+          update((x) => endFinale(x));
+        }}
+      />
     );
   }
 
@@ -722,7 +906,16 @@ export function EmmaGame() {
                 <h2 id="em-talk-title" className="em-h3">
                   {talk.title ?? name(talk.who)} <span className="em-muted">· {talk.title ? (talk.wait ? "closed" : "you look closer") : role(talk.who)}</span>
                 </h2>
-                {talk.wait ? (
+                {talk.quote ? (
+                  <figure className="em-quote">
+                    <blockquote>
+                      <p>“{talk.quote}”</p>
+                    </blockquote>
+                    <figcaption>
+                      {name(talk.who)}, <cite>{cameo(talk.who)?.book}</cite>, by Jane Austen
+                    </figcaption>
+                  </figure>
+                ) : talk.wait ? (
                   <>
                     {splitWait(talk.wait)[0] && <p className="em-said">{splitWait(talk.wait)[0]}</p>}
                     {splitWait(talk.wait)[1] && (
@@ -740,11 +933,33 @@ export function EmmaGame() {
                     {talk.fresh ? <p className="em-added">＋ Added to your book</p> : <p className="em-muted em-small">Nothing new. You already have this in your book.</p>}
                   </>
                 ) : null}
+                {talk.note && <p className="em-note">{talk.note}</p>}
                 <button type="button" className="em-btn" data-autofocus onClick={() => setTalk(null)}>
-                  {talk.wait ? "I'll remember that" : "Thank you"}
+                  {talk.quote ? "How very… Austen" : talk.wait ? "I'll remember that" : "Thank you"}
                 </button>
               </div>
             </div>
+          )}
+        </Sheet>
+
+        <Sheet open={!!puzzle} onClose={() => setPuzzle(null)} labelledBy="em-puzzle-title" wide>
+          {puzzle && s && sc.puzzles?.find((p) => p.id === puzzle) && (
+            <>
+              <PuzzleView
+                puzzle={sc.puzzles.find((p) => p.id === puzzle)!}
+                onWrong={() => play("wrong")}
+                onSolved={() => {
+                  const pz = sc.puzzles!.find((p) => p.id === puzzle)!;
+                  play("solve");
+                  update((x) => ({ ...x, flags: [...x.flags, `solved-${pz.id}`], found: x.found.includes(pz.clue) ? x.found : [...x.found, pz.clue] }));
+                  setPuzzle(null);
+                  setTalk({ who: "emma", title: pz.title, clue: pz.clue, fresh: true, note: "Solved!" });
+                }}
+              />
+              <button type="button" className="em-btn is-ghost" onClick={() => setPuzzle(null)}>
+                Leave it for now
+              </button>
+            </>
           )}
         </Sheet>
 
@@ -800,12 +1015,14 @@ export function EmmaGame() {
             How to play
           </h2>
           <ol className="em-help">
-            <li>Find out who belongs with whom. Every lady has one gentleman.</li>
+            <li>Find out who belongs with whom. Four couples belong together; one lady and one gentleman are only there to confuse you. Every new season tells different stories.</li>
             <li>Tap a house and Emma walks there. Inside, talk to people (…) and look at things (?).</li>
             <li>Every clue ends with Emma&apos;s idea of where to go next. Some doors and some people only open up once you know something.</li>
             <li>Clues have kinds: feelings, the past, obstacles, secrets and rumours. Rumours can be false.</li>
             <li>At Hartfield (♥) tap a lady, then her gentleman, and give each engagement one clue as proof.</li>
-            <li>Announce all the engagements at once. Emma only tells you how many are right, not which. There is no clock.</li>
+            <li>Before you announce, Emma asks one question about each young lady&apos;s story. Get one wrong and you must find two more clues before she asks again.</li>
+            <li>Then the ball: Emma announces the couples one by one, in front of everybody. Wrong ones are undone, and you try again. There is no clock.</li>
+            <li>Mrs Bennet, Mr Darcy and other people from Jane Austen&apos;s novels are visiting. Tap them as they stroll past.</li>
           </ol>
           <button type="button" className="em-btn" data-autofocus onClick={() => setHelp(false)}>
             Understood
@@ -824,6 +1041,12 @@ export function EmmaGame() {
             <input type="checkbox" checked={settings.calm} onChange={(e) => setSetting("calm", e.target.checked)} />
             Calmer: no walking, no moving text or bouncing marks
           </label>
+          {s && (
+            <label className="em-toggle">
+              <input type="checkbox" checked={s.sound} onChange={(e) => update((x) => ({ ...x, sound: e.target.checked }))} />
+              Sound and music (also the 🔊 button at the top)
+            </label>
+          )}
           <button type="button" className="em-btn" data-autofocus onClick={() => setSettingsOpen(false)}>
             Done
           </button>

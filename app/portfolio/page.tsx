@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Metadata } from "next";
 import { Bylines } from "@/components/notes/Bylines";
-import { caseStudies, games, githubProfile, portfolioIntro, type Tile } from "@/content/portfolio";
+import { caseStudies, games, gamesIntro, githubProfile, portfolioIntro, type Tile } from "@/content/portfolio";
 
 export const metadata: Metadata = {
   title: "Portfolio – Marcel Šedo",
@@ -13,6 +13,7 @@ export const metadata: Metadata = {
 const ext = { target: "_blank", rel: "noreferrer" } as const;
 const NewTab = () => <span className="sr-only"> (opens in a new tab)</span>;
 
+/** Use a screenshot only once its file is really in public/, so missing ones never show as broken images. */
 function hasFile(src?: string) {
   return !!src && fs.existsSync(path.join(process.cwd(), "public", src));
 }
@@ -127,30 +128,67 @@ export default function PortfolioPage() {
         </section>
       ))}
 
-      <section id="play" aria-labelledby="play-title" className="pf-play scroll-mt-6">
-        <h2 id="play-title" className="sr-only">
-          Games and code
-        </h2>
-        {games.map((g) => (
-          <a key={g.href} href={g.href} className="pf-card pixel-frame">
-            <Shot src={hasFile(g.image) ? g.image : undefined} kind="code" />
-            <span className="pf-card-body">
-              <span className="pf-kicker">{g.kicker} · Playable here</span>
-              <span className="pf-card-title">{g.title} ▶</span>
-              <span className="pf-card-text">{g.text}</span>
-            </span>
+      <section id="play" aria-labelledby="play-title" className="pixel-frame pf-case scroll-mt-6">
+        <div className="pf-case-head">
+          <div>
+            <p className="pf-kicker">{gamesIntro.kicker}</p>
+            <h2 id="play-title" className="pf-h2">
+              {gamesIntro.title}
+            </h2>
+            <p className="pf-meta">
+              <span>{gamesIntro.role}</span>
+              <span>{gamesIntro.period}</span>
+            </p>
+            <p className="pf-summary">{gamesIntro.summary}</p>
+          </div>
+          <div className="pf-did-box">
+            <h3 className="pf-h3">What was mine</h3>
+            <ul className="pf-did">
+              {gamesIntro.did.map((d) => (
+                <li key={d}>{d}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <h3 className="pf-h3">Play them</h3>
+        <ul className="pf-tiles is-three">
+          {games.map((g) => (
+            <li key={g.href}>
+              <a href={g.href} className="pf-tile">
+                <Shot src={hasFile(g.image) ? g.image : undefined} kind="code" />
+                <span className="pf-tile-text">
+                  <span className="pf-tile-label">{g.title} ▶</span>
+                  <span className="pf-tile-note">{g.note}</span>
+                  <span className="pf-tile-host">{g.kicker}</span>
+                </span>
+              </a>
+            </li>
+          ))}
+          <li>
+            <div className="pf-tile is-soon">
+              <Shot kind="code" />
+              <span className="pf-tile-text">
+                <span className="pf-tile-label">{gamesIntro.comingSoon.label}</span>
+                <span className="pf-tile-note">{gamesIntro.comingSoon.note}</span>
+                <span className="pf-tile-host">Coming soon</span>
+              </span>
+            </div>
+          </li>
+        </ul>
+
+        <ul className="pf-tags" aria-label="Tools and skills">
+          {gamesIntro.tags.map((t) => (
+            <li key={t}>{t}</li>
+          ))}
+        </ul>
+
+        <p className="pf-code-link">
+          More of my code:{" "}
+          <a href={githubProfile.href} {...ext}>
+            {githubProfile.label} ↗<NewTab />
           </a>
-        ))}
-        <a href={githubProfile.href} {...ext} className="pf-card pixel-frame is-code">
-          <Shot kind="code" />
-          <span className="pf-card-body">
-            <span className="pf-kicker">Code</span>
-            <span className="pf-card-title">
-              {githubProfile.label} ↗<NewTab />
-            </span>
-            <span className="pf-card-text">My own repositories and small experiments.</span>
-          </span>
-        </a>
+        </p>
       </section>
 
       <div id="writing" className="scroll-mt-6">
