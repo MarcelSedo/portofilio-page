@@ -99,7 +99,7 @@ export function clearGame(id: Scenario["id"]) {
   safe(() => localStorage.removeItem(SAVE_KEY(id)), undefined);
 }
 
-export type Prefs = { settings: Settings; tutorialDone: boolean };
+export type Prefs = { settings: Settings; tutorialDone: boolean; lang?: "en" | "sk" };
 export function loadPrefs(): Prefs {
   return safe(
     () => ({ settings: { bigText: false, calm: false }, tutorialDone: false, ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}") }),
@@ -173,12 +173,9 @@ export function score(sc: Scenario, s: GameState) {
   const tries = s.attempts <= 1 ? n : s.attempts === 2 ? Math.ceil(n / 2) : s.attempts === 3 ? 1 : 0;
   const total = proofs + tries;
   const max = n * 2;
-  const title =
-    total >= max ? "The most celebrated matchmaker in the county"
-      : total >= max * 0.75 ? "A very tolerable matchmaker"
-        : total >= max * 0.4 ? "Promising, but a little impulsive"
-          : "Right in the end, after a good deal of guessing";
-  return { results, proofs, tries, total, max, title };
+  /** 0 = best; the words for each rank are in i18n.tsx (ending.ranks) */
+  const rank = total >= max ? 0 : total >= max * 0.75 ? 1 : total >= max * 0.4 ? 2 : 3;
+  return { results, proofs, tries, total, max, rank };
 }
 
 /** A spot on the map shows up once you know about it, and stays until you've used it. */

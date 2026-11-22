@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { CATEGORY, type Scenario } from "@/content/games/emma/types";
+import type { Scenario } from "@/content/games/emma/types";
 import { ClueFace } from "./ClueCard";
+import { useT } from "./i18n";
 import { Sheet } from "./Sheet";
 import { QUIZ_COOLDOWN, quizLadies, quizLocked, type GameState } from "./state";
 
@@ -29,6 +30,8 @@ const bust = (id: string) => `/emma/bust-${id}.png`;
  * Tap a lady, then the gentleman she belongs with. Then give each engagement one clue as proof.
  */
 export function Board({ sc, s, setMatch, setProof, onAnnounce, quizDone, onQuiz, say, focus }: Props) {
+  const T = useT();
+  const B = T.board;
   const ladies = sc.people.filter((p) => p.sex === "f");
   const gents = sc.people.filter((p) => p.sex === "m");
   const [picked, setPicked] = useState<string | null>(null);
@@ -48,24 +51,24 @@ export function Board({ sc, s, setMatch, setProof, onAnnounce, quizDone, onQuiz,
 
   const pickLady = (id: string) => {
     setPicked(picked === id ? null : id);
-    if (picked !== id) say(`${short(id)} chosen. Now choose the gentleman for her.`);
+    if (picked !== id) say(B.picked(short(id)));
   };
   const pickGent = (id: string) => {
     if (!picked) {
       const l = ladyOf(id);
       if (l) {
         setMatch(l, null);
-        say(`${short(id)} is free again.`);
-      } else say("Choose a lady first.");
+        say(B.freed(short(id)));
+      } else say(B.ladyFirst);
       return;
     }
     if (!s.matches[picked] && matchedCount >= couples) {
-      say(`There are only ${couples} couples. Free a lady first.`);
+      say(B.tooMany(couples));
       setPicked(null);
       return;
     }
     setMatch(picked, id);
-    say(`${short(picked)} and ${short(id)}.`);
+    say(B.paired(short(picked), short(id)));
     setPicked(null);
   };
 
@@ -107,24 +110,21 @@ export function Board({ sc, s, setMatch, setProof, onAnnounce, quizDone, onQuiz,
 
   return (
     <div className="em-board">
-      <h2 className="em-h2">The wedding board</h2>
+      <h2 className="em-h2">{B.title}</h2>
       <p className="em-muted">
-        Tap a lady, then the gentleman she belongs with. {ladies.length > couples
-          ? `Only ${couples} couples belong together: one lady and one gentleman are just here to confuse you.`
-          : ""}{" "}
-        Give each engagement one clue as proof, answer Emma&apos;s questions, and announce them at the ball.
+        {B.intro} {ladies.length > couples ? B.decoys(couples) : ""} {B.then}
       </p>
 
-      <section className={`em-people${focus === "board" ? " is-focus" : ""}`} aria-label="Who belongs with whom">
-        <h3 className="em-h3">The ladies</h3>
+      <section className={`em-people${focus === "board" ? " is-focus" : ""}`} aria-label={B.people}>
+        <h3 className="em-h3">{B.ladies}</h3>
         <ul className="em-people-row">{ladies.map((l) => person(l.id, "lady"))}</ul>
-        <h3 className="em-h3">The gentlemen</h3>
+        <h3 className="em-h3">{B.gents}</h3>
         <ul className="em-people-row">{gents.map((g) => person(g.id, "gent"))}</ul>
       </section>
 
       <section className={`em-engaged${focus === "proof" ? " is-focus" : ""}`} aria-labelledby="em-engaged-title">
         <h3 id="em-engaged-title" className="em-h3">
-          Engagements and proof
+          {B.engaged}
         </h3>
         <ol className="em-engaged-list">
           {ladies.filter((l) => s.matches[l.id] || matchedCount < couples).map((l) => {
@@ -137,19 +137,21 @@ export function Board({ sc, s, setMatch, setProof, onAnnounce, quizDone, onQuiz,
                   <span aria-hidden="true">♥</span>
                   {man ? <img src={bust(man)} alt="" width={40} height={40} /> : <span className="em-q" aria-hidden="true">?</span>}
                   <span className="em-engaged-names">
-                    {l.short} &amp; {man ? short(man) : "…"}
+                    {l.short} &amp; {man ? T.mid(short(man)) : "…"}
                   </span>
                 </div>
                 {proof ? (
                   <div className="em-proof">
                     <ClueFace clue={clueById(proof)} />
                     <button type="button" className="em-btn is-ghost is-small" onClick={() => setProofFor(l.id)}>
-                      Change proof<span className="sr-only"> for {l.short}</span>
+                      {B.change}
+                      <span className="sr-only">{B.forWhom(l.short)}</span>
                     </button>
                   </div>
                 ) : (
                   <button type="button" className="em-btn is-ghost is-small" onClick={() => setProofFor(l.id)} disabled={!man}>
-                    Choose a proof<span className="sr-only"> for {l.short}</span>
+                    {B.choose}
+                    <span className="sr-only">{B.forWhom(l.short)}</span>
                   </button>
                 )}
               </li>
@@ -160,17 +162,13 @@ export function Board({ sc, s, setMatch, setProof, onAnnounce, quizDone, onQuiz,
 
       <div className={`em-announce${focus === "announce" ? " is-focus" : ""}`}>
         <button type="button" className="em-btn" onClick={() => (quizDone ? setConfirm(true) : (setQuizWrong(null), setQuizOpen(true)))} disabled={!allMatched}>
-          {quizDone ? "Announce the engagements at the ball ♥" : "Emma's questions, then the ball ♥"}
+          {quizDone ? B.toBall : B.toQuiz}
         </button>
         {!allMatched && (
-          <p className="em-muted">
-            Choose {couples} couples first ({matchedCount} so far).
-          </p>
+          <p className="em-muted">{B.needCouples(couples, matchedCount)}</p>
         )}
         {s.attempts > 0 && (
-          <p className="em-muted">
-            Announced {s.attempts} {s.attempts === 1 ? "time" : "times"} so far.
-          </p>
+          <p className="em-muted">{B.announced(s.attempts)}</p>
         )}
       </div>
 
@@ -178,12 +176,12 @@ export function Board({ sc, s, setMatch, setProof, onAnnounce, quizDone, onQuiz,
         {proofFor && (
           <>
             <h2 id="em-proof-title" className="em-h2">
-              Proof for {short(proofFor)} &amp; {s.matches[proofFor] ? short(s.matches[proofFor]) : "…"}
+              {B.proofTitle(short(proofFor), s.matches[proofFor] ? short(s.matches[proofFor]) : "…")}
             </h2>
-            <p className="em-muted">Choose the one clue that shows best that they belong together. Rumours can lie.</p>
+            <p className="em-muted">{B.proofHelp}</p>
             <label className="em-toggle">
               <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
-              Show all my clues, not only those about these two
+              {B.showAll}
             </label>
             <ul className="em-clue-list">
               {proofList(proofFor).map((id) => (
@@ -194,7 +192,7 @@ export function Board({ sc, s, setMatch, setProof, onAnnounce, quizDone, onQuiz,
                     aria-pressed={s.proofs[proofFor] === id}
                     onClick={() => {
                       setProof(proofFor, id);
-                      say(`Proof chosen: ${CATEGORY[clueById(id).cat].label}.`);
+                      say(B.proofChosen(T.cat[clueById(id).cat].label));
                       setProofFor(null);
                     }}
                   >
@@ -204,7 +202,7 @@ export function Board({ sc, s, setMatch, setProof, onAnnounce, quizDone, onQuiz,
               ))}
             </ul>
             <button type="button" className="em-btn" data-autofocus onClick={() => setProofFor(null)}>
-              Close
+              {B.close}
             </button>
           </>
         )}
@@ -216,9 +214,9 @@ export function Board({ sc, s, setMatch, setProof, onAnnounce, quizDone, onQuiz,
           <img src={bust("emma")} alt="" width={96} height={96} className="em-say-bust" />
           <div>
             <h2 id="em-quiz-title" className="em-h2">
-              Before we say anything to anybody…
+              {B.quizTitle}
             </h2>
-            <p>Let us be sure we really know these young ladies. One question each. Answer from what you have heard, not from what you hope.</p>
+            <p>{B.quizIntro}</p>
           </div>
         </div>
         <form
@@ -229,8 +227,8 @@ export function Board({ sc, s, setMatch, setProof, onAnnounce, quizDone, onQuiz,
             setQuizWrong(wrong);
             setAnswers({});
             if (!wrong.length) {
-              say("Every answer right. To the ball!");
-            } else say(`Not quite: ${wrong.map(short).join(", ")}.`);
+              say(B.quizAllRight);
+            } else say(B.quizSomeWrong(wrong.map(short).join(", ")));
           }}
         >
           {quizLadies(sc).map((w) => {
@@ -241,13 +239,13 @@ export function Board({ sc, s, setMatch, setProof, onAnnounce, quizDone, onQuiz,
             if (entry.passed)
               return (
                 <p key={w} className="em-quiz-done">
-                  <img src={bust(w)} alt="" width={40} height={40} /> <span aria-hidden="true">✓</span> {short(w)}: you know her story.
+                  <img src={bust(w)} alt="" width={40} height={40} /> <span aria-hidden="true">✓</span> {B.quizKnown(short(w))}
                 </p>
               );
             if (quizLocked(s, w))
               return (
                 <p key={w} className="em-quiz-locked">
-                  <img src={bust(w)} alt="" width={40} height={40} /> {short(w)}: “We don&apos;t know her well enough yet. Find {(entry.wrongAt ?? 0) + QUIZ_COOLDOWN - s.found.length} more {(entry.wrongAt ?? 0) + QUIZ_COOLDOWN - s.found.length === 1 ? "clue" : "clues"} first.”
+                  <img src={bust(w)} alt="" width={40} height={40} /> {B.quizLocked(short(w), (entry.wrongAt ?? 0) + QUIZ_COOLDOWN - s.found.length)}
                 </p>
               );
             return (
@@ -269,21 +267,21 @@ export function Board({ sc, s, setMatch, setProof, onAnnounce, quizDone, onQuiz,
           })}
           {quizWrong && quizWrong.length > 0 && (
             <p className="em-note" role="status">
-              Emma: “Hm. I am not at all sure about {quizWrong.map(short).join(" or ")}. Let us listen a little more: find {QUIZ_COOLDOWN} more clues, and I shall ask again, differently.”
+              {B.quizWrong(quizWrong.map((w) => T.mid(short(w))).join(B.or), QUIZ_COOLDOWN)}
             </p>
           )}
           <div className="em-row">
             {quizDone ? (
               <button type="button" className="em-btn" data-autofocus onClick={() => (setQuizOpen(false), setConfirm(true))}>
-                To the ball ♥
+                {B.toBallShort}
               </button>
             ) : quizLadies(sc).some((w) => !s.quiz[w]?.passed && !quizLocked(s, w)) ? (
               <button type="submit" className="em-btn">
-                Those are my answers
+                {B.answer}
               </button>
             ) : null}
             <button type="button" className="em-btn is-ghost" onClick={() => setQuizOpen(false)}>
-              {quizDone ? "Not yet" : "Back to the board"}
+              {quizDone ? B.notYet : B.backToBoard}
             </button>
           </div>
         </form>
@@ -294,9 +292,9 @@ export function Board({ sc, s, setMatch, setProof, onAnnounce, quizDone, onQuiz,
           <img src={bust("emma")} alt="" width={96} height={96} className="em-say-bust" />
           <div>
             <h2 id="em-confirm-title" className="em-h2">
-              Announce the engagements?
+              {B.confirmTitle}
             </h2>
-            <p>At the ball, in front of everybody, one couple at a time. If we are wrong, the whole village will know it by breakfast.</p>
+            <p>{B.confirmBody}</p>
             <div className="em-row">
               <button
                 type="button"
@@ -307,10 +305,10 @@ export function Board({ sc, s, setMatch, setProof, onAnnounce, quizDone, onQuiz,
                   onAnnounce();
                 }}
               >
-                To the Assembly Rooms
+                {B.confirmGo}
               </button>
               <button type="button" className="em-btn is-ghost" onClick={() => setConfirm(false)}>
-                Not yet
+                {B.notYet}
               </button>
             </div>
           </div>

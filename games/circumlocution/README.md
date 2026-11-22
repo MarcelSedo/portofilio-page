@@ -31,3 +31,16 @@ Saves live in localStorage under `circumlocution-v2`.
 Cases are plain objects in `src/content/cases.ts`. A choice can need evidence (`records`, `match`,
 `differ`, `pancks`), earlier events (flags, `!flag`, `count>=n`) or another case (`seen@id`,
 `records@id`, `pancks@id`). Strings on the board live in `src/content/board.ts`.
+
+## Changelog
+- **0.4** Precedents (your exceptions come back: the Yard after Plornish, a false "widow" after Rachael,
+  Turveydrop and the 'Other needs' box), Mr Rugg with a logic of his own (Junior hints the day before;
+  biggest unexplained sum first; two of a kind = a file; answer him: accept, repay, or blame Junior),
+  Miss Flite's line rewritten (Krook's will, Richard's loan, the Court's deadline, judgment day),
+  Merdle in three phases (Ferdinand's pre-approval on Tuesday, the licence on Wednesday, your wages
+  on Thursday), Bucket can get Heep's file without your confession (Heep keeps books), evening
+  extras (night copying, pawning the watch, a loan to Mrs Bagnet), "Our Man at Whitehall" in every
+  Gazette, ten endings by favour, good, Fund, family, reforms and bribes.
+- **0.3** Own folder, corkboard with strings, cross-links, Pancks's Friday case.
+- **0.2** Losing, household, scarce Fund, auditor, bribes, Victorian look.
+- **0.1** Five-day MVP.

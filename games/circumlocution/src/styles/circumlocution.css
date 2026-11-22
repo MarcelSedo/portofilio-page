@@ -448,3 +448,10 @@
 .co-strand-note { font-style: italic; color: var(--muted); }
 .co-badge { display: inline-block; min-width: 20px; padding: 0 5px; color: #fff; background: var(--red); border-radius: 10px; font-family: system-ui, sans-serif; font-size: 0.8em; }
 .co-hud-btns { flex-wrap: wrap; }
+
+/* ---------- v4 ---------- */
+.co-audit { display: grid; gap: 8px; margin-top: 10px; }
+.co-gz-list li.is-column { font-style: italic; border-top: 3px double var(--ink); }
+.co-gz-list li.is-column::first-letter { font-size: 1em; }
+.co-bill.is-extra { background: #f1ead6; border-style: dashed; }
+.co-btn:disabled { cursor: not-allowed; }

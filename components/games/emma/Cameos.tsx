@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Cameo } from "@/content/games/emma/types";
+import { useT } from "./i18n";
 
 type MapLayout = { w: number; h: number; nodes: Record<string, readonly number[]>; edges: readonly (readonly string[])[]; folk: Record<string, unknown> };
 type Walker = { id: string; from: string; to: string; t: number; len: number; frame: number; facing: "down" | "up" | "left" | "right" };
@@ -14,6 +15,7 @@ const pct = (n: number, of: number) => `${(n / of) * 100}%`;
  * straight out of their book. With "calmer" on (or reduced motion), they stand still.
  */
 export function Cameos({ M, cameos, still, onTalk }: { M: MapLayout; cameos: Cameo[]; still: boolean; onTalk: (id: string) => void }) {
+  const T = useT();
   const graph = useRef<Map<string, string[]>>(new Map());
   if (!graph.current.size) {
     for (const [a, b] of M.edges) {
@@ -96,7 +98,7 @@ export function Cameos({ M, cameos, still, onTalk }: { M: MapLayout; cameos: Cam
               }}
             />
             <span className="sr-only">
-              {c.name}, from {c.book}, out for a walk
+              {T.talk.walking(c.name, c.book)}
             </span>
           </button>
         );

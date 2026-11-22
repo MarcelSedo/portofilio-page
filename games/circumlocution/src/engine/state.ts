@@ -1,7 +1,7 @@
 import { CASES } from "../content/cases";
 import { PINS, STRANDS, type StrandState } from "../content/board";
-import { AUDITOR, DAYS, DISMISS_AT, EPILOGUE, HOUSE, PANCKS_DAYS, REFORM_BONUS, START } from "../content/days";
-import type { Case, Choice, Effect, Meter, Need, Outcome } from "../content/types";
+import { AUDITOR, BRIBE_FLAGS, DAYS, DISMISS_AT, EPILOGUE, HOUSE, PANCKS_DAYS, REFORM_BONUS, REFORM_FLAGS, START, titleFor } from "../content/days";
+import type { Case, Choice, Effect, Meter, Need, Outcome, RiskKind } from "../content/types";
 
 export const SAVE_KEY = "circumlocution-v2";
 export const PREFS_KEY = "circumlocution-prefs";
@@ -14,10 +14,12 @@ export type Over = "dismissed" | "evicted" | "alone";
 export type Work = { opened?: boolean; searched?: boolean; compared?: Judge; pancks?: boolean; atPancks?: boolean };
 export type Decision = { caseId: string; day: number; stamp: string; log: string; ignored?: boolean };
 export type Result = { caseId: string; choiceId: string };
-export type Risk = { caseId: string; day: number; finding: string; safe: boolean; audited?: boolean };
-export type Home = { hungry: number; cold: number; arrears: number; ill: string | null; illNights: number };
+export type Risk = { caseId: string; day: number; finding: string; safe: boolean; kind: RiskKind; sum: number; audited?: boolean };
+export type Home = { hungry: number; cold: number; arrears: number; ill: string | null; illNights: number; badNights: number };
 export type Night = { wage: number; spent: number; notes: string[] };
-export type Bills = { rent: boolean; food: boolean; coal: boolean; medicine: boolean };
+export type Bills = { rent: boolean; food: boolean; coal: boolean; medicine: boolean; copying?: boolean; pawn?: boolean; lend?: boolean };
+export type AuditMove = "accept" | "repay" | "blame";
+export type Audit = { text: string; ok: boolean; pending?: boolean; investigation?: boolean; caseId?: string };
 
 export type Game = {
   v: 2;
@@ -41,7 +43,7 @@ export type Game = {
   result: Result | null;
   decisions: Decision[];
   risks: Risk[];
-  audit: { text: string; ok: boolean } | null;
+  audit: Audit | null;
   gazette: string[];
   /** headlines from today's stamps, printed tomorrow */
   tomorrow: string[];
@@ -55,7 +57,7 @@ export type Game = {
 
 export const byId: Record<string, Case> = Object.fromEntries(CASES.map((c) => [c.id, c]));
 export const dayInfo = (d: number) => DAYS[d - 1];
-export const wage = (g: Game) => HOUSE.wage(g.meters.favour);
+export const wage = (g: Game) => Math.max(2, HOUSE.wage(g.meters.favour) - (g.flags.includes("wage_cut") ? 1 : 0));
 
 /* ------------------------------- needs ------------------------------- */
 const EVIDENCE = new Set(["records", "match", "differ", "pancks"]);
@@ -123,22 +125,94 @@ function setFlags(g: Game, set: string[] | undefined) {
   for (const f of set ?? []) if (!g.flags.includes(f)) g.flags.push(f);
 }
 
+const KIND_WORDS: Record<RiskKind, string> = {
+  relief: "relief paid without proper papers",
+  pension: "pensions outside the regulations",
+  school: "schools closed on thin evidence",
+  grant: "grants turned to other uses",
+  register: "gaps in the registers",
+};
+
+/**
+ * Mr Rugg is not random. On Wednesday he looks at relief (Junior warns you on Tuesday);
+ * on Friday at whatever kind of irregular stamp you have made most often. He takes the
+ * biggest unexplained sum first. Two unexplained stamps of the same kind make a pattern,
+ * and a pattern gets a file.
+ */
 function runAudit(g: Game) {
   const open = g.risks.filter((r) => !r.audited);
-  const pick = open.find((r) => !r.safe) ?? open[0];
+  const tally = new Map<RiskKind, number>();
+  for (const r of g.risks) tally.set(r.kind, (tally.get(r.kind) ?? 0) + 1);
+  const interest: RiskKind | undefined = g.day === 3 ? "relief" : [...tally.entries()].sort((x, y) => y[1] - x[1])[0]?.[0];
+  const rank = (r: Risk) => (r.safe ? 0 : 100) + (r.kind === interest ? 50 : 0) + r.sum;
+  const pick = [...open].sort((x, y) => rank(y) - rank(x))[0];
+  const lead = interest ? `Mr Rugg is looking at ${KIND_WORDS[interest]}. ` : "";
   if (!pick) {
-    g.audit = { text: "Mr Rugg goes through your stamps and finds nothing irregular. He seems disappointed.", ok: true };
+    g.audit = { text: `${lead}He goes through your stamps and finds nothing irregular. He seems disappointed.`, ok: true };
     return;
   }
   pick.audited = true;
   const who = byId[pick.caseId].who;
   if (pick.safe) {
     apply(g, { favour: 1 });
-    g.audit = { text: `Mr Rugg checks your stamp for ${who}: ${pick.finding}. The evidence is on file. "Irregular, but documented. Hm." Favour +1.`, ok: true };
-  } else {
-    apply(g, { favour: -3 });
-    g.audit = { text: `Mr Rugg checks your stamp for ${who} and finds ${pick.finding}, with nothing on file to explain it. A black mark: favour −3.`, ok: false };
+    g.audit = { text: `${lead}He checks your stamp for ${who}: ${pick.finding}. The evidence is on file. "Irregular, but documented. Hm." Favour +1.`, ok: true };
+    return;
   }
+  const same = g.risks.filter((r) => r.kind === pick.kind && !r.safe).length;
+  const investigation = same >= 2;
+  g.audit = {
+    text: `${lead}He checks your stamp for ${who} and finds ${pick.finding}, with nothing on file to explain it.${
+      investigation ? ` And it is not the first time: he has found ${same} of these. "That is not an accident. That is a habit."` : ""
+    }`,
+    ok: false,
+    pending: true,
+    investigation,
+    caseId: pick.caseId,
+  };
+}
+
+export const auditMoves = (g: Game) => {
+  const inv = !!g.audit?.investigation;
+  const moves: { id: AuditMove; label: string; detail: string; enabled: boolean }[] = [
+    { id: "accept", label: "Accept the black mark", detail: inv ? "Favour −5, and Mr Rugg opens a file on you." : "Favour −3.", enabled: true },
+    { id: "repay", label: "Make it good from your own purse (10s)", detail: inv ? "Purse −10s, favour −3, and the file stays open." : "Purse −10s, favour −1.", enabled: g.purse >= 10 },
+  ];
+  if (!g.flags.includes("junior_blamed")) moves.push({ id: "blame", label: "Say Barnacle Junior stamped it", detail: inv ? "Favour −2. He won't argue. Good −1." : "No black mark. He won't argue. Good −1.", enabled: true });
+  return moves;
+};
+
+export function resolveAudit(g0: Game, move: AuditMove): Game {
+  if (!g0.audit?.pending) return g0;
+  const g = clone(g0);
+  const inv = !!g.audit!.investigation;
+  let text = "";
+  if (move === "accept") {
+    apply(g, { favour: inv ? -5 : -3 });
+    text = inv ? "Mr Rugg writes your name on a new file, and puts it on top of the pile. Favour −5." : "Mr Rugg writes it down. Favour −3.";
+  } else if (move === "repay" && g.purse >= 10) {
+    g.purse -= 10;
+    apply(g, { favour: inv ? -3 : -1 });
+    text = inv ? "You count ten shillings onto his desk. He takes them, and keeps the file open anyway." : "You count ten shillings onto his desk. \"Restitution. Hm. Most irregular. Most correct.\" Favour −1.";
+  } else {
+    apply(g, { favour: inv ? -2 : 0, good: -1 });
+    setFlags(g, ["junior_blamed"]);
+    text = "You say it was Barnacle Junior's stamp. He opens his mouth, looks at you, and shuts it again. Mr Rugg writes down his name instead.";
+  }
+  if (inv) setFlags(g, ["rugg_file"]);
+  g.audit = { text, ok: move !== "accept", pending: false };
+  if (g.over) g.screen = "over";
+  return g;
+}
+
+/** Our Man at Whitehall: a line about you in every morning's paper */
+function reputation(g: Game) {
+  const { favour, good } = g.meters;
+  if (g.flags.includes("cobb_paid")) return "Our Man at Whitehall: in Seven Dials they say the new clerk 'gives a pension to any story with a bonnet on it'.";
+  if (favour >= 4 && good <= 0) return "Our Man at Whitehall: the new clerk is 'a credit to the Barnacles'. The queues outside grow longer.";
+  if (good >= 8 && favour <= -3) return "Our Man at Whitehall: a clerk who 'actually reads things' has been seen at the Office. Upstairs is said to be alarmed.";
+  if (good >= 8) return "Our Man at Whitehall: word in the poorer streets is that there is a clerk at the Office who listens.";
+  if (favour <= -5) return "Our Man at Whitehall: there is talk of a clerk 'on thin ice'. Nobody upstairs will say who.";
+  return "Our Man at Whitehall: the Office remains, as ever, the Office.";
 }
 
 function startDay(g: Game, d: number) {
@@ -172,8 +246,13 @@ function startDay(g: Game, d: number) {
     setFlags(g, h.set);
   }
   g.gazette = [...fixed.map((h) => h.text), ...g.tomorrow];
+  if (d > 1) g.gazette.push(reputation(g));
   g.tomorrow = [];
   if (info.audit) runAudit(g);
+  if (g.flags.includes("tired")) {
+    g.hours -= 1;
+    g.flags = g.flags.filter((f) => f !== "tired");
+  }
 
   const fresh = CASES.filter((c) => c.day === d && !g.done.includes(c.id) && allMet(g, c.requires)).map((c) => c.id);
   g.pile = [...back, ...fresh];
@@ -190,7 +269,7 @@ export function newGame(): Game {
     hours: 0,
     meters: { ...START },
     purse: HOUSE.purse,
-    home: { hungry: 0, cold: 0, arrears: 0, ill: null, illNights: 0 },
+    home: { hungry: 0, cold: 0, arrears: 0, ill: null, illNights: 0, badNights: 0 },
     night: null,
     over: null,
     flags: [],
@@ -270,7 +349,7 @@ function settle(g: Game, c: Case, o: Outcome, stamp: string, ignored = false) {
   apply(g, o.effect);
   g.purse += o.purse ?? 0;
   setFlags(g, o.set);
-  if (o.count) g.counts[o.count] = (g.counts[o.count] ?? 0) + 1;
+  if (o.count) g.counts[o.count] = (g.counts[o.count] ?? 0) + (o.countBy ?? 1);
   if (o.gazette) g.tomorrow.push(o.gazette);
   g.decisions.push({ caseId: c.id, day: g.day, stamp, log: o.log, ignored });
   g.done.push(c.id);
@@ -286,7 +365,15 @@ export function decide(g0: Game, choiceId: string): Game {
   const g = clone(g0);
   const ch = view.choice;
   g.hours -= ch.cost ?? 0;
-  if (ch.risky) g.risks.push({ caseId: id, day: g.day, finding: ch.risky.finding, safe: !!ch.risky.safeWith && allMet(g, ch.risky.safeWith, id) });
+  if (ch.risky)
+    g.risks.push({
+      caseId: id,
+      day: g.day,
+      finding: ch.risky.finding,
+      kind: ch.risky.kind,
+      sum: ch.risky.sum ?? 0,
+      safe: !!ch.risky.safeWith && allMet(g, ch.risky.safeWith, id),
+    });
   settle(g, c, ch, ch.stamp);
   g.result = { caseId: id, choiceId };
   return g;
@@ -320,6 +407,17 @@ export function billsFor(g: Game) {
   return list;
 }
 
+/** things you may do at home tonight, besides paying: they add money or take it */
+export function extrasFor(g: Game) {
+  const list: { key: keyof Bills; label: string; amount: number; note: string }[] = [];
+  if (g.day >= 2 && g.day < LAST_DAY)
+    list.push({ key: "copying", label: "Night copying for Mr Snagsby, law-stationer", amount: 2, note: "+2s. You'll be at the desk an hour late tomorrow." });
+  if (!g.flags.includes("watch_pawned")) list.push({ key: "pawn", label: "Pawn your father's watch", amount: 5, note: "+5s. You won't get it back this week." });
+  if (g.day === 3 && g.purse + wage(g) >= 2)
+    list.push({ key: "lend", label: "Lend Mrs Bagnet next door 2s for her children's boots", amount: -2, note: "−2s. She says she'll pay you back. She usually does." });
+  return list;
+}
+
 /** pay the bills at home, see what the night brings */
 export function goToBed(g0: Game, pay: Bills): Game {
   const g = clone(g0);
@@ -327,6 +425,27 @@ export function goToBed(g0: Game, pay: Bills): Game {
   g.purse += earned;
   const notes: string[] = [];
   let spent = 0;
+  if (pay.copying && g.day >= 2 && g.day < LAST_DAY) {
+    g.purse += 2;
+    setFlags(g, ["tired"]);
+    notes.push("You copy law-writing for Mr Snagsby until two in the morning. Two shillings, and sore eyes.");
+  }
+  if (pay.pawn && !g.flags.includes("watch_pawned")) {
+    g.purse += 5;
+    setFlags(g, ["watch_pawned"]);
+    notes.push("The pawnbroker gives you five shillings for your father's watch, and a ticket.");
+  }
+  if (pay.lend && g.day === 3 && g.purse >= 2) {
+    g.purse -= 2;
+    setFlags(g, ["bagnet_lent"]);
+    notes.push("Mrs Bagnet takes the two shillings, and squeezes your hand.");
+  }
+  let stew = false;
+  if (g.day === LAST_DAY && g.flags.includes("bagnet_lent")) {
+    g.purse += 3;
+    stew = true;
+    notes.push("Mrs Bagnet knocks: three shillings, 'one for the kindness', and a pot of stew. Supper is paid for.");
+  }
   const payIf = (want: boolean, cost: number) => {
     if (want && g.purse >= cost) {
       g.purse -= cost;
@@ -355,7 +474,7 @@ export function goToBed(g0: Game, pay: Bills): Game {
     notes.push(g.home.arrears >= 2 ? "The landlord comes with two men and a cart." : "The landlord knocks, and says he'll come back tomorrow.");
     if (g.home.arrears >= 2) g.over = g.over ?? "evicted";
   }
-  if (payIf(pay.food, HOUSE.food)) g.home.hungry = 0;
+  if (stew || payIf(pay.food, HOUSE.food)) g.home.hungry = 0;
   else {
     g.home.hungry += 1;
     notes.push("Supper is bread and water. The children don't complain, which is worse.");
@@ -365,6 +484,8 @@ export function goToBed(g0: Game, pay: Bills): Game {
     g.home.cold += 1;
     notes.push("No fire. You all sleep in your coats.");
   }
+
+  if (g.home.hungry || g.home.cold || g.home.arrears) g.home.badNights += 1;
 
   // new illness
   if (!g.home.ill && !g.over) {
@@ -411,6 +532,18 @@ export const goTo = (g0: Game, screen: Screen): Game => ({ ...g0, screen });
 
 export function epilogue(g: Game) {
   return EPILOGUE.filter((e) => allMet(g, e.requires)).map((e) => e.text);
+}
+
+export function ending(g: Game) {
+  return titleFor({
+    favour: g.meters.favour,
+    good: g.meters.good,
+    money: g.meters.money,
+    purse: g.purse,
+    badNights: g.home.badNights ?? 0,
+    reforms: REFORM_FLAGS.filter((f) => g.flags.includes(f)).length,
+    bribes: BRIBE_FLAGS.filter((f) => g.flags.includes(f)).length,
+  });
 }
 
 export function homeLine(g: Game) {
@@ -461,6 +594,7 @@ export function loadGame(): Game | null {
     const g = JSON.parse(raw) as Game;
     if (g?.v !== 2) return null;
     g.boardSeen ??= [];
+    g.home.badNights ??= 0;
     return g;
   } catch {
     return null;

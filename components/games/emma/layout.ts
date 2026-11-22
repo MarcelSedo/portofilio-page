@@ -554,6 +554,14 @@ export const layout = {
     88,
     64
    ],
+   "nw": [
+    40,
+    64
+   ],
+   "ne": [
+    140,
+    64
+   ],
    "mid": [
     88,
     142
@@ -574,18 +582,26 @@ export const layout = {
   "edges": [
    [
     "bakery",
+    "nw"
+   ],
+   [
+    "nw",
     "top"
    ],
    [
     "top",
+    "ne"
+   ],
+   [
+    "ne",
     "smithy"
    ],
    [
-    "top",
+    "nw",
     "west"
    ],
    [
-    "top",
+    "ne",
     "east"
    ],
    [

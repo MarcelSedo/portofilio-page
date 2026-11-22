@@ -38,7 +38,10 @@ export const DAYS: DayInfo[] = [
     day: 2,
     name: "Tuesday",
     hours: 8,
-    morning: ["Morning! Read the paper? Nobody does, but you should, you know. Everything you stamped yesterday is in it somehow."],
+    morning: [
+      "Morning! Read the paper? Nobody does, but you should, you know. Everything you stamped yesterday is in it somehow.",
+      "Oh, and Mr Rugg the auditor comes in tomorrow. Between ourselves, he's been going on about relief paid out without proper papers. Loans, certificates, that sort of thing.",
+    ],
     memo: {
       id: "memo2",
       kind: "memo",
@@ -67,8 +70,12 @@ export const DAYS: DayInfo[] = [
     day: 4,
     name: "Thursday",
     hours: 8,
-    morning: ["Morning! Busy day. There's a detective in the waiting room. And a very small boy with a broom. I didn't ask."],
+    morning: [
+      "Morning! Busy day. There's a detective in the waiting room. And a very small boy with a broom. I didn't ask.",
+      "Rugg's back on Friday, you know. He told me he looks hardest at whatever a clerk does most often. Says it's a habit by then, not an accident.",
+    ],
     headlines: [
+      { text: "From Mr Tite Barnacle's office: the new clerk's wages are 'under review'. One shilling a day, from today.", requires: ["merdle_no"], set: ["wage_cut"] },
       { text: "MERDLE SHARES AT A RECORD. 'He cannot fail,' writes our City correspondent." },
       { text: "Mr Tite Barnacle 'has questions' about the new clerk's speed.", requires: ["doyce>=2"] },
     ],
@@ -82,7 +89,7 @@ export const DAYS: DayInfo[] = [
     headlines: [
       {
         text: "Inspector Bucket asks the Office about a gold sovereign that passed from Mr Heep to one of its clerks.",
-        requires: ["heep_bribe", "!confessed"],
+        requires: ["heep_bribe", "bucket_ally", "!confessed"],
         effect: { favour: -6 },
       },
       { text: "A list of Office clerks who held Merdle shares is printed in full. Yours is on it.", requires: ["merdle_shares"], effect: { favour: -3 } },
@@ -111,6 +118,7 @@ export const DAYS: DayInfo[] = [
 export const REFORM_BONUS = 2;
 
 export const EPILOGUE: Epilogue[] = [
+  { text: "The later Jarndyce will was read in Court. It ended the suit in a day.", requires: ["will_copied"] },
   { text: "Jarndyce and Jarndyce reached judgment while something was left. Ada Clare and Richard Carstone got a little money, and Miss Flite let her birds go.", requires: ["jarndyce>=3"] },
   { text: "Jarndyce and Jarndyce ended at last. The costs had eaten the whole estate. Miss Flite let her birds go anyway.", requires: ["!jarndyce>=3"] },
   { text: "Daniel Doyce got his patent in a week on the one-page form. The form spread to three other departments before anyone noticed.", requires: ["reform"] },
@@ -135,22 +143,50 @@ export const EPILOGUE: Epilogue[] = [
   { text: "Merdle's Bank fell, but Inspector Bucket got the Office's money out the night before. Nobody upstairs has thanked him.", requires: ["merdle_ok", "bucket_ally"] },
   { text: "You refused Merdle's Bank. Mr Tite Barnacle now tells everyone it was his idea.", requires: ["merdle_no"] },
   { text: "Inspector Bucket thanked you for the sovereign and used it as evidence against Mr Heep.", requires: ["confessed"] },
+  { text: "Uriah Heep's books listed 'one sovereign, to the clerk'. Inspector Bucket read them aloud in court.", requires: ["heep_bribe", "bucket_ally", "!confessed"] },
+  { text: "Nobody ever learned about Heep's sovereign. You did not tell Bucket, and Bucket never saw the books.", requires: ["heep_bribe", "!bucket_ally"] },
   { text: "Rachael Hopkins's three children stayed out of the workhouse.", requires: ["rachael_paid"] },
   { text: "Charley Neckett kept her brother and sister together all winter.", requires: ["neckett_ok"] },
   { text: "Pancks cut off the Patriarch's long white hair in front of the whole Yard. The rents came down the next week.", requires: ["casby_shorn"] },
   { text: "Daniel Doyce took on twenty men at his works in Bleeding Heart Yard. The first was Mr Plornish.", requires: ["reform"] },
   { text: "Rachael Hopkins brought her son Will home from Yorkshire.", requires: ["rachael_paid", "squeers_placed"] },
   { text: "Will Hopkins is still at Dotheboys Hall. His mother writes every week. The letters are not given to him.", requires: ["seen@widows", "!squeers_placed"] },
-  { text: "The 'Other needs' box is still on Form R-4. Nobody has dared take it off.", requires: ["box_other"] },
+  { text: "Richard Carstone, who never signed Vholes's last loan, got his share.", requires: ["will_copied", "!richard_loan"] },
+  { text: "Richard Carstone's share went to Mr Vholes, at forty per cent.", requires: ["richard_loan"] },
+  { text: "Seven Dials learned that the Office paid pensions to anyone with a story. The queue on Monday went round the block.", requires: ["cobb_paid"] },
+  { text: "Your exception for Rachael Hopkins stood, because you could say why it was one.", requires: ["precedent_reasoned"] },
+  { text: "Bleeding Heart Yard's own list of rents went into the record beside Pancks's. Casby could not call it one man's spite.", requires: ["yard_free"] },
+  { text: "The five sixpences you paid for the Yard went to Mr Casby, who raised the rents again in December.", requires: ["yard_paid", "!casby_shorn"] },
+  { text: "Mr Turveydrop wore his new gloves to the Office's Christmas party. Upstairs, they started to look hard at your box.", requires: ["box_abused"] },
+  { text: "The 'Other needs' box keeps the line you wrote under it: 'for those with no one else to help them'. It is still used.", requires: ["box_rule"] },
+  { text: "Without a rule, the 'Other needs' box was quietly taken off the form in the spring.", requires: ["box_other", "!box_rule", "box_doubted"] },
+  { text: "Mr Rugg opened a file on you. It is still open.", requires: ["rugg_file"] },
+  { text: "Barnacle Junior took the blame for your stamp. He never mentioned it again, and never quite looked at you again either.", requires: ["junior_blamed"] },
+  { text: "Your watch is still at the pawnbroker's. You tell the time by the Office clock.", requires: ["watch_pawned"] },
+  { text: "Mrs Bagnet next door paid back your two shillings with a third, and a stew.", requires: ["bagnet_lent"] },
+  { text: "The 'Other needs' box is still on Form R-4. Nobody has dared take it off.", requires: ["box_other", "!box_rule", "!box_doubted", "!box_abused"] },
 ];
 
-/** title for the personal file */
-export function titleFor(favour: number, good: number): { title: string; note: string } {
-  if (favour >= 6 && good <= 2) return { title: "A Perfect Barnacle", note: "Mr Tite Barnacle recommends you for promotion. Nothing happened all week, beautifully." };
-  if (good >= 12 && favour <= -4) return { title: "A Dangerous Reformer", note: "Mr Tite Barnacle recommends that you be moved to a room without a door." };
-  if (good >= 10) return { title: "A Clerk Who Got Things Done", note: "Nobody upstairs is quite sure how. They are looking into it." };
-  if (good <= -6) return { title: "A Pillar of the Office", note: "The pile on your desk is the tallest in the building. People have been seen to weep near it." };
-  return { title: "An Ordinary Clerk", note: "Some papers moved, some didn't. Mr Tite Barnacle could not remember your name, which he considers a compliment." };
+export type Ledger = { favour: number; good: number; money: number; purse: number; badNights: number; reforms: number; bribes: number };
+
+/** title for the personal file: the first that fits */
+export const ENDINGS: { title: string; note: string; when: (l: Ledger) => boolean }[] = [
+  { title: "A Comfortable Man", note: "Your purse is heavier than your conscience. Mr Tite Barnacle notes that you 'understand how things are done'.", when: (l) => l.bribes > 0 && l.good <= 4 },
+  { title: "A Perfect Barnacle", note: "Mr Tite Barnacle recommends you for promotion. Nothing happened all week, beautifully.", when: (l) => l.favour >= 6 && l.good <= 2 },
+  { title: "A Pillar of the Office", note: "The pile on your desk is the tallest in the building. People have been seen to weep near it.", when: (l) => l.good <= -6 },
+  { title: "A Quiet Reformer", note: "You changed the forms and kept your post. Upstairs, nobody is quite sure who drew the new boxes.", when: (l) => l.reforms >= 2 && l.favour > -4 && l.good >= 8 },
+  { title: "A Dangerous Reformer", note: "Mr Tite Barnacle recommends that you be moved to a room without a door.", when: (l) => l.good >= 12 && l.favour <= -4 },
+  { title: "Kind at Home's Expense", note: "The Yard blesses your name. Your own children went to bed hungry for it.", when: (l) => l.good >= 8 && l.badNights >= 3 },
+  { title: "A Clerk Who Got Things Done", note: "Nobody upstairs is quite sure how. They are looking into it.", when: (l) => l.good >= 10 },
+  { title: "A Careful Steward", note: "You spent the Fund as if it were your own, which is to say, hardly at all, and well.", when: (l) => l.money >= 15 && l.good >= 4 },
+  { title: "A Family Man", note: "You kept your post and your family warm, and did what good you could around the edges. In 1855, that is not nothing.", when: (l) => l.badNights === 0 && l.good >= 2 },
+  { title: "An Ordinary Clerk", note: "Some papers moved, some didn't. Mr Tite Barnacle could not remember your name, which he considers a compliment.", when: () => true },
+];
+export const REFORM_FLAGS = ["box_other", "box_rule", "reform", "casby_shorn", "reform_letter", "precedent_reasoned"];
+export const BRIBE_FLAGS = ["heep_bribe", "merdle_shares", "magwitch_reported"];
+
+export function titleFor(l: Ledger) {
+  return ENDINGS.find((e) => e.when(l))!;
 }
 
 export const AUDITOR = { name: "Mr Rugg, auditor", face: "rugg" };
@@ -189,5 +225,9 @@ export const FACES: Record<string, Face> = {
   wickfield: { skin: "#e9b8a0", hair: "#d8d0c4", hat: "none", coat: "#2a2a30", cravat: "#e8e0d0" },
   losberne: { skin: S.warm, hair: "#5a4a3a", hat: "none", coat: "#3a3a2a", specs: true, beard: "mutton" },
   tomg: { skin: S.pale, hair: "#9a7a4a", hat: "none", coat: "#5a4a3a", cravat: "#a83a3a", young: true },
+  ferdinand: { skin: S.pale, hair: "#d8b06a", hat: "none", coat: "#5a6a9a", cravat: "#e8d0e0", monocle: true, young: true },
+  yard: { skin: S.warm, hair: "#5a4a3a", hat: "cap", hatColor: "#6a5a4a", coat: "#5a5040", beard: "stubble" },
+  cobb: { skin: S.pale, hair: "#c8642a", hat: "bonnet", hatColor: "#6a2a4a", coat: "#8a3a5a" },
+  turveydrop: { skin: "#f0c8b0", hair: "#3a2a1a", hat: "none", coat: "#3a5a8a", cravat: "#f2efe6", beard: "mutton", monocle: true },
   betty: { skin: S.old, hair: "#c8c2b6", hat: "mob", hatColor: "#e6dfcf", coat: "#6a4a3a" },
 };

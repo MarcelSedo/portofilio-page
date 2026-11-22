@@ -2,6 +2,10 @@
 
 import { useMemo, useState } from "react";
 import type { Puzzle } from "@/content/games/emma/types";
+import { useT } from "./i18n";
+
+/** Compare answers without caring about case or accents: "vrba" counts for "VŔBA". */
+const plain = (w: string) => w.normalize("NFD").replace(/\p{M}/gu, "").toUpperCase().trim();
 
 /** A fixed shuffle (the same every time), so the puzzle doesn't jump about between renders. */
 function shuffle<T>(xs: T[], seed: number) {
@@ -27,6 +31,7 @@ export function PuzzleView({ puzzle, onSolved, onWrong }: Props) {
 
 /** A Regency charade: read the verse, build the word from letter tiles, or type it. */
 function Charade({ puzzle, onSolved, onWrong }: Props & { puzzle: Extract<Puzzle, { kind: "charade" }> }) {
+  const T = useT();
   const tiles = useMemo(() => shuffle([...(puzzle.answer + puzzle.extra)], puzzle.answer.length * 7 + 3), [puzzle]);
   const [used, setUsed] = useState<number[]>([]); // indexes into tiles, in order
   const [typed, setTyped] = useState("");
@@ -35,14 +40,14 @@ function Charade({ puzzle, onSolved, onWrong }: Props & { puzzle: Extract<Puzzle
   const word = typed || used.map((i) => tiles[i]).join("");
 
   const check = () => {
-    if (word.trim().toUpperCase() === puzzle.answer) {
+    if (plain(word) === plain(puzzle.answer)) {
       setMsg("");
       onSolved();
       return;
     }
     setTries((t) => t + 1);
     onWrong();
-    setMsg(tries >= 1 ? `Not quite. Emma: “It begins with ${puzzle.answer[0]}, I'm almost sure.”` : "Not quite. Read the verse again, one line at a time.");
+    setMsg(tries >= 1 ? T.puzzle.hint(puzzle.answer[0]) : T.puzzle.again);
   };
 
   return (
@@ -56,7 +61,7 @@ function Charade({ puzzle, onSolved, onWrong }: Props & { puzzle: Extract<Puzzle
           <span key={l}>{l}</span>
         ))}
       </blockquote>
-      <p className="em-slots" aria-label={`The answer has ${puzzle.answer.length} letters`}>
+      <p className="em-slots" aria-label={T.puzzle.letters(puzzle.answer.length)}>
         {[...puzzle.answer].map((_, i) => (
           <button
             key={i}
@@ -66,11 +71,11 @@ function Charade({ puzzle, onSolved, onWrong }: Props & { puzzle: Extract<Puzzle
             onClick={() => setUsed(used.filter((_, k) => k !== i))}
           >
             {typed ? (typed[i] ?? "").toUpperCase() : used[i] !== undefined ? tiles[used[i]] : ""}
-            <span className="sr-only">{i < used.length ? ", tap to take back" : ", empty"}</span>
+            <span className="sr-only">{i < used.length ? T.puzzle.takeBack : T.puzzle.empty}</span>
           </button>
         ))}
       </p>
-      <div className="em-tiles" role="group" aria-label="Letters">
+      <div className="em-tiles" role="group" aria-label={T.puzzle.tiles}>
         {tiles.map((ch, i) => (
           <button
             key={i}
@@ -84,10 +89,10 @@ function Charade({ puzzle, onSolved, onWrong }: Props & { puzzle: Extract<Puzzle
         ))}
       </div>
       <label className="em-type">
-        <span>Or type the answer</span>
+        <span>{T.puzzle.type}</span>
         <input
           value={typed}
-          onChange={(e) => setTyped(e.target.value.replace(/[^a-z]/gi, "").slice(0, puzzle.answer.length + 2))}
+          onChange={(e) => setTyped(e.target.value.replace(/[^\p{L}]/gu, "").slice(0, puzzle.answer.length + 2))}
           onKeyDown={(e) => e.key === "Enter" && check()}
           autoComplete="off"
           spellCheck={false}
@@ -98,10 +103,10 @@ function Charade({ puzzle, onSolved, onWrong }: Props & { puzzle: Extract<Puzzle
       </p>
       <div className="em-row">
         <button type="button" className="em-btn" onClick={check} disabled={word.length < puzzle.answer.length}>
-          Solve it
+          {T.puzzle.solve}
         </button>
         <button type="button" className="em-btn is-ghost" onClick={() => (setUsed([]), setTyped(""), setMsg(""))}>
-          Clear
+          {T.puzzle.clear}
         </button>
       </div>
     </div>
@@ -110,6 +115,7 @@ function Charade({ puzzle, onSolved, onWrong }: Props & { puzzle: Extract<Puzzle
 
 /** The torn letter: put the strips in order by tapping two to swap them, or with the arrow buttons. */
 function TornLetter({ puzzle, onSolved }: { puzzle: Extract<Puzzle, { kind: "letter" }>; onSolved: () => void }) {
+  const T = useT();
   const [order, setOrder] = useState(() => shuffle(puzzle.strips.map((_, i) => i), 11));
   const [picked, setPicked] = useState<number | null>(null);
   const [done, setDone] = useState(false);
@@ -119,7 +125,7 @@ function TornLetter({ puzzle, onSolved }: { puzzle: Extract<Puzzle, { kind: "let
     setOrder(next);
     if (next.every((v, i) => v === i)) {
       setDone(true);
-      setMsg("The letter is whole again.");
+      setMsg(T.puzzle.whole);
       window.setTimeout(onSolved, 900);
     }
   };
@@ -127,7 +133,7 @@ function TornLetter({ puzzle, onSolved }: { puzzle: Extract<Puzzle, { kind: "let
     const next = [...order];
     [next[a], next[b]] = [next[b], next[a]];
     setPicked(null);
-    setMsg(`Strips ${a + 1} and ${b + 1} swapped.`);
+    setMsg(T.puzzle.swapped(a + 1, b + 1));
     commit(next);
   };
 
@@ -136,7 +142,9 @@ function TornLetter({ puzzle, onSolved }: { puzzle: Extract<Puzzle, { kind: "let
       <h2 id="em-puzzle-title" className="em-h2">
         {puzzle.title}
       </h2>
-      <p className="em-muted">{puzzle.intro} Tap one strip, then another to swap them.</p>
+      <p className="em-muted">
+        {puzzle.intro} {T.puzzle.howTo}
+      </p>
       <ol className={`em-strips${done ? " is-done" : ""}`}>
         {order.map((si, pos) => (
           <li key={si} className={`em-strip${picked === pos ? " is-picked" : ""}`} style={{ rotate: done ? "0deg" : `${((si * 37) % 7) - 3}deg` }}>
@@ -151,10 +159,10 @@ function TornLetter({ puzzle, onSolved }: { puzzle: Extract<Puzzle, { kind: "let
             </button>
             <span className="em-strip-moves">
               <button type="button" disabled={done || pos === 0} onClick={() => swap(pos, pos - 1)}>
-                ↑<span className="sr-only"> Move up</span>
+                ↑<span className="sr-only">{T.puzzle.up}</span>
               </button>
               <button type="button" disabled={done || pos === order.length - 1} onClick={() => swap(pos, pos + 1)}>
-                ↓<span className="sr-only"> Move down</span>
+                ↓<span className="sr-only">{T.puzzle.down}</span>
               </button>
             </span>
           </li>

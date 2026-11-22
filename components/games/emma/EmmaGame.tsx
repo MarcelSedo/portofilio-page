@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { localize } from "@/content/games/emma/localize";
 import { season } from "@/content/games/emma/season";
+import { SK } from "@/content/games/emma/sk";
 import { tutorial } from "@/content/games/emma/tutorial";
 import type { Item, Scenario, Speaker, Spot, Target } from "@/content/games/emma/types";
 import { Board } from "./Board";
@@ -13,6 +15,7 @@ import { sfx, startWaltz, stopWaltz, type Sfx } from "./sound";
 import { Book } from "./Book";
 import { ClueFace } from "./ClueCard";
 import { Sheet } from "./Sheet";
+import { DICTS, LANGS, LangProvider, defaultLang, type Lang } from "./i18n";
 import { layout } from "./layout";
 import {
   answerQuiz, cameoLine, clearGame, endFinale, hasNews, isOpen, isVisible, loadGame, loadPrefs, newGame, progress, quizDone, reply, saveGame,
@@ -20,7 +23,10 @@ import {
   type GameState, type Settings,
 } from "./state";
 
-const SCENARIOS: Record<Scenario["id"], Scenario> = { tutorial, season };
+const SCENARIOS: Record<Lang, Record<Scenario["id"], Scenario>> = {
+  en: { tutorial, season },
+  sk: { tutorial: localize(tutorial, SK), season: localize(season, SK) },
+};
 
 type Talk = { who: string; title?: string; clue?: string; fresh?: boolean; wait?: string; note?: string; quote?: string } | null;
 type MapLayout = {
@@ -40,12 +46,6 @@ const pct = (n: number, of: number) => `${(n / of) * 100}%`;
 /** how big the village is drawn: bigger than a phone screen, so you can wander */
 const VILLAGE_SCALE = 2.3;
 
-const LABEL: Record<string, string> = {
-  abbey: "Abbey House", library: "Library", grange: "Elmwood Grange", lyle: "Lyle Cottage", cleve: "Cleve Lodge",
-  hartfield: "Hartfield ♥", ashby: "Ashby Hall", vicarage: "Vicarage", pryce: "Dr Pryce", whitlock: "Whitlock House",
-  school: "School", inn: "The Crown", draper: "Twine's", post: "Post Office", assembly: "Assembly Rooms", farm: "Brampton Farm",
-  bakery: "Bakery", smithy: "Smithy", school2: "Schoolhouse", cottage: "Lavender Cottage",
-};
 
 function findPath(M: MapLayout, from: string, to: string): string[] {
   const next = new Map<string, string[]>();
@@ -69,7 +69,7 @@ function findPath(M: MapLayout, from: string, to: string): string[] {
 export function EmmaGame() {
   const [s, setS] = useState<GameState | null>(null);
   const [menu, setMenu] = useState(true);
-  const [prefs, setPrefs] = useState(() => ({ settings: { bigText: false, calm: false }, tutorialDone: false }));
+  const [prefs, setPrefs] = useState<{ settings: Settings; tutorialDone: boolean; lang?: Lang }>(() => ({ settings: { bigText: false, calm: false }, tutorialDone: false }));
   const [talk, setTalk] = useState<Talk>(null);
   const [verdict, setVerdict] = useState<number | null>(null);
   const [puzzle, setPuzzle] = useState<string | null>(null);
@@ -89,6 +89,16 @@ export function EmmaGame() {
   // what's saved in this browser is only known after the page has loaded (not on the server)
   const [seasonSave, setSeasonSave] = useState<GameState | null>(null);
   useEffect(() => setPrefs(loadPrefs()), []);
+  const lang: Lang = prefs.lang ?? "en";
+  useEffect(() => {
+    // first visit: pick the language from the browser
+    if (!loadPrefs().lang) setPrefs((p) => ({ ...p, lang: defaultLang() }));
+  }, []);
+  const T = DICTS[lang];
+  const setLang = (l: Lang) => {
+    savePrefs({ lang: l });
+    setPrefs((p) => ({ ...p, lang: l }));
+  };
   useEffect(() => {
     if (menu) setSeasonSave(loadGame("season"));
   }, [menu]);
@@ -117,13 +127,13 @@ export function EmmaGame() {
     return () => stopWaltz();
   }, [atBall]);
 
-  const sc = s ? castView(SCENARIOS[s.scenario], s.cast, s.decoy) : season;
+  const sc = s ? castView(SCENARIOS[lang][s.scenario], s.cast, s.decoy) : SCENARIOS[lang].season;
   const M = (layout[sc.map] as unknown) as MapLayout;
   const nodeXY = (n: string) => (M.nodes[n] ?? M.nodes.hartfield) as unknown as [number, number];
   const clue = (id: string) => sc.clues.find((c) => c.id === id)!;
   const cameo = (id: string) => sc.cameos?.find((c) => c.id === id);
   const name = (id: string) => sc.people.find((p) => p.id === id)?.name ?? sc.speakers[id]?.name ?? cameo(id)?.name ?? id;
-  const role = (id: string) => sc.people.find((p) => p.id === id)?.role ?? sc.speakers[id]?.role ?? (cameo(id) ? `from ${cameo(id)!.book}` : "");
+  const role = (id: string) => sc.people.find((p) => p.id === id)?.role ?? sc.speakers[id]?.role ?? (cameo(id) ? T.talk.fromBook(cameo(id)!.book) : "");
   const talkCameo = (id: string) => {
     if (!s) return;
     const l = cameoLine(sc, s, id);
@@ -154,7 +164,7 @@ export function EmmaGame() {
   }, [followKey, s?.screen]);
 
   const start = (id: Scenario["id"], fresh: boolean) => {
-    const scn = SCENARIOS[id];
+    const scn = SCENARIOS[lang][id];
     const saved = fresh ? null : loadGame(id);
     const next = saved ? { ...saved, screen: saved.screen === "intro" ? "village" : saved.screen } : newGame(scn, settings);
     if (fresh) clearGame(id);
@@ -176,18 +186,18 @@ export function EmmaGame() {
     const r = reply(s, sp);
     if (r.kind === "clue") {
       update((x) => ({ ...x, found: [...x.found, r.clue], pocket: r.uses ? x.pocket.filter((p) => p !== r.uses) : x.pocket }));
-      setTalk({ who: sp.who, clue: r.clue, fresh: true, note: r.uses ? `You gave ${thing(r.uses).name.toLowerCase()} ${thing(r.uses).icon}` : undefined });
+      setTalk({ who: sp.who, clue: r.clue, fresh: true, note: r.uses ? T.talk.gave(thing(r.uses).name, thing(r.uses).icon) : undefined });
       play("clue");
     } else if (r.kind === "quest") {
       update((x) => ({ ...x, flags: [...x.flags, r.flag] }));
-      setTalk({ who: sp.who, wait: r.text, note: "A favour to do" });
+      setTalk({ who: sp.who, wait: r.text, note: T.talk.favour });
       play("page");
     } else if (r.kind === "give") {
       update((x) => ({ ...x, flags: [...x.flags, `got-${r.item}`], pocket: [...x.pocket, r.item] }));
-      setTalk({ who: sp.who, wait: r.text, note: `${thing(r.item).icon} ${thing(r.item).name} is in your pocket` });
+      setTalk({ who: sp.who, wait: r.text, note: T.talk.pocket(thing(r.item).icon, thing(r.item).name) });
       play("pick");
     } else if (r.kind === "wait") setTalk({ who: sp.who, wait: r.text });
-    else setTalk(r.clue ? { who: sp.who, clue: r.clue, fresh: false } : { who: sp.who, wait: `${name(sp.who)} has nothing more to tell you.` });
+    else setTalk(r.clue ? { who: sp.who, clue: r.clue, fresh: false } : { who: sp.who, wait: T.talk.nothingMore(name(sp.who)) });
   };
   const look = (label: string, id: string) => {
     if (!s) return;
@@ -212,7 +222,7 @@ export function EmmaGame() {
     if (sp.give) {
       const g = sp.give;
       update((x) => ({ ...x, flags: [...x.flags, `got-${g.item}`], pocket: [...x.pocket, g.item] }));
-      setTalk({ who: "emma", title: sp.label, wait: g.text, note: `${thing(g.item).icon} ${thing(g.item).name} is in your pocket` });
+      setTalk({ who: "emma", title: sp.label, wait: g.text, note: T.talk.pocket(thing(g.item).icon, thing(g.item).name) });
       play("pick");
     } else if (sp.clue) look(sp.label, sp.clue);
   };
@@ -291,22 +301,32 @@ export function EmmaGame() {
   // ---------- menu ----------
   if (menu || !s) {
     return (
-      <div className={`em${settings.bigText ? " is-big" : ""}${calm ? " is-calm" : ""}`} ref={mainRef}>
+      <LangProvider value={T}>
+      <div className={`em${settings.bigText ? " is-big" : ""}${calm ? " is-calm" : ""}`} ref={mainRef} lang={lang}>
         <section className="em-menu" aria-labelledby="em-title">
           <img className="em-menu-art" src="/emma/village.png" alt="" width={320} height={560} />
           <div className="em-menu-card">
-            <p className="em-kicker">A small detective game of manners</p>
+            <fieldset className="em-lang">
+              <legend className="sr-only">{T.menu.language}</legend>
+              {LANGS.map((l) => (
+                <label key={l.id} lang={l.id}>
+                  <input type="radio" name="em-lang" value={l.id} checked={lang === l.id} onChange={() => setLang(l.id)} />
+                  <span>{l.name}</span>
+                </label>
+              ))}
+            </fieldset>
+            <p className="em-kicker">{T.menu.kicker}</p>
             <h1 id="em-title" className="em-h1" tabIndex={-1}>
               Emma
-              <span>The Matchmaker of Bramblewick</span>
+              <span>{T.menu.subtitle}</span>
             </h1>
             <div className="em-menu-buttons">
               <button type="button" className={`em-btn${prefs.tutorialDone ? " is-ghost" : ""}`} onClick={() => start("tutorial", true)}>
-                {prefs.tutorialDone ? "Practise again on Donwell Lane" : "Start here: an afternoon with Emma"}
+                {prefs.tutorialDone ? T.menu.tutorialAgain : T.menu.tutorial}
               </button>
               {seasonSave && seasonSave.screen !== "ending" && (
                 <button type="button" className="em-btn" onClick={() => start("season", false)}>
-                  Continue the season
+                  {T.menu.continue}
                 </button>
               )}
               <button
@@ -314,23 +334,21 @@ export function EmmaGame() {
                 className={`em-btn${prefs.tutorialDone && !seasonSave ? "" : " is-ghost"}`}
                 onClick={() => (seasonSave && seasonSave.screen !== "ending" ? setConfirmNew(true) : start("season", true))}
               >
-                The season in Bramblewick
+                {T.menu.season}
               </button>
               <button type="button" className="em-btn is-ghost" onClick={() => setHelp(true)}>
-                How to play
+                {T.menu.help}
               </button>
               <button type="button" className="em-btn is-ghost" onClick={() => setSettingsOpen(true)}>
-                Settings
+                {T.menu.settings}
               </button>
             </div>
-            <p className="em-muted em-small">
-              Emma Woodhouse is Jane Austen&apos;s; the stories borrow her plots. Bramblewick and everyone in it are
-              invented. Your game is saved in this browser only.
-            </p>
+            <p className="em-muted em-small">{T.menu.footer}</p>
           </div>
         </section>
         {sheets()}
       </div>
+      </LangProvider>
     );
   }
 
@@ -341,7 +359,7 @@ export function EmmaGame() {
         <p className="em-where">{place}</p>
         {s.pocket.length > 0 && (
           <p className="em-pocket">
-            <span className="sr-only">In your pocket: </span>
+            <span className="sr-only">{T.hud.pocket}</span>
             {s.pocket.map((p) => (
               <span key={p} title={thing(p).name}>
                 <span aria-hidden="true">{thing(p).icon}</span>
@@ -358,7 +376,7 @@ export function EmmaGame() {
             onClick={() => update((x) => ({ ...x, sound: !x.sound }))}
           >
             <span aria-hidden="true">{s.sound ? "🔊" : "🔇"}</span>
-            <span className="sr-only">Sound and music</span>
+            <span className="sr-only">{T.hud.sound}</span>
           </button>
           <button
             type="button"
@@ -368,32 +386,32 @@ export function EmmaGame() {
               play("page");
             }}
           >
-            <span aria-hidden="true">📖</span> Book
+            <span aria-hidden="true">📖</span> {T.hud.book}
             {newCount > 0 && (
               <span className="em-badge">
                 {newCount}
-                <span className="sr-only"> new</span>
+                <span className="sr-only">{T.hud.fresh}</span>
               </span>
             )}
           </button>
           <button type="button" className="em-hud-btn" onClick={() => update((x) => ({ ...x, screen: "board", house: null }))}>
-            <span aria-hidden="true">♥</span> Board
+            <span aria-hidden="true">♥</span> {T.hud.board}
           </button>
           <button type="button" className="em-hud-btn is-icon" onClick={() => setMenu(true)}>
             <span aria-hidden="true">☰</span>
-            <span className="sr-only">Menu</span>
+            <span className="sr-only">{T.hud.menu}</span>
           </button>
         </div>
       </header>
       {sc.id === "season" && (
-        <ul className="em-ribbons" aria-label="How far each love story has got">
+        <ul className="em-ribbons" aria-label={T.hud.ribbons}>
           {storyProgress(sc, s).map((r) => {
             const lady = sc.people.find((p) => p.id === r.woman)!;
             const pctDone = Math.round((r.got / r.total) * 100);
             return (
               <li key={r.pid}>
                 <span className="em-ribbon-name">{lady.short}</span>
-                <span className="em-ribbon" role="img" aria-label={`${lady.short}'s story: ${pctDone}%`}>
+                <span className="em-ribbon" role="img" aria-label={T.hud.ribbon(lady.short, pctDone)}>
                   <span style={{ width: `${pctDone}%` }} />
                 </span>
               </li>
@@ -421,7 +439,7 @@ export function EmmaGame() {
         className={`em-btn${backIsTarget ? " is-target" : ""}`}
         onClick={() => update((x) => ({ ...x, screen: "village", house: null }))}
       >
-        ← Back to {sc.mapName}
+        {T.back(sc.mapName)}
       </button>
     </div>
   );
@@ -440,11 +458,11 @@ export function EmmaGame() {
     body = (
       <section className="em-intro" aria-labelledby="em-intro-title">
         <h1 id="em-intro-title" className="sr-only" tabIndex={-1}>
-          Emma introduces {sc.title}
+          {T.intro.sr(sc.title)}
         </h1>
         <img className="em-intro-bust" src="/emma/bust-emma.png" alt="" width={128} height={128} />
         <div className="em-letter">
-          <p className="em-letter-name">Emma Woodhouse</p>
+          <p className="em-letter-name">{T.intro.name}</p>
           <Typewriter key={`${s.scenario}-${introStep}`} text={sc.intro[introStep]} calm={calm} />
           <p className="em-muted em-small" aria-hidden="true">
             {introStep + 1} / {sc.intro.length}
@@ -452,11 +470,11 @@ export function EmmaGame() {
         </div>
         <div className="em-row">
           <button type="button" className="em-btn" onClick={() => (last ? toMap() : setIntroStep(introStep + 1))}>
-            {last ? `To ${sc.mapName} ▶` : "Go on ▶"}
+            {last ? T.intro.toMap(sc.mapName) : T.intro.goOn}
           </button>
           {!last && (
             <button type="button" className="em-btn is-ghost" onClick={toMap}>
-              Skip
+              {T.intro.skip}
             </button>
           )}
         </div>
@@ -472,7 +490,7 @@ export function EmmaGame() {
         {hud(sc.mapName)}
         <section aria-labelledby="em-village-title">
           <h2 id="em-village-title" className="em-place" tabIndex={-1}>
-            {sc.mapName} <span className="em-muted">· tap a house or a neighbour; drag to look around</span>
+            {sc.mapName} <span className="em-muted">· {T.village.hint}</span>
           </h2>
           <div className={`em-mapwrap${sc.map === "village" ? " is-big" : ""}`} ref={mapWrap}>
           <div
@@ -500,11 +518,11 @@ export function EmmaGame() {
                       transform: `translate(${left || right ? "0" : "-50%"}, ${b.y < 16 ? "2px" : "-110%"})`,
                     }}
                   >
-                    {LABEL[id] ?? id}
+                    {T.places[id] ?? id}
                   </span>
                   {isTarget("place", id) && arrow}
                   <span className="sr-only">
-                    {id === "hartfield" ? "Hartfield, your wedding board" : id === "assembly" ? "The Assembly Rooms, the ball" : sc.houses.find((h) => h.id === id)?.name}
+                    {id === "hartfield" ? T.village.hartfield : id === "assembly" ? T.village.assembly : sc.houses.find((h) => h.id === id)?.name}
                   </span>
                 </button>
               );
@@ -529,7 +547,7 @@ export function EmmaGame() {
                   {isTarget("folk", f.who) && arrow}
                   <span className="sr-only">
                     {name(f.who)}, {role(f.who)}
-                    {news ? ", has something to say" : ""}
+                    {news ? T.village.news : ""}
                   </span>
                 </button>
               );
@@ -572,7 +590,7 @@ export function EmmaGame() {
           </div>
           </div>
           <details className="em-travel" open>
-            <summary>Go straight to a place</summary>
+            <summary>{T.village.travel}</summary>
             <ul>
               {places.map(([id]) => (
                 <li key={id}>
@@ -584,7 +602,7 @@ export function EmmaGame() {
                       arrive("place", id, M.places[id].node);
                     }}
                   >
-                    {LABEL[id] ?? id}
+                    {T.places[id] ?? id}
                   </button>
                 </li>
               ))}
@@ -625,7 +643,7 @@ export function EmmaGame() {
                     </span>
                   )}
                   {(isTarget("person", p.who) || (insideTarget && news)) && arrow}
-                  <span className="sr-only">Talk to {name(p.who)}</span>
+                  <span className="sr-only">{T.room.talkTo(name(p.who))}</span>
                 </button>
               );
             })}
@@ -643,7 +661,7 @@ export function EmmaGame() {
                     {it.puzzle && !s.flags.includes(`solved-${it.puzzle}`) ? "✎" : "?"}
                   </span>
                   <span className="sr-only">
-                    {it.puzzle && !s.flags.includes(`solved-${it.puzzle}`) ? "Puzzle: " : "Look at: "}
+                    {it.puzzle && !s.flags.includes(`solved-${it.puzzle}`) ? T.room.puzzle : T.room.look}
                     {it.label}
                   </span>
                 </button>
@@ -689,7 +707,7 @@ export function EmmaGame() {
                   <span className="em-mark is-eye" aria-hidden="true">
                     👁
                   </span>
-                  <span className="sr-only">Watch: {w.label}</span>
+                  <span className="sr-only">{T.room.watch}{w.label}</span>
                 </button>
               );
             })}
@@ -711,7 +729,7 @@ export function EmmaGame() {
                     </span>
                   )}
                   <span className="sr-only">
-                    Talk to {name(g.who)}, {role(g.who)}
+                    {T.room.talkTo(`${name(g.who)}, ${role(g.who)}`)}
                   </span>
                 </button>
               );
@@ -729,12 +747,12 @@ export function EmmaGame() {
                   <span className="em-mark is-look" aria-hidden="true">
                     ?
                   </span>
-                  <span className="sr-only">Look at: {it.label}</span>
+                  <span className="sr-only">{T.room.look}{it.label}</span>
                 </button>
               );
             })}
           </div>
-          <p className="em-muted em-small">Talk to the guests (…), watch the dancers (👁) and read the dance list (?).</p>
+          <p className="em-muted em-small">{T.room.ballHint}</p>
           {back}
         </section>
       </>
@@ -816,17 +834,14 @@ export function EmmaGame() {
     const r = score(sc, s);
     body = (
       <section className="em-ending" aria-labelledby="em-end-title">
-        <p className="em-kicker">{sc.id === "tutorial" ? "Well done" : "A year later"}</p>
+        <p className="em-kicker">{sc.id === "tutorial" ? T.ending.tutorial : T.ending.season}</p>
         <h2 id="em-end-title" className="em-h2" tabIndex={-1}>
-          {r.title}
+          {T.ending.ranks[r.rank]}
         </h2>
         <p className="em-score">
           {r.total} <span>/ {r.max}</span>
         </p>
-        <p className="em-muted">
-          {r.proofs} of {r.results.length} matches proved by a true clue · announced {s.attempts}{" "}
-          {s.attempts === 1 ? "time" : "times"}.
-        </p>
+        <p className="em-muted">{T.ending.summary(r.proofs, r.results.length, s.attempts)}</p>
         <ul className="em-letters">
           {r.results.map((m) => {
             const w = sc.people.find((p) => p.id === m.woman)!;
@@ -843,14 +858,14 @@ export function EmmaGame() {
                 <p className="em-letter-text">{letter?.good}</p>
                 {m.proofId ? (
                   <p className={`em-verdict ${m.proved ? "is-true" : "is-false"}`}>
-                    <span aria-hidden="true">{m.proved ? "✓" : "✗"}</span> Your proof: {clue(m.proofId).text}
+                    <span aria-hidden="true">{m.proved ? "✓" : "✗"}</span> {T.ending.proof} {clue(m.proofId).text}
                     <span className="em-muted">
                       {" "}
-                      {m.proved ? "A true clue about these two." : clue(m.proofId).truth ? "True, but it doesn't prove this match." : "That one was not true."}
+                      {m.proved ? T.ending.proved : clue(m.proofId).truth ? T.ending.trueOther : T.ending.untrue}
                     </span>
                   </p>
                 ) : (
-                  <p className="em-muted">No proof chosen.</p>
+                  <p className="em-muted">{T.ending.noProof}</p>
                 )}
               </li>
             );
@@ -859,15 +874,15 @@ export function EmmaGame() {
         <div className="em-row">
           {sc.id === "tutorial" ? (
             <button type="button" className="em-btn" onClick={() => start("season", true)}>
-              On to the season in Bramblewick ▶
+              {T.ending.onward}
             </button>
           ) : (
             <button type="button" className="em-btn" onClick={() => start("season", true)}>
-              Play the season again
+              {T.ending.again}
             </button>
           )}
           <button type="button" className="em-btn is-ghost" onClick={() => setMenu(true)}>
-            To the menu
+            {T.ending.menu}
           </button>
         </div>
       </section>
@@ -875,13 +890,15 @@ export function EmmaGame() {
   }
 
   return (
-    <div className={`em${settings.bigText ? " is-big" : ""}${calm ? " is-calm" : ""}`} ref={mainRef}>
+    <LangProvider value={T}>
+    <div className={`em${settings.bigText ? " is-big" : ""}${calm ? " is-calm" : ""}`} ref={mainRef} lang={lang}>
       {body}
       <p className="sr-only" aria-live="polite">
         {msg}
       </p>
       {sheets()}
     </div>
+    </LangProvider>
   );
 
   // ---------- dialogs ----------
@@ -904,7 +921,7 @@ export function EmmaGame() {
               <img src={`/emma/bust-${talk.who}.png`} alt="" width={96} height={96} className="em-say-bust" />
               <div>
                 <h2 id="em-talk-title" className="em-h3">
-                  {talk.title ?? name(talk.who)} <span className="em-muted">· {talk.title ? (talk.wait ? "closed" : "you look closer") : role(talk.who)}</span>
+                  {talk.title ?? name(talk.who)} <span className="em-muted">· {talk.title ? (talk.wait ? T.talk.closed : T.talk.closer) : role(talk.who)}</span>
                 </h2>
                 {talk.quote ? (
                   <figure className="em-quote">
@@ -912,7 +929,7 @@ export function EmmaGame() {
                       <p>“{talk.quote}”</p>
                     </blockquote>
                     <figcaption>
-                      {name(talk.who)}, <cite>{cameo(talk.who)?.book}</cite>, by Jane Austen
+                      {name(talk.who)}, <cite>{cameo(talk.who)?.book}</cite>{T.talk.byAusten}
                     </figcaption>
                   </figure>
                 ) : talk.wait ? (
@@ -922,7 +939,7 @@ export function EmmaGame() {
                       <p className="em-aside">
                         <img src="/emma/bust-emma.png" alt="" width={32} height={32} />
                         <span>
-                          <strong>Emma, to herself:</strong> {splitWait(talk.wait)[1]}
+                          <strong>{T.talk.toHerself}</strong> {splitWait(talk.wait)[1]}
                         </span>
                       </p>
                     )}
@@ -930,12 +947,12 @@ export function EmmaGame() {
                 ) : talk.clue ? (
                   <>
                     <ClueFace clue={clue(talk.clue)} fresh={talk.fresh} showNext />
-                    {talk.fresh ? <p className="em-added">＋ Added to your book</p> : <p className="em-muted em-small">Nothing new. You already have this in your book.</p>}
+                    {talk.fresh ? <p className="em-added">{T.talk.added}</p> : <p className="em-muted em-small">{T.talk.already}</p>}
                   </>
                 ) : null}
                 {talk.note && <p className="em-note">{talk.note}</p>}
                 <button type="button" className="em-btn" data-autofocus onClick={() => setTalk(null)}>
-                  {talk.quote ? "How very… Austen" : talk.wait ? "I'll remember that" : "Thank you"}
+                  {talk.quote ? T.talk.okQuote : talk.wait ? T.talk.okWait : T.talk.okClue}
                 </button>
               </div>
             </div>
@@ -953,11 +970,11 @@ export function EmmaGame() {
                   play("solve");
                   update((x) => ({ ...x, flags: [...x.flags, `solved-${pz.id}`], found: x.found.includes(pz.clue) ? x.found : [...x.found, pz.clue] }));
                   setPuzzle(null);
-                  setTalk({ who: "emma", title: pz.title, clue: pz.clue, fresh: true, note: "Solved!" });
+                  setTalk({ who: "emma", title: pz.title, clue: pz.clue, fresh: true, note: T.talk.solved });
                 }}
               />
               <button type="button" className="em-btn is-ghost" onClick={() => setPuzzle(null)}>
-                Leave it for now
+                {T.talk.leave}
               </button>
             </>
           )}
@@ -968,16 +985,13 @@ export function EmmaGame() {
             <img src="/emma/bust-emma.png" alt="" width={96} height={96} className="em-say-bust" />
             <div>
               <h2 id="em-verdict-title" className="em-h2">
-                Not quite
+                {T.verdict.title}
               </h2>
               <p>
-                {verdict === 0
-                  ? "Oh dear. Not one of these would end happily."
-                  : `Only ${verdict} of these ${Object.keys(sc.pairs).length} would end happily. I shan't say which.`}{" "}
-                Let us listen a little more before the banns are read.
+                {verdict === 0 ? T.verdict.none : T.verdict.some(verdict ?? 0, Object.keys(sc.pairs).length)} {T.verdict.listen}
               </p>
               <button type="button" className="em-btn" data-autofocus onClick={() => setVerdict(null)}>
-                Back to the board
+                {T.verdict.back}
               </button>
             </div>
           </div>
@@ -1004,7 +1018,7 @@ export function EmmaGame() {
                   update((x) => ({ ...x, bookOpened: true }));
                 }}
               >
-                Close the book
+                {T.book.close}
               </button>
             </>
           )}
@@ -1012,57 +1026,61 @@ export function EmmaGame() {
 
         <Sheet open={help} onClose={() => setHelp(false)} labelledBy="em-help-title" wide>
           <h2 id="em-help-title" className="em-h2">
-            How to play
+            {T.help.title}
           </h2>
           <ol className="em-help">
-            <li>Find out who belongs with whom. Four couples belong together; one lady and one gentleman are only there to confuse you. Every new season tells different stories.</li>
-            <li>Tap a house and Emma walks there. Inside, talk to people (…) and look at things (?).</li>
-            <li>Every clue ends with Emma&apos;s idea of where to go next. Some doors and some people only open up once you know something.</li>
-            <li>Clues have kinds: feelings, the past, obstacles, secrets and rumours. Rumours can be false.</li>
-            <li>At Hartfield (♥) tap a lady, then her gentleman, and give each engagement one clue as proof.</li>
-            <li>Before you announce, Emma asks one question about each young lady&apos;s story. Get one wrong and you must find two more clues before she asks again.</li>
-            <li>Then the ball: Emma announces the couples one by one, in front of everybody. Wrong ones are undone, and you try again. There is no clock.</li>
-            <li>Mrs Bennet, Mr Darcy and other people from Jane Austen&apos;s novels are visiting. Tap them as they stroll past.</li>
+            {T.help.steps.map((h) => (
+              <li key={h}>{h}</li>
+            ))}
           </ol>
           <button type="button" className="em-btn" data-autofocus onClick={() => setHelp(false)}>
-            Understood
+            {T.help.ok}
           </button>
         </Sheet>
 
         <Sheet open={settingsOpen} onClose={() => setSettingsOpen(false)} labelledBy="em-settings-title">
           <h2 id="em-settings-title" className="em-h2">
-            Settings
+            {T.settings.title}
           </h2>
+          <fieldset className="em-lang is-settings">
+            <legend>{T.menu.language}</legend>
+            {LANGS.map((l) => (
+              <label key={l.id} lang={l.id}>
+                <input type="radio" name="em-lang-settings" value={l.id} checked={lang === l.id} onChange={() => setLang(l.id)} />
+                <span>{l.name}</span>
+              </label>
+            ))}
+          </fieldset>
           <label className="em-toggle">
             <input type="checkbox" checked={settings.bigText} onChange={(e) => setSetting("bigText", e.target.checked)} />
-            Larger text
+            {T.settings.big}
           </label>
           <label className="em-toggle">
             <input type="checkbox" checked={settings.calm} onChange={(e) => setSetting("calm", e.target.checked)} />
-            Calmer: no walking, no moving text or bouncing marks
+            {T.settings.calm}
           </label>
           {s && (
             <label className="em-toggle">
               <input type="checkbox" checked={s.sound} onChange={(e) => update((x) => ({ ...x, sound: e.target.checked }))} />
-              Sound and music (also the 🔊 button at the top)
+              {T.settings.sound}
             </label>
           )}
           <button type="button" className="em-btn" data-autofocus onClick={() => setSettingsOpen(false)}>
-            Done
+            {T.settings.done}
           </button>
         </Sheet>
 
         <Sheet open={confirmNew} onClose={() => setConfirmNew(false)} labelledBy="em-new-title">
           <h2 id="em-new-title" className="em-h2">
-            Start the season again?
+            {T.restart.title}
           </h2>
-          <p>Your current season will be forgotten.</p>
+          <p>{T.restart.body}</p>
           <div className="em-row">
             <button type="button" className="em-btn" data-autofocus onClick={() => (setConfirmNew(false), start("season", true))}>
-              Yes, start again
+              {T.restart.yes}
             </button>
             <button type="button" className="em-btn is-ghost" onClick={() => setConfirmNew(false)}>
-              Keep my season
+              {T.restart.no}
             </button>
           </div>
         </Sheet>

@@ -3,7 +3,7 @@ import { EmmaGame } from "@/components/games/emma/EmmaGame";
 
 export const metadata: Metadata = {
   title: "Emma: The Matchmaker of Bramblewick – Marcel Šedo",
-  description: "A small detective game of manners: gather gossip and proof, then make four matches. Made for phones first.",
+  description: "A small social deduction matchmaking game of manners: gather gossip and proof, then make four matches. Made for phones first.",
 };
 
 export default function EmmaPage() {

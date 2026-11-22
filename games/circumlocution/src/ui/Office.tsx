@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DISMISS_AT, HOUSE, PANCKS_DAYS, titleFor } from "../content/days";
+import { DISMISS_AT, HOUSE, PANCKS_DAYS } from "../content/days";
 import type { Case, Choice, Doc, DocLine, Sig } from "../content/types";
 import facade from "../assets/facade.png";
 import "../styles/circumlocution.css";
@@ -14,7 +14,11 @@ import {
   allMet,
   auditor,
   backToDesk,
+  auditMoves,
   billsFor,
+  ending,
+  extrasFor,
+  resolveAudit,
   board,
   lookAtBoard,
   goToBed,
@@ -411,7 +415,9 @@ export function Office({ exitHref = "/", exitLabel = "Back to the site" }: Offic
           </h2>
           <ul className="co-gz-list">
             {g.gazette.slice(1).map((h) => (
-              <li key={h}>{h}</li>
+              <li key={h} className={h.startsWith("Our Man at Whitehall") ? "is-column" : ""}>
+                {h}
+              </li>
             ))}
             {g.gazette.length <= 1 && <li>Nothing else of note. The Circumlocution Office reports that nothing has been done, as usual.</li>}
           </ul>
@@ -443,6 +449,25 @@ export function Office({ exitHref = "/", exitLabel = "Back to the site" }: Offic
         {g.audit && (
           <Say face={auditor.face} who={auditor.name}>
             <p className={g.audit.ok ? "" : "co-bad"}>{g.audit.text}</p>
+            {g.audit.pending && (
+              <div className="co-audit">
+                <p className="co-small">What do you say to him?</p>
+                {auditMoves(g).map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className="co-choice"
+                    disabled={!m.enabled}
+                    onClick={() => (sfx(m.id === "accept" ? "stamp" : "paper"), act(resolveAudit(g, m.id)))}
+                  >
+                    <span className="co-choice-text">
+                      <span className="co-choice-label">{m.label}</span>
+                      <span className="co-costs">{m.detail}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </Say>
         )}
         {g.home.ill && (
@@ -458,8 +483,8 @@ export function Office({ exitHref = "/", exitLabel = "Back to the site" }: Offic
           </Say>
         )}
         <div className="co-row">
-          <button type="button" className="co-btn" onClick={() => (sfx("bell"), act(goTo(g, "desk")))}>
-            Open the doors ({g.pile.length} waiting)
+          <button type="button" className="co-btn" disabled={!!g.audit?.pending} onClick={() => (sfx("bell"), act(goTo(g, "desk")))}>
+            {g.audit?.pending ? "Answer Mr Rugg first" : `Open the doors (${g.pile.length} waiting)`}
           </button>
         </div>
         {sheets}
@@ -684,7 +709,7 @@ export function Office({ exitHref = "/", exitLabel = "Back to the site" }: Offic
   }
 
   /* --------------------------- personal file --------------------------- */
-  const t = titleFor(g.meters.favour, g.meters.good);
+  const t = ending(g);
   return (
     <div className="co" ref={root}>
       <section className="co-file" aria-labelledby="co-file-h">
@@ -774,10 +799,11 @@ const ENDS = {
 
 function HomeBills({ g, onBed }: { g: Game; onBed: (b: Bills) => void }) {
   const bills = billsFor(g);
+  const extras = extrasFor(g);
   const earned = wage(g);
-  const [pay, setPay] = useState<Bills>({ rent: true, food: true, coal: true, medicine: true });
+  const [pay, setPay] = useState<Bills>({ rent: true, food: true, coal: true, medicine: true, copying: false, pawn: false, lend: false });
   const total = bills.reduce((s, b) => s + (pay[b.key] ? b.cost : 0), 0);
-  const have = g.purse + earned;
+  const have = g.purse + earned + extras.reduce((s, x) => s + (pay[x.key] ? x.amount : 0), 0);
   const over = total > have;
   return (
     <section className="co-home" aria-labelledby="co-home-h">
@@ -786,7 +812,7 @@ function HomeBills({ g, onBed }: { g: Game; onBed: (b: Bills) => void }) {
       </h3>
       <p>
         Today&apos;s wage: <b>{earned}s</b>
-        {earned < 6 && <span className="co-bad"> (docked: the Barnacles are displeased)</span>}. In your purse after wages: <b>{have}s</b>.
+        {earned < 6 && <span className="co-bad"> (docked: the Barnacles are displeased)</span>}. In your purse tonight: <b>{have}s</b>.
       </p>
       <fieldset className="co-bills">
         <legend>What will you pay for tonight?</legend>
@@ -799,6 +825,19 @@ function HomeBills({ g, onBed }: { g: Game; onBed: (b: Bills) => void }) {
           </label>
         ))}
       </fieldset>
+      {extras.length > 0 && (
+        <fieldset className="co-bills">
+          <legend>Anything else tonight?</legend>
+          {extras.map((x) => (
+            <label key={x.key} className="co-bill is-extra">
+              <input type="checkbox" checked={!!pay[x.key]} onChange={(e) => setPay({ ...pay, [x.key]: e.target.checked })} />
+              <span className="co-bill-name">{x.label}</span>
+              <span className="co-bill-cost">{x.amount > 0 ? `+${x.amount}s` : `${x.amount}s`}</span>
+              <span className="co-bill-note">{x.note}</span>
+            </label>
+          ))}
+        </fieldset>
+      )}
       <p aria-live="polite" className={over ? "co-bad" : ""}>
         Total {total}s of {have}s{over ? ": you can't pay for all of that. Untick something." : `. ${have - total}s left over.`}
       </p>

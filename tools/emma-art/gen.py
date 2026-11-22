@@ -416,13 +416,15 @@ VILLAGE = dict(
 LANE = dict(
     name="lane", W=176, H=224, night=False, seed=11,
     places={"bakery": (4, 10), "smithy": (126, 6), "hartfield": (55, 74), "school2": (4, 150), "cottage": (126, 152)},
-    junctions={"top": [88, 64], "mid": [88, 142], "west": [40, 142], "east": [140, 142]},
+    # the lane runs round Hartfield, never through it: up the west side and the east side, and Emma's
+    # front door is reached from the green in front of the house
+    junctions={"top": [88, 64], "nw": [40, 64], "ne": [140, 64], "mid": [88, 142], "west": [40, 142], "east": [140, 142]},
     folk={"jenkins": (100, 112)},
-    edges=[["bakery", "top"], ["top", "smithy"], ["top", "west"], ["top", "east"], ["west", "mid"], ["mid", "east"],
-           ["mid", "hartfield"], ["west", "school2"], ["east", "cottage"], ["mid", "jenkins"]],
-    green=(88, 142, 12), pond=(30, 112, 14, 7), meadow=None, sheep=[(60, 200), (100, 206)], hay=[],
+    edges=[["bakery", "nw"], ["nw", "top"], ["top", "ne"], ["ne", "smithy"], ["nw", "west"], ["ne", "east"],
+           ["west", "mid"], ["mid", "east"], ["mid", "hartfield"], ["west", "school2"], ["east", "cottage"], ["mid", "jenkins"]],
+    green=(88, 142, 12), pond=(20, 110, 11, 6), meadow=None, sheep=[(60, 200), (100, 206)], hay=[],
     strings=[], clumps=[(64, 112, 0, 20), (0, 20, 80, 104), (156, 176, 80, 120), (60, 116, 196, 224), (0, 30, 200, 224)],
-    flies=[], spots={},
+    flies=[], spots={}, beds=True,
 )
 
 def blossom(rng, big=False):

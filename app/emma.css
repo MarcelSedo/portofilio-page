@@ -476,3 +476,17 @@
 @keyframes em-curtsey { from { opacity: 0; transform: translateY(14px) scale(0.98); } to { opacity: 1; transform: none; } }
 @keyframes em-shudder { 0% { opacity: 0; } 30% { opacity: 1; transform: translateX(-6px); } 55% { transform: translateX(5px); } 80% { transform: translateX(-2px); } 100% { transform: none; } }
 .em.is-calm .em-finale-card { animation: none !important; }
+
+/* language picker: two pills on the menu card, a plain radio group in Settings */
+.em-lang { display: flex; gap: 4px; margin: 0 0 10px; padding: 0; border: 0; justify-content: flex-end; }
+.em-lang label { position: relative; cursor: pointer; }
+.em-lang input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.em-lang span {
+  display: inline-block; padding: 4px 10px; border: 2px solid var(--rose); border-radius: 999px;
+  font-size: 0.8em; font-weight: 700; color: var(--rose-d); background: transparent;
+}
+.em-lang input:checked + span { background: var(--rose); color: #fff; }
+.em-lang input:focus-visible + span { outline: 3px solid var(--ink); outline-offset: 2px; }
+.em-lang.is-settings { justify-content: flex-start; flex-wrap: wrap; margin: 0 0 14px; }
+.em-lang.is-settings legend { width: 100%; margin-bottom: 6px; font-weight: 700; }
+@media (forced-colors: active) { .em-lang input:checked + span { border-width: 4px; } }

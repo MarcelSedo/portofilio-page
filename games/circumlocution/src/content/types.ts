@@ -51,9 +51,11 @@ export type Choice = {
   /** shillings into (+) or out of (−) your own purse */
   purse?: number;
   /** an irregular stamp the auditor may look at; safe if you hold this evidence */
-  risky?: { safeWith?: Need[]; finding: string };
+  risky?: { safeWith?: Need[]; finding: string; kind: RiskKind; sum?: number };
   set?: string[];
   count?: string;
+  /** how much to add to the counter (default 1) */
+  countBy?: number;
   /** what the applicant says back */
   reply: string;
   /** Barnacle Junior's remark */
@@ -63,6 +65,9 @@ export type Choice = {
   /** one line for your personal file */
   log: string;
 };
+
+/** what sort of irregularity Mr Rugg is looking at */
+export type RiskKind = "relief" | "pension" | "school" | "grant" | "register";
 
 export type Outcome = Omit<Choice, "id" | "stamp" | "label" | "needs" | "cost" | "risky">;
 
