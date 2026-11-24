@@ -1,0 +1,312 @@
+/* The Long Spring. Everything is scoped under .ls so the game can live inside any page. */
+
+/* Uncial Antiqua (SIL Open Font License, see fonts/OFL-UncialAntiqua.txt): the letters of the old Irish books */
+@font-face {
+  font-family: "LS Uncial";
+  src: url("./fonts/uncial-antiqua-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+.ls {
+  --ls-bg: #0e1611;
+  --ls-panel: rgba(16, 24, 18, 0.88);
+  --ls-line: #3a5440;
+  --ls-ink: #f2ead4;
+  --ls-muted: #c2baa2;
+  --ls-rot: #7dff4f;
+  --ls-rot-d: #3f8f26;
+  --ls-blood: #d0303a;
+  --ls-gold: #f0c85a;
+  --ls-gold-d: #b8923e;
+  --ls-orn-2: #6ac0a0;
+  --ls-orn-3: #b8323a;
+  --ls-orn-bone: #efe3c0;
+  --ls-orn-leaf: #5aa040;
+  --ls-parch: #f3e6b8;
+  position: relative;
+  color: var(--ls-ink);
+  background: var(--ls-bg);
+  border: 2px solid var(--ls-line);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.45;
+}
+.ls *, .ls *::before, .ls *::after { box-sizing: border-box; }
+.ls .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* the stage: the game's canvas, with the menus floating over the still land */
+.ls-stage { position: relative; height: min(80vh, 760px); min-height: 420px; background: #000; overflow: hidden; touch-action: none; }
+.ls-stage:focus { outline: none; }
+.ls-stage:focus-visible { outline: 3px solid #fff4a0; outline-offset: -3px; }
+.ls-canvas { display: block; width: 100%; height: 100%; }
+.ls-menu { position: absolute; inset: 0; overflow-y: auto; padding: 14px; display: grid; place-items: center; background: linear-gradient(180deg, rgba(5, 8, 6, 0.15), rgba(5, 8, 6, 0.45)); }
+
+/* panels: a page of an old gospel book in the forest: dark green, a gold rule, knotwork in the corners */
+.ls-panel {
+  position: relative; width: 100%; max-width: 480px; margin: 26px auto 14px; padding: 28px 24px 22px; text-align: center;
+  background:
+    radial-gradient(120% 70% at 50% 0%, rgba(106, 192, 160, 0.12), transparent 60%),
+    radial-gradient(100% 60% at 50% 100%, rgba(184, 50, 58, 0.08), transparent 70%),
+    rgba(12, 24, 17, 0.92);
+  border: 2px solid var(--ls-gold-d); border-radius: 22px;
+  box-shadow: inset 0 0 0 5px rgba(12, 24, 17, 0.95), inset 0 0 0 6.5px rgba(240, 200, 90, 0.35), 0 14px 40px rgba(0, 0, 0, 0.6);
+}
+.ls-panel.is-text { max-width: 600px; text-align: left; }
+.ls-panel.is-text .ls-h2 { text-align: center; }
+.ls-panel.is-blood { border-color: var(--ls-blood); }
+.ls-panel.is-win { border-color: var(--ls-gold); }
+.ls-orn { position: absolute; width: 58px; height: 58px; pointer-events: none; }
+.ls-orn.is-tl { top: -13px; left: -13px; }
+.ls-orn.is-tr { top: -13px; right: -13px; transform: scaleX(-1); }
+.ls-orn.is-bl { bottom: -13px; left: -13px; transform: scaleY(-1); }
+.ls-orn.is-br { bottom: -13px; right: -13px; transform: scale(-1, -1); }
+.ls-medal { position: absolute; top: -40px; left: 50%; width: 72px; height: 72px; transform: translateX(-50%); pointer-events: none; }
+.ls-divider { display: block; width: min(240px, 80%); height: 22px; margin: 2px auto 8px; }
+.ls-kicker { margin: 0 0 4px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ls-orn-2); }
+.ls-h1 {
+  margin: 0 0 2px; font-family: "LS Uncial", Georgia, "Times New Roman", serif; font-weight: 400;
+  line-height: 1.05; color: var(--ls-parch); text-shadow: 0 0 20px rgba(240, 200, 90, 0.35), 0 2px 0 #0c1410;
+  font-size: clamp(1.75rem, 6.4vw, 2.45rem);
+}
+.ls-h2 { margin: 0 0 10px; font-family: "LS Uncial", Georgia, serif; font-size: 1.55rem; font-weight: 400; line-height: 1.15; color: var(--ls-parch); text-shadow: 0 2px 0 #0c1410; }
+.ls-h3 { margin: 16px 0 6px; font-size: 1rem; color: var(--ls-gold); }
+.ls-h1:focus, .ls-h2:focus { outline: none; }
+.ls-h1:focus-visible, .ls-h2:focus-visible { outline: 1px dotted rgba(240, 200, 90, 0.6); outline-offset: 4px; }
+.ls p { margin: 0 0 10px; }
+.ls-muted { color: var(--ls-muted); }
+.ls-small { font-size: 0.875rem; margin-top: 12px; }
+.ls-lead { max-width: 40ch; margin-left: auto !important; margin-right: auto !important; font-family: Georgia, serif; font-style: italic; color: #e6dcc0; }
+.ls-hero { display: flex; justify-content: center; margin: 2px 0 6px; }
+.ls-hero .ls-preview { margin: 0 auto; }
+/* the rider on the title page only where there is room: full screen on a tall screen */
+.ls-panel.is-title .ls-hero { display: none; }
+@media (min-height: 820px) { .ls.is-full .ls-panel.is-title .ls-hero { display: flex; } }
+.ls-preview { flex: none; display: block; }
+.ls-preview.is-locked { filter: grayscale(1) brightness(0.45); }
+
+/* buttons: the same width, one under the other, like the menu of a proper game */
+.ls-stack { display: flex; flex-direction: column; align-items: stretch; gap: 8px; width: min(290px, 100%); margin: 14px auto 0; }
+.ls-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.ls-btn {
+  position: relative; min-height: 46px; padding: 9px 40px; border: 2px solid var(--ls-gold-d); border-radius: 999px;
+  background: linear-gradient(180deg, #2f5a36 0%, #1a3420 55%, #142a19 100%); color: var(--ls-parch);
+  font: 700 1.05rem/1.2 Georgia, "Times New Roman", serif; letter-spacing: 0.03em; cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 240, 200, 0.25), inset 0 0 0 3px rgba(12, 24, 17, 0.6), 0 3px 0 #0a120c, 0 6px 14px rgba(0, 0, 0, 0.35);
+  text-shadow: 0 1px 0 #0c1410;
+}
+.ls-btn::before, .ls-btn::after {
+  content: ""; position: absolute; top: 50%; width: 18px; height: 10px; margin-top: -5px; pointer-events: none;
+  background: no-repeat center / contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 10'%3E%3Cpath d='M1 5 Q9 -2 17 5 Q9 12 1 5Z' fill='%235aa040' stroke='%23b8923e' stroke-width='1.2'/%3E%3Cpath d='M3 5 L15 5' stroke='%23b8923e' stroke-width='0.8'/%3E%3C/svg%3E");
+}
+.ls-btn::before { left: 12px; transform: rotate(-12deg); }
+.ls-btn::after { right: 12px; transform: scaleX(-1) rotate(-12deg); }
+.ls-btn:hover { border-color: var(--ls-gold); background: linear-gradient(180deg, #3a6c40 0%, #20402a 55%, #183020 100%); }
+.ls-btn:active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255, 240, 200, 0.2), inset 0 0 0 3px rgba(12, 24, 17, 0.6), 0 1px 0 #0a120c; }
+.ls-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+.ls-btn.is-ghost { background: linear-gradient(180deg, #1e2e22 0%, #121c15 100%); color: #e6dcc0; border-color: rgba(184, 146, 62, 0.7); }
+.ls-btn.is-ghost:hover { border-color: var(--ls-gold); color: var(--ls-parch); }
+.ls-btn.is-big {
+  min-height: 54px; font-size: 1.3rem; font-family: "LS Uncial", Georgia, serif; font-weight: 400; color: #fffbe8;
+  background: linear-gradient(180deg, #6ac04a 0%, #3f8f2c 50%, #2c6a20 100%); border-color: var(--ls-gold);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 220, 0.45), inset 0 0 0 3px rgba(20, 50, 16, 0.45), 0 3px 0 #1a3a12, 0 0 22px rgba(125, 255, 79, 0.25);
+}
+.ls-btn.is-go {
+  color: #fffbe8; background: linear-gradient(180deg, #6ac04a 0%, #3f8f2c 50%, #2c6a20 100%); border-color: var(--ls-gold);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 220, 0.45), inset 0 0 0 3px rgba(20, 50, 16, 0.45), 0 3px 0 #1a3a12, 0 0 16px rgba(125, 255, 79, 0.2);
+}
+.ls-btn.is-go:hover, .ls-btn.is-big:hover { background: linear-gradient(180deg, #7ad058 0%, #4aa034 50%, #327a24 100%); }
+.ls button:focus-visible, .ls a:focus-visible, .ls input:focus-visible + span, .ls summary:focus-visible {
+  outline: 3px solid #fff4a0; outline-offset: 2px;
+}
+.ls-exit { display: inline-block; margin-top: 8px; color: var(--ls-muted); font-family: Georgia, serif; }
+
+/* the picker: the rider big in the middle, the choices beside her */
+.ls-panel.ls-picker { max-width: 820px; display: grid; grid-template-columns: 1fr 340px; gap: 18px; align-items: center; text-align: left; }
+.ls-picker-stage { text-align: center; display: grid; justify-items: center; gap: 4px; }
+.ls-picker-stage .ls-h2 { text-shadow: 0 2px 8px #000; }
+.ls-on { display: block; font-size: 1rem; font-family: ui-sans-serif, system-ui, sans-serif; color: var(--ls-muted); }
+.ls-line { max-width: 34ch; font-style: italic; text-shadow: 0 1px 4px #000; }
+.ls-locked { padding: 6px 10px; background: rgba(0, 0, 0, 0.6); border-radius: 8px; color: var(--ls-gold); }
+.ls-picker-side { padding: 4px 2px; }
+.ls-picker-side .ls-stack { width: 100%; }
+.ls-spin { display: grid; grid-template-columns: 5.5em 40px 1fr 40px; align-items: center; gap: 6px; margin: 4px 0; }
+.ls-spin-label { font-size: 0.85rem; color: var(--ls-muted); }
+.ls-spin-btn { min-height: 40px; border: 2px solid var(--ls-gold-d); border-radius: 50%; aspect-ratio: 1; background: radial-gradient(circle at 50% 35%, #2f5a36, #142a19); color: var(--ls-parch); font-size: 0.95rem; cursor: pointer; }
+.ls-spin-btn:hover { border-color: var(--ls-gold); }
+.ls-spin-value { display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; text-align: center; }
+.ls-chip { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #000; box-shadow: 0 0 0 1px var(--ls-ink); }
+.ls-desc { font-size: 0.875rem; color: var(--ls-muted); margin: 2px 0 8px; }
+.ls-bars { display: grid; gap: 3px; margin: 6px 0; }
+.ls-bar { display: grid; grid-template-columns: 4.5em 1fr 6.5em; gap: 8px; align-items: center; font-size: 0.8rem; }
+.ls-bar-track { height: 8px; background: rgba(255, 255, 255, 0.12); border-radius: 4px; overflow: hidden; }
+.ls-bar-track span { display: block; height: 100%; background: linear-gradient(90deg, var(--ls-gold-d), var(--ls-gold)); }
+.ls-bar-text { color: var(--ls-muted); text-align: right; }
+@media (max-width: 760px) {
+  .ls-panel.ls-picker { grid-template-columns: 1fr; align-self: start; }
+}
+
+.ls-missions { padding-left: 1.4em; }
+.ls-missions li { margin-bottom: 6px; }
+.ls-unlocks { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--ls-muted); }
+.ls-unlocks .is-open { color: var(--ls-rot); }
+.ls-help { padding-left: 1.2em; }
+.ls-help li { margin-bottom: 8px; }
+.ls-keys { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+.ls-keys th, .ls-keys td { text-align: left; padding: 4px 8px 4px 0; border-bottom: 1px solid var(--ls-line); }
+.ls-keys th { font-family: ui-monospace, monospace; font-weight: 600; color: var(--ls-gold); white-space: nowrap; }
+.ls-toggles { list-style: none; padding: 0; margin: 0; }
+.ls-toggle { display: flex; gap: 10px; align-items: flex-start; min-height: 44px; padding: 6px 0; cursor: pointer; }
+.ls-toggle input { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--ls-rot); flex: none; }
+
+.ls-word { display: inline-flex; gap: 2px; font-family: ui-monospace, monospace; font-weight: 800; letter-spacing: 0.05em; vertical-align: middle; }
+.ls-word span { min-width: 1ch; text-align: center; color: var(--ls-muted); }
+.ls-word span.is-got { color: var(--ls-gold); }
+
+/* riding */
+.ls.is-playing { display: flex; flex-direction: column; }
+.ls-hud { padding: 6px 8px; background: #0a110c; border-bottom: 2px solid var(--ls-line); font-size: 0.9rem; }
+.ls-hud-row { display: flex; align-items: center; gap: 10px; justify-content: space-between; flex-wrap: wrap; }
+.ls-hud-row.is-small { font-size: 0.8rem; margin-top: 2px; }
+.ls-dist strong { font-variant-numeric: tabular-nums; font-size: 1.05rem; }
+.ls-score { font-variant-numeric: tabular-nums; font-weight: 700; margin-left: auto; }
+.ls-mult { color: var(--ls-gold); }
+.ls-pause { min-width: 40px; min-height: 36px; background: transparent; color: var(--ls-ink); border: 2px solid var(--ls-line); border-radius: 8px; font: inherit; cursor: pointer; }
+.ls-hearts { display: inline-flex; align-items: center; gap: 1px; }
+.ls-hearts span { color: #4a3a3a; font-size: 1.5rem; line-height: 1; }
+.ls-hearts span.is-full { color: #e8304a; }
+.ls-hearts .ls-ico { width: 30px; height: 30px; }
+.ls-items { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.ls-item { display: inline-flex; align-items: center; gap: 2px; font-size: 1.05rem; line-height: 1; }
+.ls-item b { font-variant-numeric: tabular-nums; min-width: 1ch; }
+.ls-items .is-none { opacity: 0.35; filter: grayscale(0.85); }
+.ls-ico { display: block; width: 32px; height: 32px; object-fit: contain; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6)); }
+.ls-hud-row.is-small { gap: 14px; }
+.ls-fsbtn { display: inline-grid; place-items: center; }
+.ls-fsbtn svg, .ls-fs svg { width: 18px; height: 18px; }
+.ls-fs {
+  position: absolute; bottom: 10px; right: 10px; z-index: 3; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 6px 12px;
+  background: rgba(10, 17, 12, 0.82); color: var(--ls-ink); border: 2px solid var(--ls-line); border-radius: 10px; font: inherit; font-size: 0.85rem; font-weight: 700; cursor: pointer;
+}
+.ls-fs:hover, .ls-fsbtn:hover { border-color: var(--ls-rot); }
+.ls-fs:focus-visible, .ls-fsbtn:focus-visible { outline: 3px solid #fff4a0; outline-offset: 2px; }
+.ls-ability { color: var(--ls-muted); }
+.ls-ability.is-ready { color: var(--ls-rot); }
+.ls-danger { position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 70px 14px rgba(200, 20, 30, 0.8); transition: opacity 0.2s; }
+.ls-toast {
+  position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); width: max-content; max-width: 92%; margin: 0; padding: 8px 14px;
+  background: rgba(10, 17, 12, 0.9); border: 1px solid var(--ls-line); border-radius: 10px; font-size: 0.95rem; text-align: center; pointer-events: none;
+}
+.ls-banner {
+  position: absolute; left: 0; right: 0; top: 44%; margin: 0; text-align: center; font-family: Georgia, serif; font-size: clamp(1.3rem, 4.5vw, 2rem);
+  color: #fffbe0; text-shadow: 0 0 14px rgba(255, 240, 160, 0.9), 0 2px 0 #000; pointer-events: none; animation: ls-rise 3.2s ease-out both;
+}
+@keyframes ls-rise { 0% { opacity: 0; transform: translateY(12px); } 15%, 75% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+.ls.is-calm .ls-banner { animation: none; }
+.ls-overlay { position: absolute; inset: 0; display: grid; place-items: center; padding: 12px; background: rgba(5, 8, 6, 0.55); overflow-y: auto; }
+.ls-details summary { cursor: pointer; margin-top: 12px; color: var(--ls-muted); }
+.ls-results { display: grid; gap: 4px; margin: 10px 0; }
+.ls-results div { display: flex; gap: 10px; }
+.ls-results dt { min-width: 7.5em; color: var(--ls-muted); }
+.ls-results dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+/* the end of a run: the panel sits low, so the rider lying in her blood stays in sight above it */
+.ls-overlay.is-end {
+  display: flex; flex-direction: column; align-items: center; overflow: hidden; padding-bottom: 10px;
+  background: linear-gradient(180deg, rgba(5, 8, 6, 0) 0%, rgba(5, 8, 6, 0) 40%, rgba(5, 8, 6, 0.6) 58%);
+}
+.ls-overlay.is-end::before { content: ""; flex: 0 0 44%; }
+.ls-overlay.is-end > .ls-panel { flex: 0 1 auto; min-height: 0; margin-top: auto; overflow-y: auto; padding: 14px 16px; }
+.ls-overlay.is-end .ls-h2 { font-size: 1.35rem; }
+.ls-overlay.is-end .ls-results { grid-template-columns: repeat(auto-fit, minmax(12em, 1fr)); column-gap: 14px; }
+.ls-overlay.is-end .ls-results div:last-child { grid-column: 1 / -1; }
+.ls-overlay.is-end .ls-results dt { min-width: 5.5em; }
+.ls-overlay.is-end .ls-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); position: sticky; bottom: -14px; margin: 10px -16px -14px; padding: 10px 16px 14px; background: rgba(16, 24, 18, 0.97); }
+.ls-new { color: var(--ls-gold); font-weight: 800; }
+.ls-done ul { list-style: none; padding: 0; margin: 0 0 6px; color: var(--ls-rot); }
+
+/* touch: only where there is no mouse */
+.ls-pad { display: none; padding: 8px; gap: 8px; background: #0a110c; border-top: 2px solid var(--ls-line); user-select: none; -webkit-user-select: none; }
+@media (hover: none) and (pointer: coarse) {
+  .ls-pad { display: flex; }
+  .ls.is-playing .ls-stage { height: calc(100dvh - 230px); min-height: 280px; }
+  .ls:not(.is-playing) .ls-stage { height: calc(100dvh - 120px); }
+}
+.ls-pad-steer { display: flex; gap: 8px; }
+.ls-pad-acts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; flex: 1; }
+.ls-touch { min-width: 44px; min-height: 44px; background: #17231b; color: var(--ls-ink); border: 2px solid var(--ls-line); border-radius: 10px; font-size: 1.1rem; touch-action: none; }
+.ls-touch.is-big { width: 64px; min-height: 96px; font-size: 1.6rem; }
+.ls-touch .ls-ico { width: 34px; height: 34px; margin: 0 auto; }
+.ls-touch:active { background: #2a4a2a; }
+@media (max-width: 480px) {
+  .ls-hud-row:first-child { flex-wrap: nowrap; }
+  .ls-dist .ls-goal { display: none; }
+  .ls-hud { font-size: 0.8rem; }
+  .ls-hero { flex-direction: column; align-items: flex-start; }
+}
+
+/* full screen: the browser's own, or (where there is none) the game covering the page */
+.ls.is-full { position: fixed; inset: 0; z-index: 1000; width: 100%; height: 100vh; height: 100dvh; display: flex; flex-direction: column; background: #000; }
+.ls.is-full.is-full .ls-stage { flex: 1 1 auto; height: auto; min-height: 0; }
+html.ls-lock, html.ls-lock body { overflow: hidden; }
+
+.ls-tune { position: fixed; right: 8px; bottom: 8px; z-index: 50; width: 260px; max-height: 70vh; overflow: auto; padding: 8px; background: rgba(10, 17, 12, 0.95); border: 1px solid var(--ls-rot); font-size: 0.75rem; }
+.ls-tune label { display: block; margin: 4px 0; }
+.ls-tune input { width: 100%; }
+.ls-tune textarea { width: 100%; font-family: ui-monospace, monospace; font-size: 0.7rem; background: #000; color: var(--ls-ink); }
+
+@media (forced-colors: active) {
+  .ls-btn, .ls-touch, .ls-spin-btn, .ls-panel { border: 2px solid ButtonText; }
+}
+@media (prefers-reduced-motion: reduce) { .ls-banner { animation: none; } .ls-danger { transition: none; } }
+
+/* ornaments on a panel that scrolls: keep them inside its edge */
+.ls-overlay.is-end .ls-orn.is-tl { top: 3px; left: 3px; }
+.ls-overlay.is-end .ls-orn.is-tr { top: 3px; right: 3px; }
+.ls-overlay.is-end .ls-orn.is-bl, .ls-overlay.is-end .ls-orn.is-br { display: none; }
+.ls-overlay .ls-results, .ls-overlay .ls-done { text-align: left; }
+
+/* menus never grow wider than the stage */
+.ls-menu { padding: 18px 16px; }
+.ls-menu > * { min-width: 0; max-width: 100%; }
+@media (max-width: 600px) {
+  .ls-keys th { white-space: normal; }
+  .ls-panel { padding: 26px 16px 20px; }
+  .ls-fs { padding: 6px; min-width: 44px; min-height: 44px; justify-content: center; opacity: 0.9; }
+  .ls-fs span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+}
+
+/* the prologue and the Book of Memories: a page of the old book */
+.ls-panel.is-book { max-width: 640px; }
+.ls-panel.is-book p { font-family: Georgia, "Times New Roman", serif; line-height: 1.55; }
+.ls-initial::first-letter {
+  float: left; margin: 4px 8px 0 0; font-family: "LS Uncial", Georgia, serif; font-size: 3.1em; line-height: 0.85;
+  color: var(--ls-gold); text-shadow: 0 2px 0 #0c1410;
+}
+.ls-kinds { list-style: none; margin: 8px 0 4px; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.ls-kinds li { display: grid; gap: 4px; padding: 12px; border: 1px solid rgba(184, 146, 62, 0.55); border-radius: 12px; background: rgba(0, 0, 0, 0.22); font-size: 0.9rem; }
+.ls-kind-n { font-family: "LS Uncial", Georgia, serif; font-size: 2.2rem; line-height: 1; color: #fff; text-shadow: 0 2px 0 #0c1410; }
+.ls-chapter { margin-top: 6px; }
+.ls-memories { margin: 0; padding-left: 1.4em; display: grid; gap: 8px; font-family: Georgia, serif; line-height: 1.5; }
+.ls-memories .is-missing { color: var(--ls-muted); letter-spacing: 0.3em; }
+.ls-named { columns: 2 14em; column-gap: 18px; margin: 0; padding-left: 1.1em; font-size: 0.88rem; color: #e6dcc0; }
+.ls-named li { break-inside: avoid; margin-bottom: 2px; }
+.ls-souls { color: #fff; }
+.ls-skip { width: auto; padding: 0 12px; font-weight: 700; }
+
+/* The First Morning: the lesson stays up until the next one */
+.ls-lesson {
+  position: absolute; left: 50%; top: 12px; z-index: 3; width: min(560px, calc(100% - 24px)); transform: translateX(-50%);
+  padding: 10px 16px 12px; text-align: center; font-family: Georgia, serif; font-size: 1rem; line-height: 1.4; color: var(--ls-parch);
+  background: rgba(12, 24, 17, 0.9); border: 2px solid var(--ls-gold-d); border-radius: 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+.ls-lesson .ls-kicker { display: block; margin-bottom: 2px; font-family: system-ui, sans-serif; }
+
+/* the words of the end, over the light */
+.ls-finale-text {
+  position: absolute; left: 50%; bottom: 7%; z-index: 3; width: min(600px, calc(100% - 32px)); transform: translateX(-50%);
+  padding: 14px 20px; text-align: center; font-family: Georgia, serif; font-style: italic; font-size: 1.1rem; line-height: 1.5;
+  color: #fffbe8; text-shadow: 0 1px 2px #000, 0 0 18px rgba(0, 0, 0, 0.6); pointer-events: none;
+  background: radial-gradient(closest-side, rgba(12, 24, 17, 0.55), transparent);
+}

@@ -1,0 +1,13 @@
+{
+  "name": "the-long-spring",
+  "version": "0.1.0",
+  "private": true,
+  "description": "An endless ride through the rot: lead the monsters into trees, pits and traps, and bring spring back.",
+  "main": "index.ts",
+  "license": "UNLICENSED",
+  "peerDependencies": {
+    "next": ">=15",
+    "react": ">=19",
+    "react-dom": ">=19"
+  }
+}

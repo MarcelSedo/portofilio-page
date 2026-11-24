@@ -8,7 +8,7 @@ import { useWizard } from "./WizardProvider";
 
 const INLINE_PAGES = ["/about"];
 
-const NO_WIZARD = ["/games/emma"];
+const NO_WIZARD = ["/games/emma", "/games/circumlocution", "/games/long-spring"];
 
 /**
  * Floating "Ask the wizard" button (bottom right, every page) + chat window.

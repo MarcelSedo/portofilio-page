@@ -138,17 +138,24 @@ export const games: Game[] = [
   },
   {
     title: "Time Traveller",
-    kicker: "Timeline game",
-    note: "Put 661 films in order, with or without a clock. Every year comes from Wikidata; the posters are drawn by code.",
+    kicker: "Timeline game · British culture",
+    note: "Six centuries of British culture: put 603 books, paintings, records, plays and films in order, mixed or one kind at a time. Years from Wikidata; every picture is drawn by code.",
     href: "/games/time-traveller",
     image: "/portfolio/time-traveller.webp",
   },
   {
     title: "The Circumlocution Office",
     kicker: "Desk game after Dickens · Phone first",
-    note: "Five days as a Victorian clerk. Micawber, Heep and Scrooge bring papers; check signatures, stamp them, read the consequences in the morning paper.",
+    note: "Five days as a Victorian clerk, after Dickens. Check papers and signatures, stamp them, pay your rent at night, and read the consequences in the morning paper. You can lose.",
     href: "/games/circumlocution",
     image: "/portfolio/circumlocution.webp",
+  },
+  {
+    title: "The Long Spring",
+    kicker: "Endless runner · Keyboard and touch",
+    note: "The world has turned inside out. Ride with Brigid through four lands, give your hearts to the villages to save them, lead the monsters into the land, and find what she has forgotten; or take the endless ride. Every picture is drawn by code.",
+    href: "/games/long-spring",
+    image: "/portfolio/long-spring.webp",
   },
 ];
 
