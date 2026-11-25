@@ -4,15 +4,17 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent as RKeyboa
 import { BIOMES, MONSTERS, MOUNTS, RIDERS, SWATCHES, TUNE, type Look, type Mount, type Rider } from "../config";
 import { Game, heroPreview, type GameEvent, type Hud, type Mode } from "../game";
 import { freshSave, loadSave, missionAt, today, wordOfDay, writeSave, type Save, type Settings, type Stats } from "../meta";
-import { setSound } from "../sound";
+import { setSound, setSoundVolume } from "../sound";
+import { setMusic, setMusicDanger, setMusicLand, setMusicMood, setMusicVolume } from "../music";
+import { STUDIO_LOGO } from "../studio-logo";
 import { iconUrls, type IconId, type Spr } from "../sprites";
 import "../styles/long-spring.css";
 import { Divider, Ornament } from "./Ornament";
-import { ENDING, HEROINE, LAND_CHAPTERS, MEMORIES, MEMORIES_PER_LAND, PROLOGUE, RULES, VILLAGE_KINDS } from "../story";
+import { ENDING, HEROINE, LAND_CHAPTERS, MEMORIES, MEMORIES_PER_LAND, PROLOGUE, RULES, VILLAGE_KINDS, mistOf } from "../story";
 
 export type LongSpringProps = { exitHref?: string; exitLabel?: string };
 
-type Screen = "title" | "rider" | "missions" | "help" | "settings" | "prologue" | "book" | "play" | "over";
+type Screen = "title" | "begin" | "credits" | "rider" | "missions" | "help" | "settings" | "prologue" | "book" | "play" | "over";
 type Result = {
   win: boolean; cause: string; metres: number; score: number; stats: Stats; best: boolean; missions: string[]; word: boolean;
   mode: Mode; land: number; reborn: number; memories: number[];
@@ -44,7 +46,8 @@ function FsIcon({ on }: { on: boolean }) {
 
 const choiceOf = (s: Save) => ({ rider: RIDERS.find((r) => r.id === s.rider)!, mount: MOUNTS.find((m) => m.id === s.mount)!, look: s.looks[s.rider] });
 /** the mission is always Brigid (the dryad), on whichever mount you have chosen */
-const brigidOf = (s: Save) => ({ rider: RIDERS.find((r) => r.id === "dryad")!, mount: MOUNTS.find((m) => m.id === s.mount)!, look: s.looks.dryad });
+/** the mission is always Brigid on her elk, whatever rides the endless road */
+const brigidOf = (s: Save) => ({ rider: RIDERS.find((r) => r.id === "dryad")!, mount: MOUNTS.find((m) => m.id === "elk")!, look: s.looks.dryad });
 const endlessLand = (s: Save) => Math.min(BIOMES.length - 1, s.furthestLand);
 
 /** An animated picture of a rider on her mount, at the screen's resolution. */
@@ -114,6 +117,94 @@ function Bar({ label, value, text }: { label: string; value: number; text: strin
   );
 }
 
+/** The round × in the corner of every page that can be closed. */
+function Close({ onClick, label = "Close" }: { onClick: () => void; label?: string }) {
+  return (
+    <button type="button" className="ls-x" onClick={onClick} aria-label={label}>
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+      </svg>
+    </button>
+  );
+}
+
+type Tab = { id: string; label: React.ReactNode; aria?: string; state?: "done" | "now" | "locked"; content: React.ReactNode };
+/** Tabs (or, with `stepper`, the steps of a road): ← → move between them, as tabs should. */
+function Tabs({ id, label, tabs, index, onIndex, stepper }: { id: string; label: string; tabs: Tab[]; index: number; onIndex: (i: number) => void; stepper?: boolean }) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const open = tabs.map((t, i) => (t.state === "locked" ? -1 : i)).filter((i) => i >= 0);
+  const onKey = (e: RKeyboardEvent<HTMLDivElement>) => {
+    const at = open.indexOf(index);
+    let to = -1;
+    if (e.key === "ArrowRight") to = open[(at + 1) % open.length];
+    else if (e.key === "ArrowLeft") to = open[(at - 1 + open.length) % open.length];
+    else if (e.key === "Home") to = open[0];
+    else if (e.key === "End") to = open[open.length - 1];
+    else return;
+    e.preventDefault();
+    onIndex(to);
+    refs.current[to]?.focus();
+  };
+  const cur = tabs[index] ?? tabs[0];
+  return (
+    <>
+      <div className={stepper ? "ls-steps" : "ls-tabs"} role="tablist" aria-label={label} onKeyDown={onKey}>
+        {tabs.map((t, i) => (
+          <button
+            key={t.id}
+            ref={(el) => {
+              refs.current[i] = el;
+            }}
+            type="button"
+            role="tab"
+            id={`${id}-tab-${t.id}`}
+            aria-controls={`${id}-panel`}
+            aria-selected={i === index}
+            aria-disabled={t.state === "locked" || undefined}
+            aria-label={t.aria}
+            tabIndex={i === index ? 0 : -1}
+            className={`${stepper ? "ls-step" : "ls-tab"}${i === index ? " is-on" : ""}${t.state ? ` is-${t.state}` : ""}`}
+            onClick={() => t.state !== "locked" && onIndex(i)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div className="ls-tabpanel" role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-tab-${cur.id}`}>
+        {cur.content}
+      </div>
+    </>
+  );
+}
+
+/** A small living tree for the cards: it grows when the card comes up. */
+function Sapling({ big }: { big: boolean }) {
+  return (
+    <svg className="ls-sapling" viewBox="0 0 80 90" aria-hidden="true" focusable="false">
+      <ellipse cx="40" cy="84" rx="22" ry="4" fill="rgba(0,0,0,0.35)" />
+      <g className="ls-sapling-grow">
+        <path d="M40 84 C39 70 41 58 40 44" stroke="#6a4226" strokeWidth="6" strokeLinecap="round" fill="none" />
+        <path d="M40 58 C33 52 28 50 22 50 M40 52 C48 46 54 44 60 45" stroke="#6a4226" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+        <circle cx="40" cy="32" r={big ? 24 : 18} fill="#3f8f2c" />
+        <circle cx="28" cy="40" r={big ? 15 : 11} fill="#5aa040" />
+        <circle cx="53" cy="38" r={big ? 16 : 12} fill="#4a9a34" />
+        <circle cx="42" cy="22" r={big ? 13 : 10} fill="#7ac04a" />
+        <circle cx="33" cy="30" r="2.6" fill="#ffe46a" />
+        <circle cx="50" cy="27" r="2.6" fill="#ff8ab0" />
+        <circle cx="45" cy="42" r="2.4" fill="#ffffff" />
+        {!big && <path d="M40 46 l-7 10 M40 46 l6 11" stroke="#d0303a" strokeWidth="2.4" strokeLinecap="round" />}
+      </g>
+    </svg>
+  );
+}
+
+type Moment = {
+  village: string; kind: "village" | "glade"; names: string[]; gift?: string; giftId?: string; memory: number; clear: boolean; line?: string; key: number;
+  hearts: number; souls: number; need: number;
+};
+/** the picture for each gift of the Named */
+const GIFT_ICON: Record<string, IconId> = { sword: "sword", bow: "bow", traps: "trap", bark: "bark", heart: "heart", hound: "hound", raven: "raven", doe: "doe" };
+
 export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
   const [save, setSave] = useState<Save>(() => freshSave());
   const [loaded, setLoaded] = useState(false);
@@ -132,6 +223,25 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
   const [browse, setBrowse] = useState({ rider: 0, mount: 0 });
   const [icons, setIcons] = useState<Record<IconId, string> | null>(null);
   const [full, setFull] = useState(false);
+  const [moment, setMoment] = useState<Moment | null>(null);
+  const [memoryCard, setMemoryCard] = useState<number | null>(null);
+  /** the memory on the card has come back clear (found a second time) */
+  const [memClear, setMemClear] = useState(false);
+  /** what the pause (or the end) dialog shows: its own buttons, the settings, or the book */
+  const [view, setView] = useState<"main" | "settings" | "book">("main");
+  const [bookTab, setBookTab] = useState(0);
+  const [reading, setReading] = useState<number | null>(null);
+  const [page, setPage] = useState(0);
+  const [helpTab, setHelpTab] = useState(0);
+  /** the step of The First Morning, so the hud can point at what the lesson is about */
+  const [tutStep, setTutStep] = useState(-1);
+  /** the opening: 0 the studio, 1 the title, 2 over */
+  const [intro, setIntro] = useState<0 | 1 | 2>(0);
+  const momentAt = useRef(0);
+  const momentBtn = useRef<HTMLButtonElement>(null);
+  const screenRef = useRef<Screen>("title");
+  const memHead = useRef<HTMLHeadingElement>(null);
+  const viewHead = useRef<HTMLHeadingElement>(null);
   const fullOn = useRef(false);
   const nativeFull = useRef(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -154,9 +264,40 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
     setBrowse({ rider: RIDERS.findIndex((r) => r.id === s.rider), mount: MOUNTS.findIndex((m) => m.id === s.mount) });
     setLoaded(true);
     setSound(s.settings.sound);
+    setSoundVolume(s.settings.soundVol);
+    setMusicVolume(s.settings.musicVol);
+    setMusic(false);
     setTune(new URLSearchParams(location.search).has("tune"));
     setIcons(iconUrls());
   }, []);
+
+  // the opening: the studio, then the title; any key or click skips it, and lets the music begin
+  useEffect(() => {
+    if (!loaded) return;
+    const calm = saveRef.current.settings.calm;
+    const t1 = setTimeout(() => setIntro((i) => (i === 0 ? 1 : i)), calm ? 1000 : 2000);
+    const t2 = setTimeout(() => setIntro(2), calm ? 2200 : 4600);
+    const first = () => {
+      if (saveRef.current.settings.music) setMusic(true);
+      setIntro(2);
+      window.removeEventListener("pointerdown", first);
+      window.removeEventListener("keydown", first);
+    };
+    window.addEventListener("pointerdown", first);
+    window.addEventListener("keydown", first);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      window.removeEventListener("pointerdown", first);
+      window.removeEventListener("keydown", first);
+    };
+  }, [loaded]);
+  const finaleOn = !!hud?.finale;
+  useEffect(() => {
+    if (screen === "play") setMusicMood(finaleOn ? "finale" : "ride");
+    else if (screen === "over") setMusicMood(result?.win ? "finale" : "death");
+    else setMusicMood("menu");
+  }, [screen, finaleOn, result]);
 
   /* ---------------- full screen ---------------- */
 
@@ -242,6 +383,34 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
   useEffect(() => {
     if (swordCard) swordHead.current?.focus();
   }, [swordCard]);
+  useEffect(() => {
+    if (memoryCard !== null) memHead.current?.focus();
+  }, [memoryCard]);
+  useEffect(() => {
+    if (view !== "main") viewHead.current?.focus();
+    else if (paused) pauseHead.current?.focus();
+    else if (screenRef.current === "over") headRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
+  useEffect(() => {
+    screenRef.current = screen;
+    setPage(0);
+    setReading(null);
+  }, [screen]);
+  // Esc closes a page of the menu, as its × does
+  useEffect(() => {
+    if (screen === "play" || screen === "title" || (screen === "over" && view === "main")) return;
+    const down = (e: KeyboardEvent) => {
+      if (e.code !== "Escape") return;
+      e.preventDefault();
+      if (screen === "over") setView("main");
+      else if (reading !== null) setReading(null);
+      else if (screen === "prologue" && page > 0) setPage(page - 1);
+      else setScreen(screen === "missions" ? "rider" : "title");
+    };
+    window.addEventListener("keydown", down);
+    return () => window.removeEventListener("keydown", down);
+  }, [screen, view, reading, page]);
 
   const holdUntil = useRef(0);
   const queue = useRef<string[]>([]);
@@ -317,14 +486,25 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
           ...s,
           named: [...s.named, ...e.names.map((n) => `${n}, of ${e.village}`)].slice(-400),
           soulsTotal: s.soulsTotal + e.size,
-          memories: e.memory >= 0 && !s.memories.includes(e.memory) ? [...s.memories, e.memory] : s.memories,
+          memories: e.memory >= 0 && !e.clear && !s.memories.includes(e.memory) ? [...s.memories, e.memory] : s.memories,
+          clear: e.memory >= 0 && e.clear && !s.clear.includes(e.memory) ? [...s.clear, e.memory] : s.clear,
         }));
-        if (e.memory >= 0) {
-          runRef.current.memories.push(e.memory);
-          const mm = MEMORIES[e.memory];
-          say(`${mm.sign} A memory comes back: “${mm.title}”. It is written in the Book of Memories.`, true);
-        } else if (e.line && e.names[0]) say(`${e.names[0].split(" ")[0]}: “${e.line}”`);
+        if (e.memory >= 0) runRef.current.memories.push(e.memory);
+        if (e.line) setMoment((m) => (m && m.village === e.village ? { ...m, line: e.line } : m));
+      } else if (e.type === "moment") {
+        // the world holds still until the player rides on: a card says what the village gave
+        momentAt.current = Date.now();
+        setMoment({
+          village: e.village, kind: e.kind === "glade" ? "glade" : "village", names: e.names, gift: e.gift, giftId: e.giftId, memory: e.memory,
+          clear: e.clear, key: Date.now(), hearts: e.hearts, souls: e.souls, need: e.need,
+        });
+        const what =
+          e.kind === "glade"
+            ? `The glade is healed. No souls, and your heart stays.${e.gift ? ` A gift of the land: ${e.gift}.` : ""}${e.memory >= 0 ? (e.clear ? ` Memory ${e.memory + 1} comes back clear.` : ` Memory ${e.memory + 1} comes back.`) : ""}`
+            : `${e.names.join(" and ")} of ${e.village} are saved: two souls, ${e.souls} of ${e.need}.`;
+        setLive(`${what} Press Space or Enter to ride on.`);
       } else if (e.type === "tutorial") {
+        setTutStep(e.done ? -1 : e.step);
         if (e.done) update((s) => ({ ...s, tutorialDone: true }));
       } else if (e.type === "seen") update((s) => ({ ...s, seenMonsters: [...new Set([...s.seenMonsters, e.monster])] }));
       else if (e.type === "seenKind") update((s) => ({ ...s, seenKinds: [...new Set([...s.seenKinds, e.kind])] }));
@@ -336,7 +516,9 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         let best = false;
         if (e.mode === "endless") {
           best = e.score > saveRef.current.best;
-          update((s) => ({ ...s, best: Math.max(s.best, e.score), bestMetres: Math.max(s.bestMetres, e.metres) }));
+          update((s) => ({
+            ...s, best: Math.max(s.best, e.score), bestMetres: Math.max(s.bestMetres, e.metres), bestSouls: Math.max(s.bestSouls, e.stats.souls),
+          }));
         } else if (e.mode === "mission" && e.win)
           update((s) => ({
             ...s, wins: s.wins + 1, endings: s.endings + 1, furthestLand: BIOMES.length, checkpoint: 0,
@@ -358,6 +540,9 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
     setResult(null);
     setPaused(false);
     setSwordCard(false);
+    setMemoryCard(null);
+    setMoment(null);
+    setView("main");
     setBanner("");
     setLesson("");
     setToast("");
@@ -397,6 +582,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
       mode: m,
       startLand: endless ? endlessLand(s) : m === "mission" ? Math.min(s.checkpoint, BIOMES.length - 1) : 0,
       memories: [...s.memories],
+      clear: [...s.clear],
       settings: s.settings,
       multiplier: endless ? s.multiplier : 1,
       missions: endless ? s.open.map(missionAt) : [],
@@ -405,7 +591,11 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
       seenSword: s.seenSword,
       seenMonsters: [...s.seenMonsters],
       seenKinds: [...s.seenKinds],
-      onHud: setHud,
+      onHud: (h) => {
+        setHud(h);
+        setMusicDanger(h.danger);
+        setMusicLand(h.land);
+      },
       onEvent,
     });
     gameRef.current = game;
@@ -438,20 +628,63 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
 
   const togglePause = useCallback(() => {
     const g = gameRef.current;
-    if (!g || screen !== "play" || swordCard) return;
+    if (!g || screen !== "play" || swordCard || memoryCard !== null) return;
     if (g.paused) {
       setPaused(false);
+      setView("main");
       g.start();
       stageRef.current?.focus();
     } else {
       g.pause();
+      setView("main");
       setPaused(true);
     }
-  }, [screen, swordCard]);
+  }, [screen, swordCard, memoryCard]);
+
+  const closeMemory = useCallback(() => {
+    setMemoryCard(null);
+    gameRef.current?.release();
+    gameRef.current?.start();
+    stageRef.current?.focus();
+  }, []);
+
+  /** ride on from a saved village: first its memory, if it had one */
+  const rideOn = useCallback(() => {
+    setMoment((m) => {
+      if (!m) return m;
+      if (m.memory >= 0) {
+        setMemClear(m.clear);
+        setMemoryCard(m.memory);
+      }
+      else {
+        gameRef.current?.release();
+        stageRef.current?.focus();
+      }
+      return null;
+    });
+  }, []);
 
   useEffect(() => {
     if (screen !== "play") return;
     const down = (e: KeyboardEvent) => {
+      if (memoryCard !== null) {
+        if (e.code === "Escape") {
+          e.preventDefault();
+          closeMemory();
+        }
+        return;
+      }
+      if (moment && !paused && e.code !== "Escape" && e.code !== "KeyP") {
+        // Space, Enter or a steering key rides on; not in the first moment, so a key held from riding doesn't skip it
+        if (!e.repeat && Date.now() - momentAt.current > 900 && (e.code === "Space" || e.code === "Enter" || KEYS[e.code])) rideOn();
+        e.preventDefault();
+        return;
+      }
+      if (paused && view !== "main" && e.code === "Escape") {
+        e.preventDefault();
+        setView("main");
+        return;
+      }
       if (e.code === "Escape" || e.code === "KeyP" || ((e.code === "Enter" || e.code === "Space") && gameRef.current?.hud().finale)) {
         e.preventDefault();
         if (gameRef.current?.hud().finale) gameRef.current.skipFinale();
@@ -476,12 +709,22 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
     };
-  }, [screen, paused, swordCard, togglePause]);
+  }, [screen, paused, swordCard, togglePause, memoryCard, closeMemory, view, moment, rideOn]);
+  useEffect(() => {
+    if (moment && !paused) momentBtn.current?.focus({ preventScroll: true });
+  }, [moment, paused]);
 
-  const setSetting = (k: keyof Settings, v: boolean) => {
+  type Flag = { [K in keyof Settings]: Settings[K] extends boolean ? K : never }[keyof Settings];
+  const setSetting = (k: Flag, v: boolean) => {
     const s = update((s) => ({ ...s, settings: { ...s.settings, [k]: v } }));
     if (k === "sound") setSound(v);
+    if (k === "music") setMusic(v);
     gameRef.current?.setSettings(s.settings);
+  };
+  const setVolume = (k: "musicVol" | "soundVol", v: number) => {
+    update((s) => ({ ...s, settings: { ...s.settings, [k]: v } }));
+    if (k === "musicVol") setMusicVolume(v);
+    else setSoundVolume(v);
   };
 
   /* ---------------- pieces ---------------- */
@@ -541,9 +784,10 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
           ["visible", "High visibility: outlines on everything you can hit, “↑ jump” under logs and thorns, “↓ duck” under arches"],
           ["lessBlood", "Less blood: grey dust instead of blood"],
           ["calm", "Calmer: no shaking, flashing or waves of light"],
-          ["sound", "Sound"],
+          ["music", "Music: a voice and a drum"],
+          ["sound", "Sounds"],
           ["full", "Full screen when I ride (F or the corner button switch it at any time)"],
-        ] as [keyof Settings, string][]
+        ] as [Flag, string][]
       ).map(([k, label]) => (
         <li key={k}>
           <label className="ls-toggle">
@@ -552,14 +796,31 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
           </label>
         </li>
       ))}
+      <li className="ls-volumes">
+        {(
+          [
+            ["musicVol", "Music volume", save.settings.music],
+            ["soundVol", "Sound volume", save.settings.sound],
+          ] as ["musicVol" | "soundVol", string, boolean][]
+        ).map(([k, label, enabled]) => (
+          <label key={k} className="ls-volume">
+            <span>{label}</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={Math.round(save.settings[k] * 100)}
+              disabled={!enabled}
+              aria-valuetext={`${Math.round(save.settings[k] * 100)} percent`}
+              onChange={(e) => setVolume(k, +e.target.value / 100)}
+            />
+          </label>
+        ))}
+      </li>
     </ul>
   );
 
-  const back = (
-    <button type="button" className="ls-btn is-ghost" onClick={() => setScreen("title")}>
-      Back
-    </button>
-  );
 
   /* ---------------- menus (over the still land) ---------------- */
 
@@ -589,9 +850,170 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
   const memCount = save.memories.length;
   const openMission = () => {
     if (!save.prologueSeen || !save.tutorialDone) setScreen("prologue");
+    else if (save.checkpoint > 0) setScreen("begin");
     else ride("mission");
   };
+  /** the whole mission again from the Rot: the book and the Named stay */
+  const beginAgain = () => {
+    update((s) => ({ ...s, checkpoint: 0 }));
+    ride("mission");
+  };
   const landName = (i: number) => BIOMES[Math.min(i, BIOMES.length - 1)].name;
+  const toTitle = () => setScreen("title");
+  const x = <Close onClick={toTitle} label="Close, back to the menu" />;
+
+  /* the Book of Memories: four lands, one after the other like the steps of a road, then the Named */
+  const inRun = screen === "play" || screen === "over";
+  const curLand = Math.min(
+    BIOMES.length - 1,
+    inRun && hud && hud.mode === "mission" ? hud.land : save.endings > 0 ? BIOMES.length - 1 : save.checkpoint,
+  );
+  const reached = Math.max(save.furthestLand, curLand);
+  const openBook = () => {
+    setBookTab(curLand);
+    setReading(null);
+  };
+  const memoryArticle = (i: number, nav: boolean) => {
+    const m = MEMORIES[i];
+    const mine = MEMORIES.map((mm, j) => ({ mm, j })).filter(({ mm, j }) => mm.land === m.land && save.memories.includes(j));
+    const at = mine.findIndex(({ j }) => j === i);
+    const prev = mine[at - 1]?.j;
+    const next = mine[at + 1]?.j;
+    return (
+      <article className="ls-mist is-page" aria-label={`Memory ${i + 1}: ${m.title}`}>
+        <p className="ls-kicker ls-mist-kick">
+          Memory {i + 1} of {MEMORIES.length} · {save.clear.includes(i) ? "clear" : "still in mist"}
+        </p>
+        <p className="ls-mist-sign">{m.sign}</p>
+        <h4 className="ls-mist-title">{m.title}</h4>
+        <p className="ls-mist-text">{save.clear.includes(i) ? m.text : mistOf(i).text}</p>
+        {!save.clear.includes(i) && <p className="ls-muted ls-small ls-mist-more-note">The rest is in mist. A glade will bring it back clear, once every memory has been found.</p>}
+        {nav && (
+          <div className="ls-mist-nav">
+            <button type="button" className="ls-chipbtn" onClick={() => prev !== undefined && setReading(prev)} disabled={prev === undefined}>
+              ◂ <span className="sr-only">Previous memory</span>
+            </button>
+            <button type="button" className="ls-chipbtn" onClick={() => setReading(null)}>
+              All of {BIOMES[m.land].name}
+            </button>
+            <button type="button" className="ls-chipbtn" onClick={() => next !== undefined && setReading(next)} disabled={next === undefined}>
+              <span className="sr-only">Next memory</span> ▸
+            </button>
+          </div>
+        )}
+      </article>
+    );
+  };
+  const bookTabs: Tab[] = BIOMES.map((b, land) => {
+    const list = MEMORIES.map((m, i) => ({ m, i })).filter(({ m }) => m.land === land);
+    const found = list.filter(({ i }) => save.memories.includes(i)).length;
+    const locked = land > reached;
+    return {
+      id: `land${land}`,
+      state: locked ? "locked" : land === curLand ? "now" : land < curLand ? "done" : undefined,
+      aria: `${land + 1}. ${b.name}${locked ? ", not reached yet" : `, ${found} of ${MEMORIES_PER_LAND} memories`}${land === curLand && !locked ? ", where you are now" : ""}`,
+      label: (
+        <>
+          <span className="ls-step-n" aria-hidden="true">
+            {found === MEMORIES_PER_LAND ? "✓" : land + 1}
+          </span>
+          <span className="ls-step-name" aria-hidden="true">
+            {b.name}
+          </span>
+          <span className="ls-step-count" aria-hidden="true">
+            {locked ? "not yet" : `${found}/${MEMORIES_PER_LAND}`}
+          </span>
+        </>
+      ),
+      content:
+        reading !== null && MEMORIES[reading].land === land ? (
+          memoryArticle(reading, true)
+        ) : (
+          <>
+            <h3 className="ls-h3 ls-chapter-title">
+              {b.name}: <em>{LAND_CHAPTERS[land]}</em>
+            </h3>
+            <ul className="ls-mist-grid">
+              {list.map(({ m, i }) =>
+                save.memories.includes(i) ? (
+                  <li key={i}>
+                    <button type="button" className="ls-mist is-card" onClick={() => setReading(i)}>
+                      <span className="ls-mist-n" aria-hidden="true">
+                        {i + 1}
+                      </span>
+                      <span className="sr-only">Memory {i + 1}{save.clear.includes(i) ? ", clear" : ", in mist"}:</span>
+                      <span className="ls-mist-title">{m.title}</span>
+                      <span className="ls-mist-state" aria-hidden="true">
+                        {save.clear.includes(i) ? "clear" : "in mist"}
+                      </span>
+                    </button>
+                  </li>
+                ) : (
+                  <li key={i}>
+                    <span className="ls-mist is-card is-missing">
+                      <span className="ls-mist-n" aria-hidden="true">
+                        {i + 1}
+                      </span>
+                      <span aria-hidden="true">· · ·</span>
+                      <span className="sr-only">Memory {i + 1}, not found yet</span>
+                    </span>
+                  </li>
+                ),
+              )}
+            </ul>
+            <p className="ls-muted ls-small ls-center">
+              {found === MEMORIES_PER_LAND
+                ? "Every memory of this land has come back."
+                : "Hamlets of two souls carry them, always the first one missing. Any you miss here wait for you in the next land."}
+            </p>
+          </>
+        ),
+    };
+  });
+  bookTabs.push({
+    id: "named",
+    label: <>The Named · {fmt(save.named.length)}</>,
+    content: save.named.length ? (
+      <>
+        <ul className="ls-named">
+          {[...save.named].reverse().slice(0, 30).map((n, i) => (
+            <li key={i}>{n}</li>
+          ))}
+        </ul>
+        {save.named.length > 30 && <p className="ls-muted ls-small ls-center">and {fmt(save.named.length - 30)} more before them.</p>}
+      </>
+    ) : (
+      <p className="ls-muted ls-center">Nobody yet. The hamlets of two souls keep their names.</p>
+    ),
+  });
+  if (save.endings > 0)
+    bookTabs.push({
+      id: "end",
+      label: "The golden gate",
+      content: (
+        <div className="ls-chapter">
+          {ENDING.map((p, i) => (
+            <p key={i} className="ls-verse">
+              {p}
+            </p>
+          ))}
+        </div>
+      ),
+    });
+  const bookBody = (
+    <Tabs
+      id="ls-book"
+      label="Lands of the book"
+      tabs={bookTabs}
+      index={Math.min(bookTab, bookTabs.length - 1)}
+      onIndex={(i) => {
+        setBookTab(i);
+        setReading(null);
+      }}
+      stepper
+    />
+  );
+
   if (screen === "title")
     menu = (
       <section className="ls-panel is-title" aria-labelledby="ls-title">
@@ -607,32 +1029,46 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         <p className="ls-lead">
           The world has turned inside out. Ride with {HEROINE}, give your heart to the villages, and bring the spring back.
         </p>
-        <div className="ls-stack">
+        <div className="ls-stack is-wide">
           <button type="button" className="ls-btn is-big" onClick={openMission}>
-            {save.endings > 0 ? "The mission again" : save.checkpoint > 0 ? `The mission · ${landName(save.checkpoint)}` : "The mission"}
+            {save.endings > 0 ? "The mission again" : "The mission"}
+            <span className="ls-btn-sub">
+              {HEROINE}&apos;s story · {save.endings > 0 ? "from the start" : landName(save.checkpoint)}
+            </span>
           </button>
-          <button type="button" className="ls-btn is-ghost" onClick={() => ride("endless")}>
-            Endless ride · {landName(endlessLand(save))}
+          <button type="button" className="ls-btn is-big" onClick={() => ride("endless")}>
+            Endless ride
+            <span className="ls-btn-sub">Any rider · {landName(endlessLand(save))}</span>
           </button>
-          <button type="button" className="ls-btn is-ghost" onClick={() => setScreen("book")}>
-            Book of memories · {memCount}/{MEMORIES.length}
-          </button>
-          <button type="button" className="ls-btn is-ghost" onClick={() => setScreen("rider")}>
-            Rider &amp; mount
-          </button>
-          <button type="button" className="ls-btn is-ghost" onClick={() => setScreen("missions")}>
-            Missions · ×{save.multiplier}
-          </button>
-          <button type="button" className="ls-btn is-ghost" onClick={() => setScreen("help")}>
-            How to play
-          </button>
-          <button type="button" className="ls-btn is-ghost" onClick={() => setScreen("settings")}>
-            Settings
-          </button>
+          <div className="ls-grid2">
+            <button
+              type="button"
+              className="ls-btn is-ghost"
+              onClick={() => {
+                openBook();
+                setScreen("book");
+              }}
+            >
+              The book · {memCount}/{MEMORIES.length}
+            </button>
+            <button type="button" className="ls-btn is-ghost" onClick={() => setScreen("rider")}>
+              Rider &amp; mount
+            </button>
+            <button type="button" className="ls-btn is-ghost" onClick={() => setScreen("help")}>
+              How to play
+            </button>
+            <button type="button" className="ls-btn is-ghost" onClick={() => setScreen("settings")}>
+              Settings
+            </button>
+          </div>
         </div>
         <p className="ls-muted ls-small">
-          Souls saved: {fmt(save.soulsTotal)} · Endless best: {fmt(save.best)}, {km(save.bestMetres)} · Today&apos;s word:{" "}
-          {wordStrip(wordGot)}
+          Souls saved: {fmt(save.soulsTotal)} · Endless best: {km(save.bestMetres)}, {fmt(save.bestSouls)} souls
+        </p>
+        <p className="ls-credits-link">
+          <button type="button" className="ls-linkbtn" onClick={() => setScreen("credits")}>
+            Credits &amp; legal
+          </button>
         </p>
         {exitHref && (
           <a className="ls-exit" href={exitHref}>
@@ -641,140 +1077,179 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         )}
       </section>
     );
-  else if (screen === "prologue")
+  else if (screen === "credits")
     menu = (
-      <section className="ls-panel is-text is-book" aria-labelledby="ls-prologue-title">
-        <Ornament medal />
-        <p className="ls-kicker">Prologue</p>
-        <h2 id="ls-prologue-title" className="ls-h2" tabIndex={-1} ref={headRef}>
-          The world turned inside out
+      <section className="ls-panel is-text" aria-labelledby="ls-credits-title">
+        <Ornament />
+        {x}
+        <div className="ls-credits-logo" dangerouslySetInnerHTML={{ __html: STUDIO_LOGO }} />
+        <h2 id="ls-credits-title" className="ls-h2" tabIndex={-1} ref={headRef}>
+          Credits &amp; legal
         </h2>
-        {PROLOGUE.map((p, i) => (
-          <p key={i} className={i === 0 ? "ls-initial" : undefined}>
-            {p}
-          </p>
-        ))}
-        <Divider />
-        <h3 className="ls-h3">Three kinds of village</h3>
-        <ul className="ls-kinds">
-          {([6, 4, 2] as const).map((n) => (
-            <li key={n}>
-              <span className="ls-kind-n" aria-hidden="true">
-                {n}
-              </span>
-              <strong>
-                {VILLAGE_KINDS[n].name} <span className="sr-only">,</span>
-                <span className="ls-muted"> · {n} souls</span>
-              </strong>
-              <span>{VILLAGE_KINDS[n].text}</span>
-            </li>
-          ))}
-        </ul>
-        <h3 className="ls-h3">How {HEROINE} saves them</h3>
-        <ul className="ls-help">
-          {RULES.map((r) => (
-            <li key={r}>{r}</li>
-          ))}
-        </ul>
-        <div className="ls-stack">
-          {!save.tutorialDone ? (
-            <>
-              <button type="button" className="ls-btn is-big" onClick={() => ride("tutorial")}>
-                Begin: The First Morning
-              </button>
-              <button
-                type="button"
-                className="ls-btn is-ghost"
-                onClick={() => {
-                  update((s) => ({ ...s, tutorialDone: true }));
-                  ride("mission");
-                }}
-              >
-                Skip it: ride the mission
-              </button>
-            </>
-          ) : (
-            <>
-              <button type="button" className="ls-btn is-big" onClick={() => ride("mission")}>
-                Ride
-              </button>
-              <button type="button" className="ls-btn is-ghost" onClick={() => ride("tutorial")}>
-                The First Morning again
-              </button>
-            </>
-          )}
-          {back}
+        <dl className="ls-credits">
+          <dt>The Long Spring</dt>
+          <dd>A game by Marcel Šedo · Marcel Šedo Studio, Bratislava.</dd>
+          <dt>Copyright</dt>
+          <dd>© 2026 Marcel Šedo. All rights reserved. The game, its pictures, story and verses may not be copied or sold without permission.</dd>
+          <dt>Music</dt>
+          <dd>A voice and a frame drum, made in your browser as you play. There are no recordings.</dd>
+          <dt>Lettering</dt>
+          <dd>
+            Uncial Antiqua by Astigmatic, under the SIL Open Font License 1.1. Everything else is drawn in code for this
+            game.
+          </dd>
+          <dt>Privacy</dt>
+          <dd>Your progress is kept only in this browser. Nothing is sent anywhere, and nothing is tracked.</dd>
+        </dl>
+      </section>
+    );
+  else if (screen === "begin")
+    menu = (
+      <section className="ls-panel" aria-labelledby="ls-begin-title">
+        <Ornament medal />
+        {x}
+        <p className="ls-kicker">The mission</p>
+        <h2 id="ls-begin-title" className="ls-h2" tabIndex={-1} ref={headRef}>
+          Where does {HEROINE} ride from?
+        </h2>
+        <div className="ls-stack is-wide">
+          <button type="button" className="ls-btn is-big" onClick={() => ride("mission")}>
+            Ride on
+            <span className="ls-btn-sub">from the gate of {landName(save.checkpoint)}</span>
+          </button>
+          <button type="button" className="ls-btn is-big is-alt" onClick={beginAgain}>
+            Begin again
+            <span className="ls-btn-sub">the whole mission, from The Rot</span>
+          </button>
+        </div>
+        <p className="ls-muted ls-small">
+          Beginning again keeps the Book of Memories and the Named. The lands, the souls and the gates start over.
+        </p>
+        <div className="ls-grid2 is-narrow">
+          <button type="button" className="ls-btn is-ghost" onClick={() => ride("tutorial")}>
+            The First Morning
+          </button>
+          <button type="button" className="ls-btn is-ghost" onClick={() => setScreen("prologue")}>
+            The prologue
+          </button>
         </div>
       </section>
     );
-  else if (screen === "book")
+  else if (screen === "prologue") {
+    const pages = 3;
+    const pager = (
+      <div className="ls-pager">
+        <button type="button" className="ls-chipbtn" onClick={() => setPage(page - 1)} disabled={page === 0}>
+          ◂ Back
+        </button>
+        <span className="ls-dots" aria-label={`Page ${page + 1} of ${pages}`}>
+          {Array.from({ length: pages }, (_, i) => (
+            <span key={i} className={i === page ? "is-on" : ""} aria-hidden="true" />
+          ))}
+        </span>
+        <button type="button" className="ls-chipbtn" onClick={() => setPage(page + 1)} disabled={page === pages - 1}>
+          Next ▸
+        </button>
+      </div>
+    );
+    const titles = ["The world turned inside out", "People, or the land", `How ${HEROINE} heals`];
+    menu = (
+      <section className="ls-panel is-text is-book" aria-labelledby="ls-prologue-title">
+        <Ornament medal />
+        {x}
+        <p className="ls-kicker">Prologue · {page + 1} of {pages}</p>
+        <h2 id="ls-prologue-title" className="ls-h2" tabIndex={-1} ref={headRef} key={page}>
+          {titles[page]}
+        </h2>
+        {page === 0 && (
+          <div className="ls-prologue-verses">
+            {PROLOGUE.map((p, i) => (
+              <p key={i} className={`ls-verse${i === 0 ? " ls-initial" : ""}`}>
+                {p}
+              </p>
+            ))}
+          </div>
+        )}
+        {page === 1 && (
+          <ul className="ls-kinds">
+            {(["hamlet", "village", "glade"] as const).map((n) => (
+              <li key={n}>
+                <span className="ls-kind-n" aria-hidden="true">
+                  {VILLAGE_KINDS[n].souls || "✦"}
+                </span>
+                <strong>
+                  {VILLAGE_KINDS[n].name} <span className="sr-only">,</span>
+                  <span className="ls-muted"> · {VILLAGE_KINDS[n].short}</span>
+                </strong>
+                <span>{VILLAGE_KINDS[n].text}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {page === 2 && (
+          <>
+            <ul className="ls-help">
+              {RULES.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
+            <div className="ls-stack is-wide">
+              {!save.tutorialDone ? (
+                <>
+                  <button type="button" className="ls-btn is-big" onClick={() => ride("tutorial")}>
+                    Begin: The First Morning
+                  </button>
+                  <button
+                    type="button"
+                    className="ls-btn is-ghost"
+                    onClick={() => {
+                      update((s) => ({ ...s, tutorialDone: true }));
+                      ride("mission");
+                    }}
+                  >
+                    Skip it: ride the mission
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button type="button" className="ls-btn is-big" onClick={() => ride("mission")}>
+                    Ride
+                  </button>
+                  <button type="button" className="ls-btn is-ghost" onClick={() => ride("tutorial")}>
+                    The First Morning again
+                  </button>
+                </>
+              )}
+            </div>
+          </>
+        )}
+        {pager}
+      </section>
+    );
+  } else if (screen === "book")
     menu = (
       <section className="ls-panel is-text is-book" aria-labelledby="ls-book-title">
         <Ornament medal />
+        {x}
         <p className="ls-kicker">
           {memCount} of {MEMORIES.length} memories · {fmt(save.soulsTotal)} souls saved
         </p>
         <h2 id="ls-book-title" className="ls-h2" tabIndex={-1} ref={headRef}>
           Book of Memories
         </h2>
-        {BIOMES.map((b, land) => {
-          const list = MEMORIES.map((m, i) => ({ m, i })).filter(({ m }) => m.land === land);
-          const found = list.filter(({ i }) => save.memories.includes(i)).length;
-          return (
-            <div key={b.name} className="ls-chapter">
-              <h3 className="ls-h3">
-                {b.name}: {LAND_CHAPTERS[land]}{" "}
-                <span className="ls-muted">
-                  ({found}/{MEMORIES_PER_LAND})
-                </span>
-              </h3>
-              <ol className="ls-memories">
-                {list.map(({ m, i }) =>
-                  save.memories.includes(i) ? (
-                    <li key={i}>
-                      <strong>{m.title}.</strong> <em className="ls-muted">{m.sign}</em> {m.text}
-                    </li>
-                  ) : (
-                    <li key={i} className="is-missing">
-                      <span aria-hidden="true">· · ·</span>
-                      <span className="sr-only">A memory not found yet</span>
-                    </li>
-                  ),
-                )}
-              </ol>
-            </div>
-          );
-        })}
-        {save.endings > 0 && (
-          <div className="ls-chapter">
-            <h3 className="ls-h3">The golden gate</h3>
-            {ENDING.map((p, i) => (
-              <p key={i}>{p}</p>
-            ))}
-          </div>
-        )}
-        <h3 className="ls-h3">The Named ({save.named.length})</h3>
-        {save.named.length ? (
-          <ul className="ls-named">
-            {[...save.named].reverse().slice(0, 80).map((n, i) => (
-              <li key={i}>{n}</li>
-            ))}
-          </ul>
-        ) : (
-          <p className="ls-muted">Nobody yet. The hamlets of two souls keep their names.</p>
-        )}
-        <div className="ls-stack">
-          <button type="button" className="ls-btn is-ghost" onClick={() => setScreen("prologue")}>
-            The prologue
+        {bookBody}
+        <p className="ls-center">
+          <button type="button" className="ls-chipbtn" onClick={() => setScreen("prologue")}>
+            Read the prologue again
           </button>
-          {back}
-        </div>
+        </p>
       </section>
     );
   else if (screen === "rider")
     menu = (
       <section className="ls-panel ls-picker" aria-labelledby="ls-rider-title">
         <Ornament />
+        {x}
         <div className="ls-picker-stage">
           <h2 id="ls-rider-title" className="ls-h2" tabIndex={-1} ref={headRef}>
             {bRider.name}
@@ -785,17 +1260,18 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
             mount={bMount}
             look={look}
             calm={save.settings.calm}
-            height={260}
+            height={200}
             locked={riderLocked || mountLocked}
             label={`${bRider.name} on ${bMount.name}${riderLocked || mountLocked ? ", locked" : ""}`}
           />
           {(riderLocked || mountLocked) && (
             <p className="ls-locked">
               🔒 {riderLocked ? bRider.name : bMount.name} opens at score ×{Math.max(riderLocked ? bRider.unlock : 0, mountLocked ? bMount.unlock : 0)}. Finish
-              missions to get there.
+              endless missions to get there.
             </p>
           )}
           <p className="ls-muted ls-line">{bRider.line}</p>
+          <p className="ls-muted ls-small">For the endless ride. The mission is always {HEROINE} on her elk.</p>
         </div>
         <div className="ls-picker-side">
           <Spinner label="Rider" rowKey="rider" value={bRider.name} onPrev={() => pickRider(-1)} onNext={() => pickRider(1)} />
@@ -818,7 +1294,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
           <p className="ls-desc">
             {mountLocked ? <>Opens at ×{bMount.unlock}.</> : <>{bMount.strength} {bMount.weakness}</>}
           </p>
-          <h3 className="ls-h3">Colours</h3>
+          <div className="ls-swatches">
           {(Object.keys(SWATCHES) as (keyof Look)[]).map((slot) => {
             const list = SWATCHES[slot].colours;
             const i = Math.max(0, list.indexOf(look[slot]));
@@ -835,12 +1311,14 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
               </Spinner>
             );
           })}
-          <p className="ls-muted ls-small">Tab to a row, ← → to change it, ↑ ↓ to move between rows.</p>
-          <div className="ls-stack">
+          </div>
+          <div className="ls-ridebar">
             <button type="button" className="ls-btn is-go" onClick={() => ride("endless")} disabled={riderLocked || mountLocked}>
-              Ride
+              Endless ride
             </button>
-            {back}
+            <button type="button" className="ls-chipbtn" onClick={() => setScreen("missions")}>
+              Missions · ×{save.multiplier}
+            </button>
           </div>
         </div>
       </section>
@@ -849,12 +1327,14 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
     menu = (
       <section className="ls-panel is-text" aria-labelledby="ls-missions-title">
         <Ornament />
+        <Close onClick={() => setScreen("rider")} label="Close, back to the rider" />
+        <p className="ls-kicker">The endless ride</p>
         <h2 id="ls-missions-title" className="ls-h2" tabIndex={-1} ref={headRef}>
           Missions · score ×{save.multiplier}
         </h2>
         <p className="ls-muted">
-          Every finished mission raises your score multiplier by one, for good. Three are open at a time, and each must be
-          done within a single run.
+          Small tasks for the endless ride. Each one you finish raises your score multiplier by one, for good, and opens new
+          riders and mounts. Three are open at a time, each to be done within a single run.
         </p>
         <ol className="ls-missions">
           {save.open.map((i) => (
@@ -877,113 +1357,255 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
               </li>
             ))}
         </ul>
-        <div className="ls-stack">{back}</div>
       </section>
     );
-  else if (screen === "help")
+  else if (screen === "help") {
+    const helpTabs: Tab[] = [
+      {
+        id: "ride",
+        label: "Riding",
+        content: (
+          <ul className="ls-help">
+            <li>
+              <strong>Two ways to ride.</strong> <em>The mission</em>: {HEROINE}&apos;s story, four lands, villages to save,
+              and an end. <em>The endless ride</em>: any rider, no end, kilometres and points, in the furthest land the mission
+              has reached.
+            </li>
+            <li>
+              <strong>Ride and steer.</strong> You ride down the screen; the monsters come from behind, at the top. Hitting
+              anything costs a heart, and lets the nearest monster jump onto your neck.
+            </li>
+            <li>
+              <strong>Three rules for the land.</strong> Wood on the ground (trunks, thorns): jump ↑. A stone arch: duck ↓ under
+              the middle. Everything else (trees, rocks, stones, the green fire): ride round it.
+            </li>
+            <li>
+              New to it? Ride <em>The First Morning</em> from the prologue: it can&apos;t kill you.
+            </li>
+          </ul>
+        ),
+      },
+      {
+        id: "hunt",
+        label: "The hunt",
+        content: (
+          <ul className="ls-help">
+            <li>
+              <strong>You can&apos;t outrun them.</strong> They are a little faster than you, and when one is close it crouches
+              (a red !) and leaps. Swerve as it leaps.
+            </li>
+            <li>
+              <strong>Use the land.</strong> Lead them into trees and rocks and they crash; into the green fire and they burn.
+              Saved villages are stone to them.
+            </li>
+            <li>
+              <strong>Keep them from the living.</strong> Hares, foxes and deer cross the road. A monster that catches one
+              stops to eat: it buys you a moment, but it comes back faster, glowing red.
+            </li>
+          </ul>
+        ),
+      },
+      {
+        id: "things",
+        label: "Weapons",
+        content: (
+          <ul className="ls-help">
+            <li>
+              <strong>A bow</strong> brings arrows: hold Space and a line swings behind you, let go to shoot.
+            </li>
+            <li>
+              <strong>A root trap</strong> (Z) drops behind you. <strong>Bark armour</strong> stops one monster. <strong>A companion</strong>, rarest
+              of all, saves you once.
+            </li>
+            <li>
+              <strong>The sword (X) is the last resort.</strong> It kills whatever is on your neck, but the blood wakes the
+              rot: every sword kill brings two new monsters.
+            </li>
+            <li>In the mission, weapons come only from the glades you heal, when an animal already walks with you.</li>
+          </ul>
+        ),
+      },
+      {
+        id: "mission",
+        label: "The mission",
+        content: (
+          <ul className="ls-help">
+            <li>
+              <strong>Hearts are what you give.</strong> Ride through the glowing ring of a hamlet (one soul) or a village
+              (two) to give it a heart, never your last.
+            </li>
+            <li>
+              <strong>Where the road forks</strong> you heal one way only: the village, two souls, or the glade, no souls
+              and no heart, but an animal friend and one of {HEROINE}&apos;s memories. Its animals lead the villagers away.
+            </li>
+            <li>
+              <strong>Ride past</strong> a hamlet, or both ways of a fork, and the people are lost: their souls come off your
+              count, and the rot makes one of them into a monster that hunts you.
+            </li>
+            <li>
+              <strong>Gates of spring.</strong> When enough souls are saved, a brook of light runs across the land ahead.
+              Crossing it heals you. Fall, and you rise again at the last gate. After Bloom comes the golden gate, and the end.
+            </li>
+          </ul>
+        ),
+      },
+      {
+        id: "endless",
+        label: "Endless",
+        content: (
+          <ul className="ls-help">
+            <li>
+              <strong>Ride as far as you can.</strong> Any rider, any mount, in the furthest land the mission has opened.
+            </li>
+            <li>
+              <strong>Missions and the daily word</strong> raise your score multiplier for good and open new riders and mounts.
+              You find them under <em>Rider &amp; mount</em>.
+            </li>
+            <li>An animal eaten by the rot costs you points.</li>
+          </ul>
+        ),
+      },
+      {
+        id: "keys",
+        label: "Controls",
+        content: (
+          <table className="ls-keys">
+            <tbody>
+              {[
+                ["← →  or  A D", "Steer"],
+                ["↑  or  W", "Jump"],
+                ["↓  or  S", "Duck"],
+                ["Space (hold, then let go)", "Aim the bow and shoot"],
+                ["X", "Sword"],
+                ["Z", "Drop a trap"],
+                ["C or Shift", "Your rider's ability"],
+                ["Esc or P", "Pause"],
+                ["F", "Full screen"],
+              ].map(([k, v]) => (
+                <tr key={k}>
+                  <th scope="row">{k}</th>
+                  <td>{v}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ),
+      },
+      {
+        id: "monsters",
+        label: "Monsters",
+        content: (
+          <ul className="ls-help is-tight">
+            {Object.values(MONSTERS).map((m) => (
+              <li key={m.id}>
+                <strong>{m.name[0].toUpperCase() + m.name.slice(1)}</strong> <span className="ls-muted">(from {km(m.from)})</span>: {m.tell}
+              </li>
+            ))}
+          </ul>
+        ),
+      },
+    ];
     menu = (
       <section className="ls-panel is-text" aria-labelledby="ls-help-title">
         <Ornament />
+        {x}
         <h2 id="ls-help-title" className="ls-h2" tabIndex={-1} ref={headRef}>
           How to play
         </h2>
-        <ol className="ls-help">
-          <li>
-            <strong>Two ways to ride.</strong> <em>The mission</em>: {HEROINE}&apos;s story, four lands, villages to save with
-            your hearts, and an end. <em>The endless ride</em>: any rider, no end, kilometres and points, in the furthest land
-            the mission has reached. New to it? Ride <em>The First Morning</em> from the prologue: it can&apos;t kill you.
-          </li>
-          <li>
-            <strong>Ride and steer.</strong> You ride down the screen; the monsters come from behind, at the top. Hitting
-            anything costs a heart, and lets the nearest monster jump right onto your neck.
-          </li>
-          <li>
-            <strong>Three rules for the land.</strong> Wood lying on the ground (fallen trunks, thorns): jump ↑. A stone arch:
-            duck ↓ and ride under the middle; its pillars are solid. Everything else (trees, rocks, standing stones, the green
-            fire): ride round it. The game shows you each new kind the first time it comes.
-          </li>
-          <li>
-            <strong>You can&apos;t outrun them.</strong> They are a little faster than you, and when one is close it crouches
-            (a red !) and leaps. Swerve as it leaps. Lead them into trees and rocks and they crash; into the green fire and
-            they burn. The Maw follows your scent, the Eye aims where you are going, the Colossus walks through trees.
-          </li>
-          <li>
-            <strong>Things on the road.</strong> A bow brings 3 arrows: hold Space and a line swings behind you, let go to
-            shoot. A root trap (Z) drops behind you. Bark armour stops one monster. A companion, rarest of all, saves you once.
-          </li>
-          <li>
-            <strong>The sword (X) is the last resort.</strong> It kills whatever is on your neck, but the blood wakes the rot:
-            every sword kill brings two new monsters.
-          </li>
-          <li>
-            <strong>In the mission, hearts are what you give.</strong> Ride through the glowing ring at a village&apos;s heart
-            to give it one (never your last). Six souls: The Crowd, the shortest way to the gate. Four: The Grove, a tree of
-            spring that gives you a heart back at the next gate. Two: The Named, people with names, a gift, and sometimes one
-            of {HEROINE}&apos;s memories. A village you pass by is lost, and its souls are taken from your count. Saved
-            villages are stone to the monsters: lead them in. Weapons come only from the people you save.
-          </li>
-          <li>
-            <strong>Gates of spring.</strong> When you have saved enough souls, a brook of light runs across the land ahead.
-            Beyond it the next land is greener, and crossing it heals you. Fall, and you rise again at the last gate. After
-            Bloom comes the golden gate, and the end.
-          </li>
-          <li>
-            <strong>Keep the hunt away from the living.</strong> Hares, foxes and deer cross the road. A monster that gets
-            close leaps on one and stops to eat: it buys you a moment, but the monster comes back faster, glowing red (and in
-            the endless ride you lose points).
-          </li>
-          <li>
-            <strong>In the endless ride, missions and the daily word</strong> raise your score multiplier for good and open
-            new riders and mounts.
-          </li>
-        </ol>
-        <h3 className="ls-h3">Controls</h3>
-        <table className="ls-keys">
-          <tbody>
-            {[
-              ["← →  or  A D", "Steer"],
-              ["↑  or  W", "Jump"],
-              ["↓  or  S", "Duck"],
-              ["Space (hold, then let go)", "Aim the bow and shoot"],
-              ["X", "Sword"],
-              ["Z", "Drop a trap"],
-              ["C or Shift", "Your rider's ability"],
-              ["Esc or P", "Pause"],
-            ].map(([k, v]) => (
-              <tr key={k}>
-                <th scope="row">{k}</th>
-                <td>{v}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <h3 className="ls-h3">The monsters</h3>
-        <ul className="ls-help">
-          {Object.values(MONSTERS).map((m) => (
-            <li key={m.id}>
-              <strong>{m.name[0].toUpperCase() + m.name.slice(1)}</strong> (from {km(m.from)}): {m.tell}
-            </li>
-          ))}
-        </ul>
-        <div className="ls-stack">{back}</div>
+        <Tabs id="ls-help" label="How to play" tabs={helpTabs} index={helpTab} onIndex={setHelpTab} />
       </section>
     );
-  else if (screen === "settings")
+  } else if (screen === "settings")
     menu = (
       <section className="ls-panel is-text" aria-labelledby="ls-settings-title">
         <Ornament />
+        {x}
         <h2 id="ls-settings-title" className="ls-h2" tabIndex={-1} ref={headRef}>
           Settings
         </h2>
         {settingsList}
-        <div className="ls-stack">{back}</div>
       </section>
     );
 
+  /* what the game gave: a card while the world holds still */
+  const glade = moment?.kind === "glade";
+  const momentCard = moment && (
+    <div key={moment.key} className={`ls-moment is-${moment.kind}`} role="dialog" aria-modal="false" aria-labelledby="ls-moment-name">
+      <Ornament />
+      <span className="ls-kicker">{glade ? "The Glade · healed" : "The Village · saved"}</span>
+      <h2 id="ls-moment-name" className="ls-moment-name">
+        {glade ? "The glade breathes again" : moment.village}
+      </h2>
+      {!glade && <p className="ls-moment-names">{moment.names.join(" & ")}</p>}
+      <div className="ls-moment-row">
+        <Sapling big={!glade} />
+        <div className="ls-moment-gain">
+          <p className="ls-kicker">What you got</p>
+          <ul className="ls-gains">
+            <li>
+              <span className="ls-gain-ico is-souls" aria-hidden="true">
+                +{glade ? 0 : 2}
+              </span>
+              <span>
+                <strong>souls</strong> · {Math.min(moment.souls, moment.need)} of {moment.need} for the gate
+                <span className="ls-gain-bar" aria-hidden="true">
+                  <span style={{ width: `${Math.min(100, (moment.souls / moment.need) * 100)}%` }} />
+                </span>
+              </span>
+            </li>
+            {glade && moment.gift && (
+              <li>
+                <span className="ls-gain-ico" aria-hidden="true">
+                  {ico(GIFT_ICON[moment.giftId ?? ""] ?? "bow", "✦")}
+                </span>
+                <span>
+                  <strong>{["hound", "raven", "doe"].includes(moment.giftId ?? "") ? "a friend:" : "a gift:"}</strong> {moment.gift}
+                </span>
+              </li>
+            )}
+            {glade && moment.memory >= 0 && (
+              <li className="is-mem">
+                <span className="ls-gain-ico is-mem" aria-hidden="true">
+                  {moment.memory + 1}
+                </span>
+                <span>
+                  <strong>memory {moment.memory + 1}</strong> of {MEMORIES.length}
+                  {moment.clear ? ": it comes back clear" : ": it comes back, still in mist"}
+                </span>
+              </li>
+            )}
+            {glade ? (
+              <li className="is-cost">
+                <span className="ls-gain-ico" aria-hidden="true">
+                  {ico("heart", "♥")}
+                </span>
+                <span>your heart stays · {moment.hearts} · the animals led the villagers into the woods</span>
+              </li>
+            ) : (
+              <li className="is-cost">
+                <span className="ls-gain-ico" aria-hidden="true">
+                  {ico("heartEmpty", "♡")}
+                </span>
+                <span>you gave a heart · {moment.hearts} left · the glade stays in the rot</span>
+              </li>
+            )}
+          </ul>
+          {!glade && moment.line && <p className="ls-moment-line">“{moment.line}”</p>}
+        </div>
+      </div>
+      <button type="button" ref={momentBtn} className={`ls-btn ${moment.memory >= 0 ? "is-mem" : "is-go"}`} onClick={rideOn}>
+        {moment.memory >= 0 ? `${moment.clear ? "Clear" : "Read"} memory ${moment.memory + 1}` : "Ride on"}
+      </button>
+      <span className="ls-moment-hint" aria-hidden="true">
+        Space or Enter
+      </span>
+    </div>
+  );
+
   if (!loaded) return <div className="ls" aria-busy="true" />;
   const h = hud;
-  const r = choiceOf(save).rider;
-  const dialog = paused || swordCard || screen === "over";
+  const r = mode === "endless" ? choiceOf(save).rider : brigidOf(save).rider;
+  const dialog = paused || swordCard || memoryCard !== null || !!moment || screen === "over";
 
   return (
     <div className={`ls${playing ? " is-playing" : ""}${save.settings.calm ? " is-calm" : ""}${full ? " is-full" : ""}`} ref={rootRef}>
@@ -1003,7 +1625,11 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
             ) : (
               <>
                 <span className="ls-dist">
-                  <strong>{km(h?.metres ?? 0)}</strong>
+                  <strong className="ls-souls">{km(h?.metres ?? 0)}</strong>
+                  <strong className="ls-souls is-small">
+                    {" "}
+                    · {h?.souls ?? 0} {h?.souls === 1 ? "soul" : "souls"}
+                  </strong>
                   <span className="ls-muted">
                     {" "}
                     · {h?.kmh ?? 0} km/h · {h?.biome}
@@ -1038,14 +1664,21 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
               role="group"
               aria-label={`${h?.arrows ?? 0} arrows, ${h?.swords ?? 0} swords, ${h?.traps ?? 0} root traps${h?.bark ? ", bark armour" : ""}${h?.companion ? `, a ${h.companion} runs with you` : ""}`}
             >
-              <span title="Arrows (Space: hold to aim, let go to shoot)" className={`ls-item${h?.arrows ? "" : " is-none"}`} aria-hidden="true">
+              <span
+                title="Arrows (Space: hold to aim, let go to shoot)"
+                className={`ls-item${h?.arrows ? "" : " is-none"}${mode === "tutorial" && tutStep === 7 ? " is-teach" : ""}`}
+                aria-hidden="true"
+              >
                 {ico("bow", "🏹")} <b>{h?.arrows ?? 0}</b>
+                {mode === "tutorial" && tutStep === 7 && <span className="ls-teach">Hold Space · let go when the line points at it</span>}
               </span>
-              <span title="Swords (X)" className={`ls-item${h?.swords ? "" : " is-none"}`} aria-hidden="true">
+              <span title="Swords (X)" className={`ls-item${h?.swords ? "" : " is-none"}${mode === "tutorial" && tutStep === 9 ? " is-teach" : ""}`} aria-hidden="true">
                 {ico("sword", "🗡")} <b>{h?.swords ?? 0}</b>
+                {mode === "tutorial" && tutStep === 9 && <span className="ls-teach">X · when it is on your neck</span>}
               </span>
-              <span title="Root traps (Z)" className={`ls-item${h?.traps ? "" : " is-none"}`} aria-hidden="true">
+              <span title="Root traps (Z)" className={`ls-item${h?.traps ? "" : " is-none"}${mode === "tutorial" && tutStep === 8 ? " is-teach" : ""}`} aria-hidden="true">
                 {ico("trap", "⊗")} <b>{h?.traps ?? 0}</b>
+                {mode === "tutorial" && tutStep === 8 && <span className="ls-teach">Z · when it is right behind you</span>}
               </span>
               {h?.bark && (
                 <span title="Bark armour" className="ls-item" aria-hidden="true">
@@ -1057,8 +1690,8 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                   {ico(h.companion as "hound" | "raven" | "doe", "✦")}
                 </span>
               )}
-              <span className={`ls-ability${(h?.abilityReady ?? 1) >= 1 ? " is-ready" : ""}`} title={r.abilityHelp}>
-                {r.ability} {(h?.abilityReady ?? 1) >= 1 ? "✓" : `${Math.round((h?.abilityReady ?? 0) * 100)}%`}
+              <span className={`ls-ability${(h?.abilityReady ?? 1) >= 1 ? " is-ready" : ""}`} title={`${r.ability} (C or Shift): ${r.abilityHelp}`}>
+                <kbd>C</kbd> {r.ability} {(h?.abilityReady ?? 1) >= 1 ? "ready" : `${Math.round((h?.abilityReady ?? 0) * 100)}%`}
               </span>
             </span>
             {wordStrip(h?.wordGot ?? wordGot)}
@@ -1079,11 +1712,23 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         }
       >
         <canvas ref={canvasRef} className="ls-canvas" aria-hidden="true" />
+        {intro < 2 && !playing && (
+          <div className={`ls-intro is-${intro}`} role="img" aria-label="Marcel Šedo Studio presents The Long Spring">
+            <div className="ls-intro-logo" aria-hidden="true" dangerouslySetInnerHTML={{ __html: STUDIO_LOGO }} />
+            <div className="ls-intro-title" aria-hidden="true">
+              <span className="ls-intro-h">The Long Spring</span>
+              <span className="ls-intro-tag">Give your heart to the land.</span>
+            </div>
+            <span className="ls-intro-skip" aria-hidden="true">
+              any key to skip
+            </span>
+          </div>
+        )}
         {!playing && <div className="ls-menu">{menu}</div>}
         {screen === "title" && fsButton("ls-fs")}
         {screen === "play" && h?.finale && (
           <div className="ls-finale-text" aria-live="polite">
-            {h.finaleT < 6 ? ENDING[0] : ENDING[1]}
+            {ENDING[h.finaleT < 4.5 ? 0 : h.finaleT < 9 ? 1 : 2]}
           </div>
         )}
         {screen === "play" && mode === "tutorial" && lesson && (
@@ -1093,7 +1738,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
           </div>
         )}
         {playing && <div className="ls-danger" style={{ opacity: Math.max(0, (h?.danger ?? 0) - 0.3) }} aria-hidden="true" />}
-        {playing && toast && !h?.finale && (
+        {playing && toast && !h?.finale && !moment && !dialog && (
           <p className="ls-toast" aria-hidden="true">
             {toast}
           </p>
@@ -1104,35 +1749,99 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
           </p>
         )}
 
+        {playing && momentCard}
+
         {paused && screen === "play" && (
-          <div className="ls-overlay" role="dialog" aria-modal="true" aria-labelledby="ls-pause-title">
-            <div className="ls-panel">
+          <div className="ls-overlay" role="dialog" aria-modal="true" aria-labelledby={view === "main" ? "ls-pause-title" : "ls-view-title"}>
+            <div className={`ls-panel${view === "main" ? "" : " is-text"}${view === "book" ? " is-book" : ""}`}>
               <Ornament />
-              <h2 id="ls-pause-title" className="ls-h2" tabIndex={-1} ref={pauseHead}>
-                Paused
+              {view === "main" ? (
+                <>
+                  <Close onClick={togglePause} label="Close and ride on" />
+                  <h2 id="ls-pause-title" className="ls-h2" tabIndex={-1} ref={pauseHead}>
+                    Paused
+                  </h2>
+                  <div className="ls-stack">
+                    <button type="button" className="ls-btn is-go" onClick={togglePause}>
+                      Ride on
+                    </button>
+                    <button type="button" className="ls-btn is-ghost" onClick={() => setView("settings")}>
+                      Settings
+                    </button>
+                    {mode === "mission" && (
+                      <button
+                        type="button"
+                        className="ls-btn is-ghost"
+                        onClick={() => {
+                          openBook();
+                          setView("book");
+                        }}
+                      >
+                        The book · {memCount}/{MEMORIES.length}
+                      </button>
+                    )}
+                    <button type="button" className="ls-btn is-ghost" onClick={() => ride()}>
+                      {mode === "mission" ? "Start this land again" : "Start again"}
+                    </button>
+                    {mode === "mission" && save.checkpoint > 0 && (
+                      <button type="button" className="ls-btn is-ghost" onClick={beginAgain}>
+                        Begin the whole mission again
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="ls-btn is-ghost"
+                      onClick={() => {
+                        gameRef.current?.destroy();
+                        setScreen("title");
+                      }}
+                    >
+                      To the menu
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Close onClick={() => setView("main")} label="Close, back to the pause" />
+                  <h2 id="ls-view-title" className="ls-h2" tabIndex={-1} ref={viewHead}>
+                    {view === "settings" ? "Settings" : "Book of Memories"}
+                  </h2>
+                  {view === "settings" ? settingsList : bookBody}
+                  <div className="ls-stack">
+                    <button type="button" className="ls-btn is-ghost" onClick={() => setView("main")}>
+                      Back
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {memoryCard !== null && (
+          <div className="ls-overlay is-mist" role="dialog" aria-modal="true" aria-labelledby="ls-mem-title" aria-describedby="ls-mem-text">
+            <div className="ls-mist-frame">
+            <Ornament />
+            <div className="ls-mist is-pop">
+              <Close onClick={closeMemory} label="Close and ride on" />
+              <p className="ls-kicker">
+                Memory {memoryCard + 1} of {MEMORIES.length} · {memClear ? "it comes back clear" : "it comes back, in mist"}
+              </p>
+              <p className="ls-mist-sign">{MEMORIES[memoryCard].sign}</p>
+              <h2 id="ls-mem-title" className="ls-mist-title" tabIndex={-1} ref={memHead}>
+                {MEMORIES[memoryCard].title}
               </h2>
+              <p id="ls-mem-text" className="ls-mist-text">
+                {memClear ? MEMORIES[memoryCard].text : mistOf(memoryCard).text}
+              </p>
+              {!memClear && <p className="ls-muted ls-small">The rest is still in mist.</p>}
+              <p className="ls-muted ls-small">Written in the Book of Memories, {BIOMES[MEMORIES[memoryCard].land].name}.</p>
               <div className="ls-stack">
-                <button type="button" className="ls-btn is-go" onClick={togglePause}>
+                <button type="button" className="ls-btn is-go" onClick={closeMemory}>
                   Ride on
                 </button>
-                <button type="button" className="ls-btn is-ghost" onClick={() => ride()}>
-                  Start again
-                </button>
-                <button
-                  type="button"
-                  className="ls-btn is-ghost"
-                  onClick={() => {
-                    gameRef.current?.destroy();
-                    setScreen("title");
-                  }}
-                >
-                  To the menu
-                </button>
               </div>
-              <details className="ls-details">
-                <summary>Settings</summary>
-                {settingsList}
-              </details>
+            </div>
             </div>
           </div>
         )}
@@ -1171,10 +1880,23 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         )}
 
         {screen === "over" && result && (
-          <div className={`ls-overlay${result.win ? "" : " is-end"}`} role="dialog" aria-modal="true" aria-labelledby="ls-over-title">
-            <div className={`ls-panel${result.win ? " is-win" : ""}`}>
+          <div className={`ls-overlay${result.win || view !== "main" ? "" : " is-end"}`} role="dialog" aria-modal="true" aria-labelledby={view === "book" ? "ls-view-title" : "ls-over-title"}>
+            <div className={`ls-panel${view === "book" ? " is-text is-book" : result.win ? " is-win" : ""}`}>
               <Ornament />
-              {result.mode === "tutorial" ? (
+              {view === "book" ? (
+                <>
+                  <Close onClick={() => setView("main")} label="Close the book" />
+                  <h2 id="ls-view-title" className="ls-h2" tabIndex={-1} ref={viewHead}>
+                    Book of Memories
+                  </h2>
+                  {bookBody}
+                  <div className="ls-stack">
+                    <button type="button" className="ls-btn is-ghost" onClick={() => setView("main")}>
+                      Back
+                    </button>
+                  </div>
+                </>
+              ) : result.mode === "tutorial" ? (
                 <>
                   <p className="ls-kicker">The First Morning</p>
                   <h2 id="ls-over-title" className="ls-h2" tabIndex={-1} ref={headRef}>
@@ -1200,7 +1922,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                     {result.win ? "The Long Spring" : result.cause}
                   </h2>
                   {result.win ? (
-                    ENDING.map((p, i) => <p key={i}>{p}</p>)
+                    ENDING.map((p, i) => <p key={i} className="ls-verse">{p}</p>)
                   ) : (
                     <p>
                       The land catches her, as it did once before. She rises again at the start of{" "}
@@ -1245,7 +1967,14 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                         Rise again
                       </button>
                     )}
-                    <button type="button" className={`ls-btn ${result.win ? "is-go" : "is-ghost"}`} onClick={() => setScreen("book")}>
+                    <button
+                      type="button"
+                      className={`ls-btn ${result.win ? "is-go" : "is-ghost"}`}
+                      onClick={() => {
+                        openBook();
+                        setView("book");
+                      }}
+                    >
                       The book
                     </button>
                     {result.win && (
@@ -1264,20 +1993,29 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                   <h2 id="ls-over-title" className="ls-h2" tabIndex={-1} ref={headRef}>
                     {result.cause}
                   </h2>
-                  <dl className="ls-results">
+                  <div className="ls-records">
                     <div>
-                      <dt>Distance</dt>
-                      <dd>{km(result.metres)}</dd>
+                      <span className="ls-record-n">{km(result.metres)}</span>
+                      <span className="ls-record-l">
+                        ridden{result.metres >= save.bestMetres && result.metres > 0 && <span className="ls-new"> best!</span>}
+                      </span>
+                      <span className="ls-record-b">best {km(save.bestMetres)}</span>
                     </div>
+                    <div>
+                      <span className="ls-record-n">{fmt(result.stats.souls)}</span>
+                      <span className="ls-record-l">
+                        {result.stats.souls === 1 ? "soul saved" : "souls saved"}
+                        {result.stats.souls >= save.bestSouls && result.stats.souls > 0 && <span className="ls-new"> best!</span>}
+                      </span>
+                      <span className="ls-record-b">best {fmt(save.bestSouls)}</span>
+                    </div>
+                  </div>
+                  <dl className="ls-results">
                     <div>
                       <dt>Score</dt>
                       <dd>
-                        {fmt(result.score)} {result.best && <span className="ls-new">best!</span>}
+                        {fmt(result.score)} · best {fmt(save.best)}
                       </dd>
-                    </div>
-                    <div>
-                      <dt>Best</dt>
-                      <dd>{fmt(save.best)}</dd>
                     </div>
                     <div>
                       <dt>Monsters lost</dt>

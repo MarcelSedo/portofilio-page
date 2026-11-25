@@ -310,3 +310,312 @@ html.ls-lock, html.ls-lock body { overflow: hidden; }
   color: #fffbe8; text-shadow: 0 1px 2px #000, 0 0 18px rgba(0, 0, 0, 0.6); pointer-events: none;
   background: radial-gradient(closest-side, rgba(12, 24, 17, 0.55), transparent);
 }
+
+/* ---------------- v5: menus that fit one screen ---------------- */
+
+/* the × in the corner of every page that closes */
+.ls-x {
+  position: absolute; top: 12px; right: 12px; z-index: 2; display: grid; place-items: center; width: 40px; height: 40px; padding: 0;
+  border: 2px solid var(--ls-gold-d); border-radius: 50%; color: var(--ls-parch); cursor: pointer;
+  background: radial-gradient(circle at 50% 35%, #2f5a36, #142a19); box-shadow: 0 2px 0 #0a120c;
+}
+.ls-x svg { width: 16px; height: 16px; }
+.ls-x:hover { border-color: var(--ls-gold); color: #fff; }
+.ls-panel.is-text .ls-h2, .ls-panel .ls-h2 { padding: 0 40px; }
+
+/* the title: the two rides are the same, the rest sits two by two below them */
+.ls-stack.is-wide { width: min(360px, 100%); }
+.ls-btn-sub { display: block; margin-top: 2px; font: 600 0.78rem/1.2 ui-sans-serif, system-ui, sans-serif; letter-spacing: 0.04em; color: #e9ffd8; opacity: 0.92; }
+.ls-btn.is-big { padding-top: 7px; padding-bottom: 7px; }
+.ls-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+.ls-grid2 .ls-btn, .ls-actions .ls-btn { min-height: 44px; padding: 8px 12px; font-size: 0.95rem; }
+.ls-grid2 .ls-btn::before, .ls-grid2 .ls-btn::after, .ls-actions .ls-btn::before, .ls-actions .ls-btn::after { display: none; }
+@media (max-width: 360px) { .ls-grid2 { grid-template-columns: 1fr; } }
+
+/* the end of a run: its buttons side by side, the same size, in one line */
+.ls-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 14px; align-items: stretch; }
+.ls-overlay.is-end .ls-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); position: static; margin: 12px 0 0; padding: 0; background: none; }
+@media (max-width: 420px) { .ls-actions, .ls-overlay.is-end .ls-actions { grid-template-columns: 1fr; } }
+
+/* small round-cornered text buttons: pager, links inside pages */
+.ls-chipbtn {
+  min-height: 36px; padding: 6px 14px; border: 1px solid rgba(184, 146, 62, 0.7); border-radius: 999px; cursor: pointer;
+  background: rgba(0, 0, 0, 0.25); color: #e6dcc0; font: 600 0.88rem/1.2 Georgia, serif;
+}
+.ls-chipbtn:hover:not(:disabled) { border-color: var(--ls-gold); color: var(--ls-parch); }
+.ls-chipbtn:disabled { opacity: 0.35; cursor: default; }
+.ls-center { text-align: center; }
+.ls-pager { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 16px; }
+.ls-dots { display: inline-flex; gap: 8px; }
+.ls-dots span { width: 9px; height: 9px; border-radius: 50%; border: 1px solid var(--ls-gold-d); }
+.ls-dots span.is-on { background: var(--ls-gold); }
+
+/* tabs (How to play) */
+.ls-tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 4px 0 12px; }
+.ls-tab {
+  min-height: 36px; padding: 5px 12px; border: 1px solid rgba(184, 146, 62, 0.55); border-radius: 999px; cursor: pointer;
+  background: rgba(0, 0, 0, 0.25); color: var(--ls-muted); font: 600 0.85rem/1.2 ui-sans-serif, system-ui, sans-serif;
+}
+.ls-tab:hover { color: var(--ls-parch); border-color: var(--ls-gold); }
+.ls-tab.is-on { background: linear-gradient(180deg, #3f8f2c, #2c6a20); color: #fffbe8; border-color: var(--ls-gold); }
+.ls-tabpanel { min-height: 0; }
+.ls-help.is-tight li { margin-bottom: 4px; font-size: 0.9rem; }
+
+/* the book: the four lands are the steps of one road */
+.ls-steps { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 0; margin: 4px 0 10px; }
+.ls-step {
+  position: relative; flex: 1 1 0; min-width: 88px; display: grid; justify-items: center; gap: 2px; padding: 4px 4px 6px;
+  border: 0; background: none; color: var(--ls-muted); cursor: pointer; font: 600 0.78rem/1.2 ui-sans-serif, system-ui, sans-serif;
+}
+.ls-step::before { content: ""; position: absolute; top: 19px; left: -50%; width: 100%; height: 2px; background: rgba(184, 146, 62, 0.45); z-index: 0; }
+.ls-step:first-child::before { display: none; }
+.ls-step-n {
+  position: relative; z-index: 1; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
+  border: 2px solid var(--ls-gold-d); background: #142a19; color: var(--ls-parch); font: 700 0.95rem/1 Georgia, serif;
+}
+.ls-step-name { color: var(--ls-ink); }
+.ls-step-count { font-weight: 500; font-size: 0.72rem; color: var(--ls-muted); }
+.ls-step.is-done .ls-step-n { background: #2c6a20; }
+.ls-step.is-now .ls-step-n { box-shadow: 0 0 0 3px rgba(125, 255, 79, 0.35); border-color: var(--ls-rot); }
+.ls-step.is-on .ls-step-n { background: var(--ls-gold); color: #142a19; border-color: var(--ls-gold); }
+.ls-step.is-on .ls-step-name { color: var(--ls-gold); text-decoration: underline; text-underline-offset: 3px; }
+.ls-step.is-locked { cursor: not-allowed; opacity: 0.5; }
+/* the Named and the end: plain tabs after the road */
+.ls-steps > .ls-step:nth-child(n + 5) { flex: 0 0 auto; min-width: 0; padding: 6px 10px; margin: 4px 4px 0; border: 1px solid rgba(184, 146, 62, 0.55); border-radius: 999px; align-self: end; }
+.ls-steps > .ls-step:nth-child(n + 5)::before { display: none; }
+.ls-steps > .ls-step:nth-child(n + 5).is-on { background: linear-gradient(180deg, #3f8f2c, #2c6a20); color: #fffbe8; border-color: var(--ls-gold); }
+.ls-steps > .ls-step:nth-child(5) { flex-basis: auto; }
+.ls-chapter-title { text-align: center; margin-top: 4px; }
+.ls-chapter-title em { font-family: Georgia, serif; color: var(--ls-parch); }
+
+/* memories: cards of mist with a red edge */
+.ls-mist {
+  position: relative; overflow: hidden; isolation: isolate; color: var(--ls-parch); border: 2px solid #c0303a; border-radius: 14px;
+  background:
+    radial-gradient(70% 60% at 30% 25%, rgba(230, 236, 240, 0.2), transparent 70%),
+    radial-gradient(60% 50% at 75% 75%, rgba(200, 214, 224, 0.16), transparent 70%),
+    linear-gradient(180deg, rgba(40, 46, 52, 0.92), rgba(18, 22, 26, 0.95));
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 0 18px rgba(208, 48, 58, 0.45), inset 0 0 26px rgba(255, 255, 255, 0.07);
+}
+.ls-mist::before {
+  content: ""; position: absolute; inset: -40%; z-index: -1; pointer-events: none; opacity: 0.55;
+  background:
+    radial-gradient(closest-side, rgba(255, 255, 255, 0.22), transparent) 10% 30% / 45% 35% no-repeat,
+    radial-gradient(closest-side, rgba(220, 230, 240, 0.18), transparent) 70% 60% / 55% 40% no-repeat,
+    radial-gradient(closest-side, rgba(255, 255, 255, 0.14), transparent) 40% 80% / 50% 30% no-repeat;
+  animation: ls-drift 14s ease-in-out infinite alternate;
+}
+@keyframes ls-drift { from { transform: translate(-6%, -3%); } to { transform: translate(6%, 4%); } }
+.ls-mist-sign { margin: 0 0 4px !important; font: italic 0.9rem/1.4 Georgia, serif; color: #c9c4b6; }
+.ls-mist-title { margin: 0 0 8px; font: 400 1.45rem/1.15 "LS Uncial", Georgia, serif; color: #fff4f0; text-shadow: 0 0 12px rgba(208, 48, 58, 0.55), 0 2px 0 #0c1410; }
+.ls-mist-title:focus { outline: none; }
+.ls-mist-text { font: 1.05rem/1.6 Georgia, serif; color: #f2ead4; }
+.ls-mist-grid { list-style: none; margin: 0 0 8px; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.ls-mist.is-card {
+  width: 100%; min-height: 72px; display: grid; place-items: center; align-content: center; gap: 2px; padding: 10px 8px; cursor: pointer;
+  font: inherit; text-align: center;
+}
+.ls-mist.is-card .ls-mist-title { margin: 0; font-size: 1rem; }
+.ls-mist.is-card:hover { border-color: #ff5a64; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 0 24px rgba(255, 70, 80, 0.6), inset 0 0 26px rgba(255, 255, 255, 0.1); }
+.ls-mist-more { font: 600 0.7rem/1 ui-sans-serif, system-ui, sans-serif; letter-spacing: 0.14em; text-transform: uppercase; color: #ff9aa0; }
+.ls-mist.is-missing { cursor: default; border-style: dashed; border-color: rgba(192, 48, 58, 0.45); color: var(--ls-muted); letter-spacing: 0.3em; box-shadow: none; filter: blur(0.3px); }
+.ls-mist.is-missing::before { opacity: 0.3; }
+.ls-mist.is-page { padding: 18px 20px 14px; margin: 4px 0 10px; text-align: left; }
+.ls-mist-nav { display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; }
+@media (max-width: 520px) { .ls-mist-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* a memory coming back during the ride */
+.ls-overlay.is-mist { background: radial-gradient(closest-side, rgba(5, 8, 6, 0.4), rgba(5, 8, 6, 0.78)); }
+.ls-mist.is-pop { width: min(520px, 100%); padding: 30px 26px 20px; text-align: center; animation: ls-mist-in 1.1s ease-out both; }
+.ls-mist.is-pop .ls-x { border-color: #c0303a; }
+.ls-mist.is-pop .ls-mist-title { font-size: 1.8rem; padding: 0 30px; }
+.ls-mist.is-pop .ls-kicker { color: #ff9aa0; }
+@keyframes ls-mist-in { 0% { opacity: 0; filter: blur(8px); transform: scale(0.96); } 60% { opacity: 1; filter: blur(1px); } 100% { opacity: 1; filter: none; transform: none; } }
+
+/* what a saved village gave: the world holds still for a moment */
+.ls-moment {
+  position: absolute; left: 50%; top: 50%; z-index: 4; width: min(440px, calc(100% - 24px)); transform: translate(-50%, 0);
+  display: grid; justify-items: center; gap: 2px; padding: 12px 16px 14px; text-align: center; pointer-events: none;
+  background: radial-gradient(120% 90% at 50% 0%, rgba(125, 255, 79, 0.16), transparent 65%), rgba(12, 24, 17, 0.93);
+  border: 2px solid var(--ls-gold); border-radius: 18px; box-shadow: 0 0 0 4px rgba(12, 24, 17, 0.8), 0 0 30px rgba(125, 255, 79, 0.3), 0 14px 30px rgba(0, 0, 0, 0.5);
+  animation: ls-pop 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+.ls-moment.is-2 { border-color: #f3c0c4; }
+.ls-moment-name { font: 400 1.5rem/1.1 "LS Uncial", Georgia, serif; color: var(--ls-parch); text-shadow: 0 2px 0 #0c1410; }
+.ls-moment-row { display: flex; align-items: center; gap: 12px; text-align: left; }
+.ls-moment-gain { display: grid; gap: 3px; font: 0.95rem/1.35 Georgia, serif; color: #e6dcc0; }
+.ls-moment-souls { font: 700 1.6rem/1 Georgia, serif; color: #fff; text-shadow: 0 0 14px rgba(125, 255, 79, 0.6); }
+.ls-moment-names { font-weight: 700; color: var(--ls-gold); }
+.ls-moment-mem { color: #ff9aa0; font-style: italic; }
+.ls-sapling { flex: none; width: 76px; height: 86px; }
+.ls-sapling-grow { transform-origin: 40px 84px; animation: ls-grow 1.2s 0.15s cubic-bezier(0.3, 1.3, 0.5, 1) both; }
+@keyframes ls-pop { 0% { opacity: 0; transform: translate(-50%, 14px) scale(0.92); } 100% { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes ls-grow { 0% { transform: scale(0.05); } 100% { transform: scale(1); } }
+.ls.is-calm .ls-moment, .ls.is-calm .ls-sapling-grow, .ls.is-calm .ls-mist::before, .ls.is-calm .ls-mist.is-pop { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .ls-moment, .ls-sapling-grow, .ls-mist::before, .ls-mist.is-pop { animation: none; }
+}
+@media (forced-colors: active) { .ls-mist, .ls-moment, .ls-x, .ls-tab, .ls-chipbtn { border: 2px solid CanvasText; } }
+
+/* fit one screen: tighter pages when the screen is short */
+@media (max-height: 820px) {
+  .ls-panel { padding: 24px 22px 18px; margin: 20px auto 10px; }
+  .ls-divider { height: 18px; margin-bottom: 4px; }
+  .ls-lead { margin-bottom: 6px !important; }
+  .ls-stack { margin-top: 10px; }
+}
+@media (max-height: 640px) {
+  .ls-lead, .ls-panel.is-title .ls-divider { display: none; }
+  .ls-panel { padding: 20px 18px 14px; }
+  .ls-btn.is-big { min-height: 48px; font-size: 1.15rem; }
+}
+/* the picker: room for the ×, and the colours two by two */
+.ls-picker .ls-picker-side { padding-top: 40px; }
+.ls-swatches { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; margin-top: 2px; }
+.ls-swatches .ls-spin { grid-template-columns: 34px 1fr 34px; gap: 2px 4px; margin: 2px 0; }
+.ls-swatches .ls-spin-label { grid-column: 1 / -1; font-size: 0.75rem; line-height: 1.1; }
+.ls-swatches .ls-spin-btn { min-height: 34px; font-size: 0.8rem; }
+.ls-swatches .ls-spin-value { gap: 5px; font-size: 0.85rem; }
+.ls-swatches .ls-chip { width: 20px; height: 20px; }
+.ls-picker .ls-stack { margin-top: 8px; }
+@media (max-width: 760px) { .ls-picker .ls-picker-side { padding-top: 0; } .ls-picker .ls-picker-stage { padding-top: 26px; } }
+.ls-panel.ls-picker { max-width: 900px; grid-template-columns: 1fr 390px; }
+.ls-ridebar { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; margin-top: 10px; }
+.ls-ridebar .ls-btn { min-height: 44px; padding-left: 30px; padding-right: 30px; }
+.ls-ridebar .ls-chipbtn { min-height: 44px; }
+@media (max-height: 740px) {
+  .ls-picker .ls-preview { height: 160px !important; width: 96px !important; }
+  .ls-picker .ls-bars { gap: 1px; }
+  .ls-picker .ls-spin { margin: 2px 0; }
+  .ls-picker .ls-desc { margin-bottom: 4px; }
+}
+/* a short screen (a phone on its side): the title keeps only what it needs */
+@media (max-height: 500px) {
+  .ls-menu { padding: 8px 12px; }
+  .ls-panel { margin: 14px auto 6px; padding: 16px 16px 12px; }
+  .ls-medal, .ls-panel.is-title .ls-kicker, .ls-panel.is-title .ls-small { display: none; }
+  .ls-h1 { font-size: 1.6rem; }
+  .ls-h2 { font-size: 1.25rem; margin-bottom: 6px; }
+  .ls-stack { gap: 6px; margin-top: 8px; }
+  .ls-btn.is-big { min-height: 44px; font-size: 1.05rem; }
+  .ls-btn-sub { display: inline; margin-left: 6px; }
+}
+@media (max-width: 760px) { .ls-panel.ls-picker { grid-template-columns: 1fr; } }
+@media (max-height: 700px) { .ls-picker .ls-picker-stage .ls-small { display: none; } }
+@media (max-height: 700px) { .ls-picker .ls-desc { font-size: 0.8rem; line-height: 1.35; } .ls-picker .ls-picker-side { padding-top: 34px; } .ls-panel.ls-picker { padding-top: 18px; padding-bottom: 14px; } }
+.ls-panel.is-text > .ls-kicker { text-align: center; padding: 0 44px; }
+
+/* v6: the moment waits for you, and says plainly what you got */
+.ls-moment { top: auto; bottom: 3%; width: min(500px, calc(100% - 24px)); gap: 4px; padding: 14px 18px 12px; pointer-events: auto; }
+.ls-moment .ls-moment-name { margin: 0; }
+.ls-moment-names { margin: 0 !important; font: 700 1rem/1.3 Georgia, serif; color: var(--ls-gold); }
+.ls-moment-row { align-items: flex-start; width: 100%; }
+.ls-moment-gain { flex: 1; min-width: 0; }
+.ls-moment-gain .ls-kicker { margin: 4px 0 2px !important; text-align: left; }
+.ls-gains { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ls-gains li { display: grid; grid-template-columns: 38px 1fr; gap: 8px; align-items: center; font: 0.95rem/1.3 Georgia, serif; color: #eee4c8; }
+.ls-gains li strong { color: #fff; }
+.ls-gains li.is-cost { color: var(--ls-muted); font-size: 0.85rem; }
+.ls-gains li.is-mem { color: #ffc4c8; }
+.ls-gain-ico { display: grid; place-items: center; width: 38px; height: 34px; }
+.ls-gain-ico .ls-ico { width: 30px; height: 30px; }
+.ls-gain-ico.is-souls { font: 700 1.25rem/1 Georgia, serif; color: #fff; text-shadow: 0 0 12px rgba(125, 255, 79, 0.7); }
+.ls-gain-ico.is-mem { width: 32px; height: 32px; border: 2px solid #c0303a; border-radius: 50%; font: 700 0.95rem/1 Georgia, serif; color: #fff; box-shadow: 0 0 12px rgba(208, 48, 58, 0.6); background: rgba(40, 46, 52, 0.9); }
+.ls-gain-bar { display: block; height: 6px; margin-top: 4px; background: rgba(255, 255, 255, 0.12); border-radius: 3px; overflow: hidden; }
+.ls-gain-bar span { display: block; height: 100%; background: linear-gradient(90deg, #3f8f2c, var(--ls-rot)); transition: width 0.8s ease-out; }
+.ls-moment-line { margin: 6px 0 0 !important; font: italic 0.92rem/1.35 Georgia, serif; color: #e6dcc0; }
+.ls-moment .ls-btn { margin-top: 8px; min-width: 220px; }
+.ls-moment-hint { font-size: 0.75rem; color: var(--ls-muted); }
+.ls-btn.is-mem {
+  color: #fff4f0; border-color: #c0303a; background: linear-gradient(180deg, #4a5058 0%, #2a2e34 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 3px 0 #120a0c, 0 0 18px rgba(208, 48, 58, 0.5);
+}
+.ls-btn.is-mem:hover { border-color: #ff5a64; }
+@media (max-height: 640px) { .ls-moment .ls-sapling { display: none; } .ls-moment { padding: 10px 14px; } }
+
+/* numbers on the memories, so the story reads in order */
+.ls-mist-n {
+  position: absolute; top: 6px; left: 8px; min-width: 22px; height: 22px; padding: 0 4px; display: grid; place-items: center;
+  border: 1px solid #c0303a; border-radius: 999px; font: 700 0.75rem/1 Georgia, serif; color: #ffd8da; background: rgba(0, 0, 0, 0.35); letter-spacing: 0;
+}
+.ls-mist.is-card { position: relative; }
+.ls-mist-kick { color: #ff9aa0 !important; text-align: left; margin-bottom: 2px !important; }
+.ls-grid2.is-narrow { width: min(360px, 100%); margin: 6px auto 0; }
+
+/* v7: the story in verse */
+.ls-verse, .ls-mist-text, .ls-finale-text { white-space: pre-line; }
+.ls-verse { font: italic 1.02rem/1.5 Georgia, serif; color: #f2ead4; margin: 0 0 12px !important; }
+.ls-panel.is-book .ls-verse { columns: 1; }
+.ls-mist-text { font-style: italic; }
+.ls-mist-state { font: 600 0.66rem/1 ui-sans-serif, system-ui, sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #ff9aa0; }
+.ls-mist-more-note { margin-top: -4px !important; }
+.ls-prologue-verses { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 28px; }
+@media (max-width: 620px) { .ls-prologue-verses { grid-template-columns: 1fr; } }
+
+/* v7: the opening, and the credits */
+.ls-intro { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; background: radial-gradient(circle at 50% 45%, #123824, #07140c 70%); cursor: pointer; }
+.ls-intro-logo, .ls-intro-title { grid-area: 1 / 1; transition: opacity 0.8s ease, transform 1.2s ease; }
+.ls-intro-logo { width: min(440px, 70vw); opacity: 0; transform: scale(0.97); }
+.ls-intro-logo svg { width: 100%; height: auto; display: block; }
+.ls-intro-title { display: grid; justify-items: center; gap: 10px; opacity: 0; transform: translateY(8px); text-align: center; padding: 0 20px; }
+.ls-intro.is-0 .ls-intro-logo { opacity: 1; transform: none; animation: ls-fade-in 0.9s ease both; }
+.ls-intro.is-1 .ls-intro-title { opacity: 1; transform: none; }
+.ls-intro-h { font: 400 clamp(2.4rem, 7vw, 4.6rem)/1 "LS Uncial", Georgia, serif; color: #f3dca0; text-shadow: 0 3px 0 #2a1a08, 0 0 30px rgba(232, 198, 106, 0.35); }
+.ls-intro-tag { font: italic 1.15rem/1.4 Georgia, serif; color: #e6dcc0; }
+.ls-intro-skip { position: absolute; bottom: 16px; right: 20px; font: 0.75rem ui-sans-serif, system-ui, sans-serif; color: rgba(230, 220, 192, 0.55); }
+@keyframes ls-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.ls.is-calm .ls-intro-logo, .ls.is-calm .ls-intro-title { transition: none; animation: none; }
+@media (prefers-reduced-motion: reduce) { .ls-intro-logo, .ls-intro-title { transition: none !important; animation: none !important; } }
+.ls-linkbtn { background: none; border: 0; padding: 0; color: #e6dcc0; font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; min-height: 24px; }
+.ls-linkbtn:hover { color: var(--ls-gold); }
+.ls-credits-logo { width: 200px; margin: 6px auto 2px; }
+.ls-credits-logo svg { width: 100%; height: auto; display: block; }
+.ls-credits { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; font-size: 0.92rem; }
+.ls-credits dt { font: 700 0.78rem/1.5 ui-sans-serif, system-ui, sans-serif; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ls-gold); }
+.ls-credits dd { margin: 0; color: #e6dcc0; }
+@media (max-width: 520px) { .ls-credits { grid-template-columns: 1fr; gap: 2px; } .ls-credits dd { margin-bottom: 8px; } }
+.ls-volumes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; padding-top: 4px; }
+.ls-volume { display: grid; gap: 4px; font-size: 0.85rem; color: #e6dcc0; }
+.ls-volume input { width: 100%; accent-color: #8fd16a; min-height: 24px; }
+.ls-volume input:disabled { opacity: 0.4; }
+.ls-credits-link { margin: 2px 0 0 !important; font-size: 0.82rem; text-align: center; }
+.ls-prologue-verses { display: block; columns: 2; column-gap: 32px; }
+.ls-prologue-verses .ls-verse { break-inside: avoid; }
+@media (max-width: 620px) { .ls-prologue-verses { columns: 1; } }
+
+/* v8: the souls in the hud, in the game's own letters */
+.ls-souls { font: 400 1.3rem/1 "LS Uncial", Georgia, serif; color: #fff4d8; letter-spacing: 0.02em; text-shadow: 0 2px 0 #0c1410, 0 0 10px rgba(232, 198, 106, 0.35); }
+/* the two records of the endless ride, big, in the game's letters */
+.ls-records { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 6px 0 10px; }
+.ls-records > div { display: grid; justify-items: center; padding: 10px 6px; border: 1px solid rgba(184, 146, 62, 0.55); border-radius: 12px; background: rgba(0, 0, 0, 0.25); }
+.ls-record-n { font: 400 2.1rem/1 "LS Uncial", Georgia, serif; color: #fff4d8; text-shadow: 0 2px 0 #0c1410, 0 0 14px rgba(232, 198, 106, 0.35); }
+.ls-record-l { font: 600 0.8rem/1.4 ui-sans-serif, system-ui, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ls-gold); }
+.ls-record-b { font-size: 0.8rem; color: var(--ls-muted); }
+.ls-souls.is-small { font-size: 1.05rem; }
+
+/* v9: ornaments round the memories and the moments */
+.ls-mist-frame { position: relative; width: min(520px, 100%); }
+.ls-mist-frame > .ls-mist.is-pop { width: 100%; }
+.ls-mist-frame > .ls-orn { z-index: 3; }
+.ls-moment > .ls-orn { width: 44px; height: 44px; }
+.ls-moment > .ls-orn.is-tl { top: -10px; left: -10px; }
+.ls-moment > .ls-orn.is-tr { top: -10px; right: -10px; }
+.ls-moment > .ls-orn.is-bl { bottom: -10px; left: -10px; }
+.ls-moment > .ls-orn.is-br { bottom: -10px; right: -10px; }
+
+/* The First Morning: the lesson at the side, out of the way of the hunt behind you */
+.ls-lesson { left: 14px; top: auto; bottom: 18px; transform: none; width: min(340px, calc(100% - 28px)); text-align: left; }
+@media (max-width: 760px) { .ls-lesson { left: 50%; transform: translateX(-50%); bottom: 150px; text-align: center; } }
+/* …and the hud points at the thing the lesson is about */
+.ls-item { position: relative; }
+.ls-item.is-teach { opacity: 1 !important; border-radius: 999px; box-shadow: 0 0 0 2px var(--ls-gold), 0 0 16px rgba(232, 198, 106, 0.8); animation: ls-teach 1.2s ease-in-out infinite; }
+.ls-teach {
+  position: absolute; top: calc(100% + 12px); left: 50%; transform: translateX(-50%); z-index: 6; width: max-content; max-width: 220px;
+  padding: 6px 10px; border-radius: 10px; background: #fff4d8; color: #142a19; font: 700 0.8rem/1.3 ui-sans-serif, system-ui, sans-serif;
+  text-align: center; white-space: normal; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+}
+.ls-teach::before { content: ""; position: absolute; top: -7px; left: 50%; margin-left: -7px; border: 7px solid transparent; border-top: 0; border-bottom-color: #fff4d8; }
+@keyframes ls-teach { 50% { box-shadow: 0 0 0 3px var(--ls-gold), 0 0 26px rgba(232, 198, 106, 1); } }
+.ls.is-calm .ls-item.is-teach { animation: none; }
+@media (prefers-reduced-motion: reduce) { .ls-item.is-teach { animation: none; } }
+.ls-ability kbd { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 3px; border: 1px solid currentColor; border-radius: 4px; font: 700 0.7rem/1 ui-sans-serif, system-ui, sans-serif; }

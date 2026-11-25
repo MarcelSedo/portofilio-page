@@ -991,12 +991,13 @@ export function fallenFrame(S: number, rider: RiderId, mount: MountId, look: Loo
  * Monsters (coming at you)
  * ==================================================================== */
 
-const FLESH = "#cdb39a";
-const FLESH_D = "#93725f";
-const FLESH_S = "#5f443a";
+// the colour of something that has been dead a while and walks anyway
+const FLESH = "#968980";
+const FLESH_D = "#655852";
+const FLESH_S = "#352828";
 const GORE = "#7a1018";
 const GLOW = "#b8ff5a";
-const TOOTH = "#f2ecdc";
+const TOOTH = "#e2d6b0";
 
 export const MONSTER_BOX: Record<MonsterId, { w: number; h: number }> = {
   maw: { w: 70, h: 66 },
@@ -1241,7 +1242,35 @@ function monsterArt(g: G, id: MonsterId, f: number) {
 
 export function monsterFrames(S: number, id: MonsterId): Spr[] {
   const b = MONSTER_BOX[id];
-  return [0, 1, 2, 3].map((f) => bake(S, b.w, b.h, b.w / 2, b.h - 3, (g) => monsterArt(g, id, f)));
+  return [0, 1, 2, 3].map((f) =>
+    bake(S, b.w, b.h, b.w / 2, b.h - 3, (g) => {
+      monsterArt(g, id, f);
+      // darker towards the ground, as if the dark it came out of still clings to it, with veins showing through
+      g.globalCompositeOperation = "source-atop";
+      const sh = g.createLinearGradient(0, -b.h, 0, 0);
+      sh.addColorStop(0, "rgba(30,0,20,0.05)");
+      sh.addColorStop(0.55, "rgba(30,0,20,0.25)");
+      sh.addColorStop(1, "rgba(10,0,8,0.6)");
+      g.fillStyle = sh;
+      g.fillRect(-b.w / 2, -b.h, b.w, b.h + 4);
+      const r = rnd(id.length * 13 + 5);
+      g.strokeStyle = "rgba(90,10,30,0.45)";
+      g.lineWidth = 0.7;
+      for (let v = 0; v < 7; v++) {
+        let vx = (r() - 0.5) * b.w * 0.6;
+        let vy = -b.h * (0.25 + r() * 0.5);
+        g.beginPath();
+        g.moveTo(vx, vy);
+        for (let s2 = 0; s2 < 4; s2++) {
+          vx += (r() - 0.5) * 8;
+          vy += (r() - 0.3) * 7;
+          g.lineTo(vx, vy);
+        }
+        g.stroke();
+      }
+      g.globalCompositeOperation = "source-over";
+    }),
+  );
 }
 
 /* ======================================================================
@@ -1487,47 +1516,92 @@ function rock(g: G, b: Biome, pts: [number, number][], seed: number) {
   g.restore();
 }
 
+/** a pit of green fire that, land by land, turns back into the well it once was */
 function pitFrame(S: number, b: Biome, f: number): Spr {
+  const stage = b.well ?? 0;
   return bake(S, 84, 118, 42, 96, (g) => {
     const t = f / 6;
-    // scorched ground and cracks
+    const water = stage >= 3;
+    // the ground round it: scorched, or moss again
     ell(g, 0, -8, 36, 15);
-    g.fillStyle = "rgba(10,14,8,0.55)";
+    g.fillStyle = water ? "rgba(70,120,50,0.5)" : "rgba(10,14,8,0.55)";
     g.fill();
-    g.strokeStyle = alpha(b.glow, 0.55);
-    g.lineWidth = 0.9;
-    for (let i = 0; i < 7; i++) {
-      const a = (i / 7) * TAU + 0.3;
-      g.beginPath();
-      g.moveTo(Math.cos(a) * 24, -8 + Math.sin(a) * 10);
-      g.lineTo(Math.cos(a + 0.12) * 34, -8 + Math.sin(a + 0.12) * 14);
-      g.stroke();
+    if (!water) {
+      g.strokeStyle = alpha(b.glow, 0.55 * (1 - stage * 0.3));
+      g.lineWidth = 0.9;
+      for (let i = 0; i < 7; i++) {
+        const a = (i / 7) * TAU + 0.3;
+        g.beginPath();
+        g.moveTo(Math.cos(a) * 24, -8 + Math.sin(a) * 10);
+        g.lineTo(Math.cos(a + 0.12) * 34, -8 + Math.sin(a + 0.12) * 14);
+        g.stroke();
+      }
     }
-    // the hole: lit from inside
+    // the hole: lit from inside, or full of clear water
     ell(g, 0, -8, 27, 11.5);
-    paint(g, "#0a1406", 1.4);
-    const gr = g.createRadialGradient(0, -7, 1, 0, -8, 26);
-    gr.addColorStop(0, "#ffffff");
-    gr.addColorStop(0.2, shade(b.glow, 0.5));
-    gr.addColorStop(0.55, b.glow);
-    gr.addColorStop(1, alpha(b.glow, 0));
-    ell(g, 0, -8, 25, 10);
-    g.fillStyle = gr;
-    g.fill();
+    paint(g, water ? "#1d3a40" : "#0a1406", 1.4);
+    if (water) {
+      const wg = g.createRadialGradient(-6, -10, 1, 0, -8, 26);
+      wg.addColorStop(0, "#e8fdff");
+      wg.addColorStop(0.35, "#7fd6e0");
+      wg.addColorStop(1, "#2a7a8a");
+      ell(g, 0, -8, 25, 10);
+      g.fillStyle = wg;
+      g.fill();
+      // the shine, moving a little
+      g.strokeStyle = "rgba(255,255,255,0.7)";
+      g.lineWidth = 1.2;
+      g.beginPath();
+      g.ellipse(-6 + Math.sin(t * TAU) * 2, -11, 9, 2.2, -0.1, Math.PI * 1.1, Math.PI * 1.9);
+      g.stroke();
+    } else {
+      const k = [1, 0.75, 0.45][stage] ?? 1;
+      const gr = g.createRadialGradient(0, -7, 1, 0, -8, 26);
+      gr.addColorStop(0, alpha("#ffffff", k));
+      gr.addColorStop(0.2, alpha(shade(b.glow, 0.5), k));
+      gr.addColorStop(0.55, alpha(b.glow, k));
+      gr.addColorStop(1, alpha(b.glow, 0));
+      ell(g, 0, -8, 25, 10);
+      g.fillStyle = gr;
+      g.fill();
+    }
+    const stonesRing = (front: boolean) => {
+      // the stones of the old well: the first few, then a broken ring, then the whole of it
+      const stones = [0, 5, 10, 16][stage] ?? 0;
+      const gaps = stage === 1 ? [1, 2, 4, 6, 7, 9, 11, 12, 14, 15] : stage === 2 ? [3, 8, 12] : [];
+      const r = rnd(7);
+      for (let i = 0; i < 16 && stones; i++) {
+        if (gaps.includes(i)) continue;
+        if (!water && (Math.sin((i / 16) * TAU) > 0) !== front) continue;
+        const a = (i / 16) * TAU;
+        const sx = Math.cos(a) * 29;
+        const sy = -8 + Math.sin(a) * 12.5;
+        const w = 5 + r() * 2;
+        ell(g, sx, sy, w, 3.6 + r());
+        paint(g, stage >= 3 ? "#9a968a" : r() < 0.5 ? "#6e6a60" : "#5e5a52", 1.1);
+      }
+    };
+    if (water) {
+      stonesRing(true);
+      return;
+    }
+    stonesRing(false);
     // a soft halo
     g.globalCompositeOperation = "lighter";
+    const hk = [0.35, 0.25, 0.12][stage] ?? 0.35;
     const halo = g.createRadialGradient(0, -20, 4, 0, -20, 42);
-    halo.addColorStop(0, alpha(b.glow, 0.35));
+    halo.addColorStop(0, alpha(b.glow, hk));
     halo.addColorStop(1, alpha(b.glow, 0));
     g.fillStyle = halo;
     g.fillRect(-42, -96, 84, 104);
-    // the flames: green tongues rising, too tall to jump
-    const r = rnd(11);
+    // the flames: tall in the rot, lower land by land, only embers at the last
+    const tall = [1, 0.55, 0.2][stage] ?? 1;
+    const rr = rnd(11);
     for (let i = 0; i < 9; i++) {
-      const x = -20 + i * 5 + (r() - 0.5) * 3;
+      const x = -20 + i * 5 + (rr() - 0.5) * 3;
       const ph = t * TAU + i * 1.7;
-      const hgt = 36 + Math.sin(ph) * 12 + r() * 18 - Math.abs(x) * 0.7;
-      const w = 5 + r() * 3;
+      const hgt = (36 + Math.sin(ph) * 12 + rr() * 18 - Math.abs(x) * 0.7) * tall;
+      const w = 5 + rr() * 3;
       const sway = Math.sin(ph * 1.3) * 4;
       const fg = g.createLinearGradient(0, -8, 0, -8 - hgt);
       fg.addColorStop(0, alpha(shade(b.glow, 0.6), 0.95));
@@ -1543,13 +1617,14 @@ function pitFrame(S: number, b: Biome, f: number): Spr {
     }
     // embers
     for (let i = 0; i < 8; i++) {
-      const y = -10 - ((t * 80 + i * 23) % 80);
+      const y = -10 - ((t * 80 + i * 23) % (80 * tall + 10));
       const x = -18 + ((i * 37) % 36) + Math.sin(t * TAU + i) * 3;
       ell(g, x, y, 0.9, 0.9);
-      g.fillStyle = alpha(shade(b.glow, 0.5), 1 - (-y - 10) / 80);
+      g.fillStyle = alpha(shade(b.glow, 0.5), Math.max(0, 1 - (-y - 10) / (80 * tall + 10)));
       g.fill();
     }
     g.globalCompositeOperation = "source-over";
+    stonesRing(true);
   });
 }
 

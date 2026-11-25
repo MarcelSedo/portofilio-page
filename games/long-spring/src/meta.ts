@@ -103,11 +103,17 @@ export type Settings = {
   sound: boolean;
   /** go full screen when a ride starts */
   full: boolean;
+  /** the voice and the drum */
+  music: boolean;
+  musicVol: number;
+  soundVol: number;
 };
 
 export type Save = {
   best: number;
   bestMetres: number;
+  /** most souls saved on one endless ride */
+  bestSouls: number;
   /** missions completed so far = multiplier − 1 (plus daily words) */
   multiplier: number;
   /** the three open missions, as indexes into missionAt */
@@ -134,6 +140,8 @@ export type Save = {
   checkpoint: number;
   /** indexes into MEMORIES, in the order found */
   memories: number[];
+  /** memories found a second time, which have come back clear */
+  clear: number[];
   /** everyone named she has saved, newest last (kept to the last 400) */
   named: string[];
   /** all souls ever saved, and the best ending (souls + reborn) */
@@ -155,13 +163,14 @@ export function freshSave(calm = false): Save {
   return {
     best: 0,
     bestMetres: 0,
+    bestSouls: 0,
     multiplier: 1,
     open: [0, 1, 2],
     nextMission: 3,
     rider: "dryad",
     mount: "elk",
     looks: { ...DEFAULT_LOOK },
-    settings: { slow: false, visible: false, lessBlood: false, calm, sound: false, full: false },
+    settings: { slow: false, visible: false, lessBlood: false, calm, sound: false, full: false, music: true, musicVol: 0.6, soundVol: 0.8 },
     word: { day: today(), got: 0, done: false },
     seenSword: false,
     seenMonsters: [],
@@ -172,6 +181,7 @@ export function freshSave(calm = false): Save {
     furthestLand: 0,
     checkpoint: 0,
     memories: [],
+    clear: [],
     named: [],
     soulsTotal: 0,
     bestEnding: 0,

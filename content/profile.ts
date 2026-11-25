@@ -39,8 +39,8 @@ export type QuizQuestion = {
 };
 
 export const profile = {
-  name: "Marcel Sedo",
-  className: "Frontend & Design Systems Engineer",
+  name: "Marcel Šedo",
+  className: "Frontend & Design Systems Engineer · Indie Game Developer",
   level: "7+ years in tech",
   background: "Philosopher · PhD",
   base: "Bratislava, Slovakia",
@@ -50,8 +50,8 @@ export const profile = {
   // Variant C intro
   intro: {
     class: "Design Systems Engineer",
-    multiclass: "Game Designer, Philosopher",
-    mainQuest: "making services fun and accessible to everyone.",
+    multiclass: "Indie Game Developer, Philosopher",
+    mainQuest: "making Slovakia's public services accessible to everyone.",
     sideQuests: "a B&B website in North Yorkshire, a Japanese film festival, the story of an indie game.",
   },
 
@@ -66,11 +66,10 @@ export const profile = {
   ] satisfies Stat[],
 
   links: {
-    github: "https://github.com/MarcelSedo",
-    cvPdf: "/Marcel-Sedo-CV.pdf",
+    github: "https://github.com/[your-handle]",
+    cvPdf: "/cv.pdf",
     npm: "https://www.npmjs.com/package/@id-sk/react",
-    email: "marcel.sedo1@gmail.com",
-    linkedin: "https://www.linkedin.com/in/marcel-%C5%A1edo-61a841194/",
+    email: "hello@example.com",
   },
 
   abilities: [

@@ -1,6 +1,11 @@
 /** Tiny beeps and thuds made on the spot with Web Audio. Off until the player turns sound on. */
 let ctx: AudioContext | null = null;
 let on = false;
+let svol = 0.8;
+
+export function setSoundVolume(v: number) {
+  svol = Math.max(0, Math.min(1, v));
+}
 
 export function setSound(v: boolean) {
   on = v;
@@ -16,7 +21,7 @@ function tone(freq: number, dur: number, type: OscillatorType, vol = 0.08, slide
   o.type = type;
   o.frequency.setValueAtTime(freq, t);
   if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), t + dur);
-  g.gain.setValueAtTime(vol, t);
+  g.gain.setValueAtTime(vol * svol * 1.25, t);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   o.connect(g).connect(ctx.destination);
   o.start(t);
@@ -31,7 +36,7 @@ function noise(dur: number, vol = 0.12) {
   for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
   const s = ctx.createBufferSource();
   const g = ctx.createGain();
-  g.gain.value = vol;
+  g.gain.value = vol * svol * 1.25;
   s.buffer = buf;
   s.connect(g).connect(ctx.destination);
   s.start();

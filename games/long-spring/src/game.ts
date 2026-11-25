@@ -20,29 +20,36 @@ import {
   COTTAGE_DOOR, GATE, SPRING_TREE, animalSprites, cottageSprites, gateSprite, springTreeSprites, villagerSprites, wellSprite, VILLAGER_KINDS,
   type AnimalId,
 } from "./art-life";
-import { MEMORIES, VILLAGE_KINDS, gift, line as folkLine, personName, villageName, type GiftId, type VillageSize } from "./story";
+import { GIFTS, MEMORIES, VILLAGE_KINDS, line as folkLine, personName, villageName, type GiftId, type VillageKind, type VillageSize } from "./story";
 
 /** the height of the view in world units, whatever the screen */
 export const VIEW_H = 600;
 const PY_AT = 0.3; // where you ride, from the top
 const CELL = 160;
 
-type Obstacle = { id: number; kind: Kind; x: number; y: number; w: number; h: number; v: number; dead?: boolean; cleared?: boolean; vid?: number };
+type Obstacle = { id: number; kind: Kind; x: number; y: number; w: number; h: number; v: number; dead?: boolean; cleared?: boolean; vid?: number; scar?: boolean };
 type Pick = { id: number; kind: PickKind; x: number; y: number; taken?: boolean; letter?: string };
-type Cell = { obs: Obstacle[]; picks: Pick[] };
+/** life in the woods: crows and flies in the rot, butterflies and small birds where it is green */
+type Critter = { kind: "crow" | "flies" | "butterfly" | "finch"; x: number; y: number; ph: number; c: string; flown?: number };
+type Cell = { obs: Obstacle[]; picks: Pick[]; scar?: boolean; life?: Critter[] };
 type MState = "emerge" | "run" | "windup" | "lunge" | "recover" | "stunned" | "rooted" | "dying" | "gone";
 /** something alive the monsters would eat: an animal crossing, or someone from a village */
 type Prey = {
   id: number; kind: AnimalId | "villager"; v: number; x: number; y: number; vx: number; vy: number;
-  state: "idle" | "run" | "flee" | "safe" | "eaten" | "cheer"; t: number; dir: number; door?: { x: number; y: number }; village?: number;
+  state: "idle" | "run" | "flee" | "safe" | "eaten" | "cheer" | "leave"; t: number; dir: number; door?: { x: number; y: number }; village?: number;
 };
 /** a village of the mission: it waits for a heart, then it is saved, or it is lost */
 type Village = {
-  id: number; name: string; size: VillageSize; x: number; y0: number; y1: number;
+  id: number; kind: VillageKind; name: string; size: VillageSize; x: number; y0: number; y1: number;
   /** the glowing ring at its heart */
   ax: number; ay: number;
-  state: "waiting" | "saved" | "lost"; t: number; names: string[]; memory: number; told: boolean;
+  /** spared: its people were led away by a healed glade; left: a glade nobody healed */
+  state: "waiting" | "saved" | "lost" | "spared" | "left"; t: number; names: string[]; memory: number; told: boolean;
+  /** a glade's memory that was found before: this time it comes back clear */
+  clarify?: boolean;
   tree?: { x: number; y: number; big: boolean };
+  /** the other way of a fork, and where the road splits */
+  pair?: number; fork?: { x: number; y: number };
 };
 /** a gate of spring, standing where the next land begins */
 type Gate = { y: number; land: number; gold: boolean; passed: boolean };
@@ -53,8 +60,10 @@ type Monster = {
   aimX: number; lure?: Companion; how?: "pit" | "trap" | "arrow" | "sword" | "hound" | "dawn";
   /** meals: each one makes it faster and quicker to leap */
   fed?: number;
+  /** made from the people of a lost village */
+  turned?: boolean;
 };
-type Companion = { kind: "hound" | "raven" | "doe"; x: number; y: number; state: "follow" | "act" | "gone"; t: number; target?: Monster; vx: number };
+type Companion = { kind: "hound" | "raven" | "doe"; x: number; y: number; state: "follow" | "act" | "gone"; t: number; target?: Monster; vx: number; kills?: number };
 type Particle = { x: number; y: number; vx: number; vy: number; life: number; c: string; r: number; ground?: boolean };
 
 export type Choice = { rider: Rider; mount: Mount; look: Look };
@@ -75,11 +84,16 @@ export type GameEvent =
   | { type: "seen"; monster: MonsterId }
   | { type: "seenKind"; kind: Kind | "prey" | "village" }
   | { type: "swordFirst" }
-  | { type: "saved"; village: string; size: VillageSize; names: string[]; memory: number; line?: string; gift?: string }
-  | { type: "lost"; village: string; size: VillageSize }
+  | { type: "saved"; village: string; kind: VillageKind; size: VillageSize; names: string[]; memory: number; clear: boolean; line?: string; gift?: string }
+  | { type: "lost"; village: string; kind: VillageKind; size: VillageSize }
   | { type: "gateOpen" }
   | { type: "tutorial"; step: number; done: boolean }
   | { type: "lesson"; text: string }
+  /** a village saved: the world holds still for `hold` seconds while the card shows what it gave */
+  | {
+      type: "moment"; village: string; kind: VillageKind; size: VillageSize; names: string[]; gift?: string; giftId?: GiftId; memory: number; clear: boolean; hold: number;
+      hearts: number; souls: number; need: number;
+    }
   | { type: "end"; win: boolean; cause: string; metres: number; score: number; stats: Stats; mode: Mode; land: number; reborn: number };
 
 export type Options = {
@@ -100,6 +114,10 @@ export type Options = {
   startLand?: number;
   /** memories already found (the next marked hamlet carries the next one of its land) */
   memories?: number[];
+  /** memories that have already come back clear (found twice) */
+  clear?: number[];
+  /** after a saved village of 4 or 2 the world waits for the player (release); false for bots */
+  holdMoments?: boolean;
   onHud: (h: Hud) => void;
   onEvent: (e: GameEvent) => void;
 };
@@ -235,18 +253,30 @@ export class Game {
   private souls = 0;
   private need = 0;
   private needBase = 0;
-  private groves = 0;
   private nextHeart = 60;
   private nextVillageM = 70;
   private villageRand = rng((Math.random() * 1e9) | 0);
   private memories: number[];
+  private clear: number[];
+  private forkNext = Math.random() < 0.5;
+  private placesBuilt = 0;
+  private forkSide = Math.random() < 0.5 ? -1 : 1;
   private trees: { x: number; y: number; big: boolean; t: number }[] = [];
   private finaleT = 0;
+  /** the world holds still for a moment after a grove or a hamlet is saved */
+  private freeze = 0;
+  /** the world waits after a moment until the player rides on (release) */
+  private holding = false;
+  private giftGot: GiftId | undefined;
   private cheer: { x: number; y: number; v: number; at: number; reborn: boolean }[] = [];
   private reborn = 0;
-  private savedAll: number[] = [];
+  private savedAll: VillageKind[] = [];
+  /** the wells left standing at the end (the reborn come out of them) */
+  private wells: Obstacle[] = [];
   // The First Morning
-  private tut = { step: -1, t: 0, x0: 0, y: 0, fail: false, c0: 0, vid: -1 };
+  private tut = { step: -1, t: 0, x0: 0, y: 0, fail: false, c0: 0, vid: -1, done: 0 };
+  /** how the last monster died (the lessons with weapons watch it) */
+  private lastKill: Monster["how"] | undefined;
 
   constructor(private canvas: HTMLCanvasElement, opts: Options) {
     this.o = opts;
@@ -257,6 +287,7 @@ export class Game {
     this.trans = { from: this.startLand, t: 1 };
     this.mOff = BIOMES[this.startLand].from;
     this.memories = [...(opts.memories ?? [])];
+    this.clear = [...(opts.clear ?? [])];
     this.needBase = this.need = MISSION.need[this.land];
     this.hearts = opts.choice.mount.hearts + (this.mode === "tutorial" ? 2 : 0);
     this.mult = opts.multiplier;
@@ -340,6 +371,16 @@ export class Game {
     };
     this.raf = requestAnimationFrame(loop);
   }
+  /** ride on after a saved village's moment (the world still waits out its shortest hold) */
+  release() {
+    if (!this.holding) return;
+    this.holding = false;
+    this.keys.left = this.keys.right = false;
+    this.inv = Math.max(this.inv, 0.8);
+  }
+  get held() {
+    return this.holding;
+  }
   pause() {
     this.running = false;
     cancelAnimationFrame(this.raf);
@@ -419,7 +460,12 @@ export class Game {
     if (y0 < 520 && !this.o.showcase) return c; // a calm start
     if (this.mode === "tutorial") return c; // The First Morning: only what the lesson puts there
     const m = y0 * TUNE.metresPerPx + this.mOff;
-    const b = BIOMES[this.landAtY(y0)];
+    const landHere = this.landAtY(y0);
+    // patches of the rot stay behind in the healing lands: half of First Green, a fifth of Deep Green, here and there in Bloom
+    const scarP = [0, 0.5, 0.2, 0.1][landHere] ?? 0;
+    const scar = scarP > 0 && rng(hash2(Math.floor(i / 2) * 31 + this.seed, Math.floor(j / 2) * 17 + 5))() < scarP;
+    c.scar = scar;
+    const b = BIOMES[scar ? 0 : landHere];
     const ramp = Math.min(1, 0.5 + m / 3000);
     const n = Math.round(TUNE.density * b.busy * ramp * (0.7 + r() * 0.6));
     const ok = (k: Kind) => m >= OBSTACLES[k].from;
@@ -439,7 +485,7 @@ export class Game {
     const add = (kind: Kind, x: number, y: number) => {
       const [w, h] = SIZE[kind];
       if (!free(x, y, w, h, kind === "tree" ? 8 : 16)) return false;
-      c.obs.push({ id: this.nextId++, kind, x, y, w, h, v: Math.floor(r() * 3) });
+      c.obs.push({ id: this.nextId++, kind, x, y, w, h, v: Math.floor(r() * 3), scar: scar || undefined });
       return true;
     };
     for (let k = 0; k < n; k++) {
@@ -469,7 +515,29 @@ export class Game {
       }
     }
     const okPick = (x: number, y: number) => free(x, y, 12, 12, 6);
-    // in the mission the land gives only hearts, and those are laid out ahead of you, not in the cells
+    {
+      const dark = scar || landHere === 0;
+      const life: Critter[] = [];
+      const want = dark ? Math.floor(r() * 2.2) : 1 + Math.floor(r() * (1 + landHere));
+      for (let q = 0; q < want; q++) {
+        const kind: Critter["kind"] = dark ? (r() < 0.6 ? "crow" : "flies") : r() < 0.6 ? "butterfly" : "finch";
+        const x = i * CELL + 10 + r() * (CELL - 20);
+        const y = y0 + 10 + r() * (CELL - 20);
+        const c2 = kind === "butterfly" ? ["#ffe46a", "#ff8ab0", "#8ad8ff", "#ffffff", "#ffb35a"][Math.floor(r() * 5)] : kind === "finch" ? ["#e8743a", "#e8c84a", "#5a8ad0"][Math.floor(r() * 3)] : "#151217";
+        life.push({ kind, x, y, ph: r() * 10, c: c2 });
+      }
+      c.life = life;
+    }
+    // in the mission hearts are laid out ahead of you; weapons lie here and there in the land
+    if (this.mode === "mission") {
+      for (const [kind, p] of [["trap", 0.01], ["bow", 0.005], ["sword", 0.004], ["bark", 0.003]] as [PickKind, number][])
+        if (r() < p) {
+          const x = i * CELL + 18 + r() * (CELL - 36);
+          const y = y0 + 18 + r() * (CELL - 36);
+          if (okPick(x, y)) c.picks.push({ id: this.nextId++, kind, x, y });
+        }
+      return c;
+    }
     if (this.mode !== "endless") return c;
     if (r() < 0.4) {
       const x0 = i * CELL + 24 + r() * (CELL - 48);
@@ -592,6 +660,7 @@ export class Game {
   }
 
   private kill(m: Monster, how: NonNullable<Monster["how"]>) {
+    this.lastKill = how;
     m.state = "dying";
     m.timer = how === "pit" ? 0.8 : 0.5;
     m.how = how;
@@ -674,6 +743,15 @@ export class Game {
       return;
     }
     if (this.finaleT) return this.finaleStep(dt);
+    if (this.freeze > 0 || this.holding) {
+      this.freeze -= dt;
+      this.particles(dt);
+      for (const v of this.villages) if (v.state !== "waiting") v.t += dt;
+      for (const p of this.prey) p.t += dt;
+      if (this.freeze <= 0 && !this.holding) this.inv = Math.max(this.inv, 0.8);
+      this.o.onHud(this.hud());
+      return;
+    }
     if (this.won) {
       this.won += dt;
       this.y += this.speed * dt * 0.5;
@@ -780,7 +858,7 @@ export class Game {
     }
 
     this.wildlife(dt);
-    if (this.mode !== "endless") this.missionStep(dt);
+    if (!this.o.showcase) this.missionStep(dt);
     if (this.mode === "tutorial") this.tutorialStep();
     this.hunt(dt);
     this.companion(dt);
@@ -839,7 +917,7 @@ export class Game {
         }
         return this.hurt(up ? "You jumped into the stone arch" : "The stone arch knocked you down");
       case "pit":
-        return this.hurt("The green fire burned you");
+        return this.hurt(!o.scar && BIOMES[this.landAtY(o.y)].well >= 3 ? "You rode into the stones of a well" : "The green fire burned you");
       case "stone":
         if (mount.smashes) return this.smash(o);
         return this.hurt("You hit a stone");
@@ -923,12 +1001,6 @@ export class Game {
     this.burst(this.x, this.y - 24, this.o.settings.calm ? 16 : 44, colours, 130);
     sfx.fanfare();
     if (gt.gold) return this.startFinale();
-    if (this.groves > 0) {
-      const n = Math.min(this.groves, this.maxHearts - this.hearts);
-      this.hearts += n;
-      this.say(`The groves you planted send their hearts after you: +${n}.`, true);
-      this.groves = 0;
-    }
     this.souls = 0;
     this.needBase = this.need = MISSION.need[gt.land];
     this.landM = this.metres;
@@ -963,11 +1035,28 @@ export class Game {
       if (m >= this.nextVillageM && !pendingGate) {
         const [a, b] = MISSION.villageGap;
         this.nextVillageM = m + a + Math.random() * (b - a);
-        const w = MISSION.weights;
-        const r = Math.random() * (w[6] + w[4] + w[2]);
-        this.buildVillage(r < w[6] ? 6 : r < w[6] + w[4] ? 4 : 2);
+        // half hamlets, half forks, never two forks running
+        // forks are the big moments: about two places in five, never two in a row
+        const first = this.placesBuilt === 0;
+        this.placesBuilt++;
+        if (first || (this.forkNext && Math.random() < 0.8)) {
+          this.buildFork();
+          this.forkNext = false;
+        } else {
+          this.buildVillage("hamlet");
+          this.forkNext = Math.random() < 0.7;
+        }
       }
       if (!pendingGate && this.souls >= this.need) this.openGate();
+    } else if (this.mode === "endless" && !this.o.showcase && m >= this.nextVillageM + 200) {
+      // the endless ride has villages too, without forks: a heart for souls, and a record of them
+      this.nextVillageM = m + 260 + Math.random() * 180;
+      const v = this.buildVillage(Math.random() < 0.55 ? "hamlet" : "village");
+      if (!this.o.seenKinds.includes("endlessVillage")) {
+        this.o.seenKinds.push("endlessVillage");
+        this.o.onEvent({ type: "seenKind", kind: "village" });
+        this.say(`${v.name} ahead: ride through the glowing ring to give it a heart. Every soul you save counts, next to the metres.`, true);
+      }
     }
     for (const v of this.villages) {
       if (v.state !== "waiting") {
@@ -975,12 +1064,23 @@ export class Game {
         continue;
       }
       if (Math.abs(this.x - v.ax) < 26 && Math.abs(this.y - v.ay) < 22) {
-        if (this.hearts >= 2) this.saveVillage(v);
+        if (v.kind === "glade" || this.hearts >= 2) this.saveVillage(v);
         else if (!v.told) {
           v.told = true;
           this.say("You have one heart left. Give it, and you die: you can't.", true);
         }
-      } else if (this.y > v.y1 + 40) this.loseVillage(v);
+      } else if (this.y > v.y1 + 40) {
+        // a fork is lost only when both ways are passed by
+        const other = v.pair !== undefined ? this.villages.find((w) => w.id === v.pair) : undefined;
+        if (v.kind === "glade") {
+          v.state = "left";
+          v.t = 0;
+        } else this.loseVillage(v);
+        if (other && other.state === "waiting" && other.kind === "glade") {
+          other.state = "left";
+          other.t = 0;
+        }
+      }
     }
   }
 
@@ -1005,118 +1105,225 @@ export class Game {
     );
   }
 
-  /** a village: 6 souls on the road, 4 a little aside, 2 away from it */
-  private buildVillage(size: VillageSize, at?: number) {
-    const r = this.villageRand;
-    const side = Math.random() < 0.5 ? -1 : 1;
-    const off = size === 6 ? Math.random() * 70 : size === 4 ? 60 + Math.random() * 90 : 170 + Math.random() * 90;
-    const cx = at ?? this.x + side * off;
-    const y0 = this.y + (VIEW_H - this.PY) + 120;
-    const y1 = y0 + (size === 6 ? 300 : size === 4 ? 230 : 160);
-    const half = size === 6 ? 225 : size === 4 ? 200 : 130;
-    const inside = (x: number, y: number) => x > cx - half && x < cx + half && y > y0 - 70 && y < y1 + 40;
-    for (let i = Math.floor((cx - half - 20) / CELL); i <= Math.floor((cx + half + 20) / CELL); i++)
-      for (let j = Math.floor((y0 - 80) / CELL); j <= Math.floor((y1 + 60) / CELL); j++) {
+  /** clear the land in a rectangle (a village is built there) */
+  private clearArea(inside: (x: number, y: number) => boolean, x0: number, x1: number, y0: number, y1: number) {
+    for (let i = Math.floor(x0 / CELL); i <= Math.floor(x1 / CELL); i++)
+      for (let j = Math.floor(y0 / CELL); j <= Math.floor(y1 / CELL); j++) {
         const c = this.cell(i, j);
         for (const o of c.obs) if (inside(o.x, o.y)) o.dead = true;
         for (const p of c.picks) if (inside(p.x, p.y)) p.taken = true;
       }
     this.extra = this.extra.filter((p) => !inside(p.x, p.y));
+  }
+
+  /** the next memory a healed glade gives: the first one not found yet, or else the first one not yet clear */
+  private nextMemory(): { memory: number; clarify: boolean } {
+    const assigned = new Set(this.villages.filter((v) => v.state === "waiting").map((v) => v.memory));
+    const missing = MEMORIES.findIndex((mm, i) => mm.land <= this.land && !this.memories.includes(i) && !assigned.has(i));
+    if (missing >= 0) return { memory: missing, clarify: false };
+    const dim = this.memories.filter((i) => !this.clear.includes(i) && !assigned.has(i)).sort((a, b) => a - b)[0];
+    return dim === undefined ? { memory: -1, clarify: false } : { memory: dim, clarify: true };
+  }
+
+  /**
+   * A place to heal. The hamlet stands near the road; the village and the glade are the two ways of a fork
+   * (see buildFork), `cx` and `y0` given.
+   */
+  private buildVillage(kind: VillageKind, at?: { cx: number; y0: number; toRoad: number }) {
+    const r = this.villageRand;
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const cx = at?.cx ?? this.x + side * (40 + Math.random() * 70);
+    const toRoad = at?.toRoad ?? -side;
+    const y0 = at?.y0 ?? this.y + (VIEW_H - this.PY) + 120;
+    const y1 = y0 + 170;
+    const half = kind === "glade" ? 120 : 110;
+    const inside = (x: number, y: number) => x > cx - half && x < cx + half && y > y0 - 70 && y < y1 + 40;
+    this.clearArea(inside, cx - half - 20, cx + half + 20, y0 - 80, y1 + 60);
     const id = this.nextId++;
-    const place = (kind: Kind, x: number, y: number, v: number) => {
-      const [w, h] = SIZE[kind];
-      const o: Obstacle = { id: this.nextId++, kind, x, y, w, h, v, vid: id };
+    const place = (k: Kind, x: number, y: number, v: number) => {
+      const [w, h] = SIZE[k];
+      const o: Obstacle = { id: this.nextId++, kind: k, x, y, w, h, v, vid: id };
       this.cell(Math.floor(x / CELL), Math.floor(y / CELL)).obs.push(o);
       return o;
     };
-    const toRoad = at === undefined ? -side : 1;
-    const layout: [number, number][] =
-      size === 6 ? [[-112, 40], [112, 96], [-112, 226]] : size === 4 ? [[-100, 40], [104, 120]] : [[-toRoad * 30, 40]];
-    const houses = layout.map(([dx, dy]) => place("cottage", cx + dx + (Math.random() - 0.5) * 8, y0 + dy, Math.floor(Math.random() * 2)));
-    const ax = size === 2 ? cx + toRoad * 64 : cx;
-    const ay = y0 + (size === 6 ? 156 : size === 4 ? 130 : 96);
-    const doorOf = (o: Obstacle) => ({ x: o.x + COTTAGE_DOOR[o.v], y: o.y + o.h / 2 + 1 });
-    for (let k = 0; k < size; k++) {
-      const h = houses[k % houses.length];
-      const d = doorOf(h);
-      this.prey.push({
-        id: this.nextId++, kind: "villager", v: Math.floor(Math.random() * VILLAGER_KINDS),
-        x: d.x + (k % 2 ? 1 : -1) * (10 + Math.random() * 22), y: d.y + 12 + Math.random() * 22, vx: 0, vy: 0,
-        state: "idle", t: Math.random() * 3, dir: Math.random() < 0.5 ? -1 : 1, door: d, village: id,
-      });
+    const souls = VILLAGE_KINDS[kind].souls as VillageSize;
+    let ax = cx;
+    const ay = y0 + 96;
+    if (kind !== "glade") {
+      const house = place("cottage", cx - toRoad * 30 + (Math.random() - 0.5) * 8, y0 + 40, Math.floor(Math.random() * 2));
+      ax = cx + toRoad * 64;
+      const d = { x: house.x + COTTAGE_DOOR[house.v], y: house.y + house.h / 2 + 1 };
+      for (let k = 0; k < souls; k++)
+        this.prey.push({
+          id: this.nextId++, kind: "villager", v: Math.floor(Math.random() * VILLAGER_KINDS),
+          x: d.x + (k % 2 ? 1 : -1) * (10 + Math.random() * 22), y: d.y + 12 + Math.random() * 22, vx: 0, vy: 0,
+          state: "idle", t: Math.random() * 3, dir: Math.random() < 0.5 ? -1 : 1, door: d, village: id,
+        });
     }
     let memory = -1;
-    if (size === 2 && this.mode === "mission") {
-      const assigned = new Set(this.villages.filter((v) => v.state === "waiting").map((v) => v.memory));
-      memory = MEMORIES.findIndex((mm, i) => mm.land === this.land && !this.memories.includes(i) && !assigned.has(i));
-    }
-    const names = size === 2 ? [personName(r), personName(r)] : [];
-    const tree = size === 6 ? undefined : { x: size === 2 ? ax - toRoad * 70 : cx + (Math.random() < 0.5 ? -1 : 1) * 52, y: ay + 34, big: size === 4 };
-    const v: Village = { id, name: villageName(r), size, x: cx, y0, y1, ax, ay, state: "waiting", t: 0, names, memory, told: false, tree };
+    let clarify = false;
+    if (kind === "glade" && this.mode === "mission") ({ memory, clarify } = this.nextMemory());
+    const names = Array.from({ length: souls }, () => personName(r));
+    const tree = kind === "glade" ? undefined : { x: ax - toRoad * 70, y: ay + 34, big: kind === "village" };
+    const v: Village = { id, kind, name: villageName(r), size: souls, x: cx, y0, y1, ax, ay, state: "waiting", t: 0, names, memory, told: false, tree, clarify };
     this.villages.push(v);
-    const k = VILLAGE_KINDS[size];
-    if (!this.o.seenKinds.includes(`village${size}`)) {
-      this.o.seenKinds.push(`village${size}`);
+    return v;
+  }
+
+  /** where the road forks: a village one way, a choked glade the other, as far from the road each, both on one line */
+  private buildFork(at?: number) {
+    const road = at ?? this.x;
+    const [a, b] = MISSION.forkOff;
+    const off = a + Math.random() * (b - a);
+    // the village and the glade take turns on the left and the right, now and then not
+    this.forkSide = Math.random() < 0.75 ? -this.forkSide : this.forkSide;
+    const side = this.forkSide;
+    const y0 = this.y + (VIEW_H - this.PY) + MISSION.forkAhead;
+    const fork = { x: road, y: y0 - 230 };
+    const vil = this.buildVillage("village", { cx: road + side * off, y0, toRoad: -side });
+    const gl = this.buildVillage("glade", { cx: road - side * off, y0, toRoad: side });
+    vil.pair = gl.id;
+    gl.pair = vil.id;
+    vil.fork = gl.fork = fork;
+    // the two paths are cleared, so both ways can be ridden
+    for (const v of [vil, gl])
+      for (let k = 0; k <= 12; k++) {
+        const t = k / 12;
+        const [px, py] = this.trailAt(fork, v, t);
+        this.clearArea((x, y) => Math.hypot(x - px, y - py) < 46, px - 70, px + 70, py - 70, py + 70);
+      }
+    this.clearArea((x, y) => Math.hypot(x - fork.x, y - fork.y) < 60, fork.x - 80, fork.x + 80, fork.y - 80, fork.y + 80);
+    // the way to the glade has a weapon lying on it: one more reason to go there
+    if (this.villageRand() < 0.6) {
+      const [wx, wy] = this.trailAt(fork, gl, 0.45 + this.villageRand() * 0.25);
+      const weapons: PickKind[] = ["bow", "sword", "trap", "bow", "trap", "bark"];
+      this.extra.push({ id: this.nextId++, kind: weapons[Math.floor(this.villageRand() * weapons.length)], x: wx, y: wy });
+    }
+    if (!this.o.seenKinds.includes("fork")) {
+      this.o.seenKinds.push("fork");
       this.o.onEvent({ type: "seenKind", kind: "village" });
-      this.say(`${v.name} ahead: ${size} souls, ${k.name}. ${k.text} Ride through the glowing ring to give it a heart.`, true);
-    } else this.say(`${v.name} ahead: ${size} souls, ${k.name}${memory >= 0 ? ". Someone there carries a memory" : ""}.`);
+      this.say(`The road forks. ${side < 0 ? "Left" : "Right"}: ${vil.name}, two souls. ${side < 0 ? "Right" : "Left"}: a glade choked by the rot. You can heal only one.`, true);
+    } else this.say(`A fork: ${vil.name} (two souls) or a glade${gl.memory >= 0 ? (gl.clarify ? ", with a memory to clear" : ", with a memory") : ""}.`);
+  }
+
+  /** a point on the path from the fork to a village's ring, t from 0 to 1 */
+  private trailAt(f: { x: number; y: number }, v: Village, t: number): [number, number] {
+    const c1x = f.x;
+    const c1y = f.y + (v.ay - f.y) * 0.55;
+    const c2x = v.ax;
+    const c2y = f.y + (v.ay - f.y) * 0.45;
+    const u = 1 - t;
+    return [
+      u * u * u * f.x + 3 * u * u * t * c1x + 3 * u * t * t * c2x + t * t * t * v.ax,
+      u * u * u * f.y + 3 * u * u * t * c1y + 3 * u * t * t * c2y + t * t * t * (v.ay - 6),
+    ];
   }
 
   private saveVillage(v: Village) {
     v.state = "saved";
     v.t = 0;
-    this.hearts--;
+    const glade = v.kind === "glade";
+    if (!glade) this.hearts--;
     this.souls += v.size;
     this.stats.souls += v.size;
     this.stats.villagesSaved++;
-    this.savedAll.push(v.size);
+    this.savedAll.push(v.kind);
     sfx.fanfare();
     const b = BIOMES[this.land];
     this.burst(v.ax, v.ay - 10, this.o.settings.calm ? 20 : 60, [...(b.flowers.length ? b.flowers : ["#ffe46a", "#ffffff"]), "#b8ffe0", "#ff8ab0"], 140);
-    for (const p of this.prey) if (p.village === v.id && p.state !== "eaten") {
-      p.state = "cheer";
-      p.t = Math.random();
-    }
+    for (const p of this.prey)
+      if (p.village === v.id && p.state !== "eaten") {
+        p.state = "cheer";
+        p.t = Math.random();
+      }
     if (v.tree) this.trees.push({ ...v.tree, t: this.t });
+    const other = v.pair !== undefined ? this.villages.find((w) => w.id === v.pair) : undefined;
     let giftText: string | undefined;
     let said = "";
-    if (v.size === 4) {
-      this.groves++;
-      said = `${v.name} is saved, and a tree of spring grows where you gave your heart. At the next gate it will give you a heart back.`;
-    } else if (v.size === 2) {
-      const gf = gift(this.villageRand);
+    let clear = false;
+    if (glade) {
+      // the animals come back; one of them walks with Brigid (or, if one already does, the land arms her)
+      const walking = this.comp && this.comp.state !== "gone";
+      const pool = GIFTS.filter((gf) => (walking ? ["sword", "bow", "traps", "bark"] : ["hound", "raven", "doe"]).includes(gf.id));
+      let roll = this.villageRand() * pool.reduce((n, gf) => n + gf.weight, 0);
+      const gf = pool.find((x) => (roll -= x.weight) < 0) ?? pool[0];
       giftText = this.applyGift(gf.id, gf.text);
+      for (let k = 0; k < 3; k++)
+        this.prey.push({
+          id: this.nextId++, kind: (["deer", "hare", "hare"] as AnimalId[])[k], v: 0,
+          x: v.ax + (k - 1) * 46 + (Math.random() - 0.5) * 12, y: v.ay - 30 + (k % 2) * 34, vx: 0, vy: 0,
+          state: "cheer", t: Math.random(), dir: k === 0 ? -1 : 1, village: v.id,
+        });
       if (v.memory >= 0) {
-        this.memories.push(v.memory);
-        this.stats.memoriesFound++;
+        if (v.clarify) {
+          if (!this.clear.includes(v.memory)) this.clear.push(v.memory);
+          clear = true;
+        } else {
+          this.memories.push(v.memory);
+          this.stats.memoriesFound++;
+        }
       }
-      said = `${v.names[0]} and ${v.names[1].split(" ")[0]} of ${v.name} are saved. ${v.names[0].split(" ")[0]} gives you ${giftText}.`;
-    } else said = `${v.name} is saved: six souls.`;
-    this.say(said, v.size !== 6);
+      // its creatures lead the people of the other way into the woods
+      if (other && other.state === "waiting") {
+        other.state = "spared";
+        other.t = 0;
+        for (const p of this.prey)
+          if (p.village === other.id && p.state !== "eaten") {
+            p.state = "leave";
+            p.door = { x: v.ax + (Math.random() - 0.5) * 60, y: v.ay - 10 };
+          }
+      }
+      said = other ? `The glade breathes again, and its creatures lead the people of ${other.name} into the woods.` : "The glade breathes again.";
+    } else {
+      if (other && other.state === "waiting") {
+        other.state = "left";
+        other.t = 0;
+      }
+      said = v.kind === "village" ? `${v.names[0]} and ${v.names[1].split(" ")[0]} of ${v.name} are saved.` : `${v.names[0]} of ${v.name} is saved.`;
+    }
+    this.say(said, false);
+    if (v.kind !== "hamlet" && this.mode !== "endless") {
+      this.freeze = MISSION.moment[v.kind];
+      this.holding = this.o.holdMoments !== false;
+      this.keys.left = this.keys.right = false;
+      this.o.onEvent({
+        type: "moment", village: v.name, kind: v.kind, size: v.size, names: v.names, gift: giftText, giftId: glade ? this.giftGot : undefined,
+        memory: v.memory, clear, hold: this.freeze, hearts: this.hearts, souls: this.souls, need: this.need,
+      });
+    }
     this.o.onEvent({
-      type: "saved", village: v.name, size: v.size, names: v.names, memory: v.memory,
-      line: v.size === 2 && v.memory < 0 ? folkLine(this.villageRand) : undefined, gift: giftText,
+      type: "saved", village: v.name, kind: v.kind, size: v.size, names: v.names, memory: v.memory, clear,
+      line: v.kind === "village" ? folkLine(this.villageRand) : undefined, gift: giftText,
     });
   }
 
+  /** people nobody came for: their souls come off the count, and the rot makes one of them into a monster */
   private loseVillage(v: Village) {
     v.state = "lost";
     v.t = 0;
-    this.souls = Math.max(0, this.souls - v.size);
-    this.need = Math.max(Math.ceil(this.needBase / 2), this.need - MISSION.mercy);
+    if (this.mode !== "endless") this.souls = Math.max(0, this.souls - v.size);
     this.stats.villagesLost++;
     for (const p of this.prey)
       if (p.village === v.id && p.state !== "eaten") {
         p.state = "eaten";
-        this.gore(p.x, p.y - 6, 6);
+        this.burst(p.x, p.y - 10, 14, ["#7dff4f", "#2a5a1a", "#1a1420"], 70);
       }
     sfx.eat();
-    this.say(`${v.name} is lost: −${v.size} souls. The land grieves, and asks a little less of you.`, true);
-    this.o.onEvent({ type: "lost", village: v.name, size: v.size });
+    if (this.mode === "endless") {
+      // on the endless road a village passed by is only lost: no souls taken, no monster
+      this.say(`${v.name} is lost.`);
+      this.o.onEvent({ type: "lost", village: v.name, kind: v.kind, size: v.size });
+      return;
+    }
+    const turned = this.monsters.filter((q) => q.turned && q.state !== "gone" && q.state !== "dying").length;
+    if (this.mode === "mission" && turned < MISSION.turnedMax) this.spawnMonster(v.ax, v.ay - 20, true);
+    this.say(`${v.name} is lost: −${v.size} ${v.size === 1 ? "soul" : "souls"}. The rot takes them, and one comes after you.`, true);
+    this.o.onEvent({ type: "lost", village: v.name, kind: v.kind, size: v.size });
   }
 
   /** what the people of a hamlet give you; returns how it reads */
   private applyGift(id: GiftId, text: string): string {
+    this.giftGot = id;
     switch (id) {
       case "sword":
         if (this.swords < this.maxSwords()) this.swords++;
@@ -1160,13 +1367,15 @@ export class Game {
       for (let j = Math.floor((this.y - 300) / CELL); j <= Math.floor((this.y + 600) / CELL); j++)
         for (const o of this.cell(i, j).obs) {
           if (o.dead) continue;
-          if (o.kind === "pit" || o.kind === "thorns" || o.kind === "log") {
+          if (o.kind === "pit" && !o.scar) obs.push(o);
+          else if (o.kind === "pit" || o.kind === "thorns" || o.kind === "log") {
             o.dead = true;
             this.burst(o.x, o.y - 6, 6, ["#ffe46a", "#ffffff", "#b8ffe0"], 50);
           } else obs.push(o);
         }
     const n = Math.min(40, this.stats.souls);
     const spots: [number, number][] = [];
+    this.wells = obs.filter((o) => o.kind === "pit");
     const clear = (x: number, y: number) => obs.every((o) => Math.abs(o.x - x) > o.w / 2 + 14 || y < o.y - 4 || y > o.y + o.h / 2 + 40);
     for (let i = 0; i < n + this.reborn; i++) {
       let x = 0;
@@ -1177,20 +1386,22 @@ export class Game {
         if (Math.abs(x - this.x) < 50 && y < this.y + 120) continue;
         if (clear(x, y) && spots.every(([sx, sy]) => Math.hypot(sx - x, (sy - y) * 1.6) > 22)) break;
       }
-      spots.push([x, y]);
+      // the reborn come up out of the wells, when there are wells to come out of
+      const w = i >= n && this.wells.length ? this.wells[(i - n) % this.wells.length] : undefined;
+      spots.push(w ? [w.x + ((i % 3) - 1) * 16, w.y + 14 + Math.floor(i / 3) % 2 * 10] : [x, y]);
     }
     this.cheer = spots.map(([x, y], i) => ({
       x, y, v: Math.floor(Math.random() * VILLAGER_KINDS),
       at: i < n ? 1.6 + i * 0.06 : 6.2 + (i - n) * 0.55,
       reborn: i >= n,
     }));
-    const groves = this.savedAll.filter((s) => s !== 6);
+    const groves = this.savedAll.filter((s) => s !== "glade");
     groves.slice(0, 14).forEach((sz, i) => {
       const left = i % 2 === 0;
       this.trees.push({
         x: this.x + (left ? -1 : 1) * (130 + Math.random() * Math.min(260, W / 2 - 150)),
         y: this.y - 40 + Math.random() * 320,
-        big: sz === 4,
+        big: sz === "village",
         t: this.t + 0.8 + i * 0.25,
       });
     });
@@ -1261,15 +1472,40 @@ export class Game {
         T.y = ahead + 900;
         say("Something has followed you out of the dark. You can't outrun it. Ride close past a tree and it will run straight into it.");
         break;
-      case 5:
-      case 6:
-      case 7: {
-        const size = ([6, 4, 2] as VillageSize[])[T.step - 5];
-        this.buildVillage(size, this.x);
-        T.vid = this.villages[this.villages.length - 1].id;
+      case 5: {
+        const v = this.buildVillage("hamlet", { cx: this.x - 40, y0: ahead + 80, toRoad: 1 });
+        T.vid = v.id;
+        say(`A hamlet: one soul. Ride through the glowing ring by the cottage to give it one of your hearts.`);
         break;
       }
+      case 6: {
+        this.buildFork(this.x);
+        const vs = this.villages.slice(-2);
+        T.vid = vs[0].id;
+        T.c0 = vs[1].id;
+        say("The road forks. One way, a village: two souls, for a heart. The other, a glade the rot is choking: no souls, no heart, but an animal friend and a memory. Heal one of them.");
+        break;
+      }
+      case 7:
+        this.lastKill = undefined;
+        this.arrows = 5;
+        this.spawnMonster(this.x + 40, this.y - 230);
+        say("A bow and five arrows. Hold Space: a line swings behind you. Let go when it points at the monster.");
+        break;
       case 8:
+        this.lastKill = undefined;
+        this.traps = 2;
+        this.spawnMonster(this.x, this.y - 190);
+        say("Root traps. When the monster runs right behind you, drop one with Z: it runs into it.");
+        break;
+      case 9:
+        this.lastKill = undefined;
+        T.done = 0;
+        this.swords = 1;
+        this.spawnMonster(this.x, this.y - 170);
+        say("The sword, the last resort. Let the monster come close, and when it is on your neck, strike with X.");
+        break;
+      case 10:
         this.gates.push({ y: this.y + 700, land: 1, gold: false, passed: false });
         say("Enough souls: a gate of spring has opened. Ride through it. Beyond it the land is greener.");
         break;
@@ -1315,20 +1551,61 @@ export class Game {
         }
         break;
       case 5:
-      case 6:
-      case 7: {
-        const v = this.villages.find((vv) => vv.id === T.vid);
-        if (!v) break;
-        if (v.state === "saved" && v.t > 1.2) {
+      case 6: {
+        const vs = this.villages.filter((vv) => vv.id === T.vid || (T.step === 6 && vv.id === T.c0));
+        if (!vs.length) break;
+        const saved = vs.find((v) => v.state === "saved");
+        if (saved && saved.t > 1.2) {
           if (this.hearts < 3) this.hearts = 3;
+          for (const q of this.monsters) if (q.turned) this.kill(q, "dawn");
           this.tutorialNext();
-        } else if (v.state === "lost") {
+        } else if (vs.some((v) => v.state === "lost")) {
           this.hearts = Math.max(this.hearts, 3);
-          again("In a real ride that village would stay lost. This time, try again: ride through the glowing ring.");
+          for (const q of this.monsters) this.kill(q, "dawn");
+          again(T.step === 5 ? "In a real ride its soul would be lost, and come after you as a monster. Again: ride through the ring." : "You rode past both: in a real ride the village would be lost. Again: choose one.");
         }
         break;
       }
+      case 7:
       case 8:
+      case 9: {
+        const want = T.step === 7 ? "arrow" : T.step === 8 ? "trap" : "sword";
+        const alive = this.monsters.some((q) => this.hunting(q) || q.state === "emerge");
+        if (T.step === 9 && T.done) {
+          // the price of the sword: two more come out of the blood; then the lesson ends
+          if (this.t - T.done > 3.2) {
+            for (const q of this.monsters) if (this.hunting(q) || q.state === "emerge") this.kill(q, "dawn");
+            this.pending = [];
+            this.say("That is the price: every sword kill brings two more. Keep the sword for when nothing else will do.", true);
+            this.tutorialNext();
+          }
+          break;
+        }
+        if (this.lastKill === want) {
+          if (T.step === 9) {
+            T.done = this.t;
+            break;
+          }
+          this.say(T.step === 7 ? "A clean shot." : "Caught in the roots.", true);
+          this.tutorialNext();
+        } else if (!alive && this.t - T.t > 1.5) {
+          // it died some other way, or ran off: another one, and more of what you need
+          if (T.step === 7) this.arrows = Math.max(this.arrows, 5);
+          if (T.step === 8) this.traps = Math.max(this.traps, 2);
+          if (T.step === 9) this.swords = Math.max(this.swords, 1);
+          this.lastKill = undefined;
+          this.spawnMonster(this.x + (T.step === 7 ? 40 : 0), this.y - 200);
+          this.say(T.step === 7 ? "Another one. Hold Space, aim, let go." : T.step === 8 ? "Another one. Z when it is right behind you." : "Another one. X when it is on your neck.", true);
+        } else if (T.step === 7 && this.arrows <= 0 && this.shots.length === 0) {
+          this.arrows = 5;
+          this.say("Five more arrows. The line swings: let go when it points at the monster.", true);
+        } else if (T.step === 8 && this.traps <= 0 && !this.placed.some((tr) => tr.alive)) {
+          this.traps = 2;
+          this.say("Two more traps. Drop one when the monster is right behind you.", true);
+        }
+        break;
+      }
+      case 10:
         if (this.gates.every((g) => g.passed) && this.t - T.t > 1) this.tutorialNext();
         break;
     }
@@ -1383,7 +1660,19 @@ export class Game {
       }
       if (p.kind === "villager") {
         // in the villages of the mission people wait for Brigid; they don't run
-        if (p.state === "flee" && p.door) {
+        if (p.state === "leave" && p.door) {
+          // led away by the creatures of a healed glade: they walk off into the woods and are gone
+          const dx = p.door.x - p.x;
+          const dy = p.door.y - p.y;
+          const d = Math.hypot(dx, dy);
+          if (d < 6) {
+            p.state = "safe";
+            continue;
+          }
+          p.x += (dx / d) * 70 * dt;
+          p.y += (dy / d) * 70 * dt;
+          if (Math.abs(dx) > 1) p.dir = dx > 0 ? 1 : -1;
+        } else if (p.state === "flee" && p.door) {
           const dx = p.door.x - p.x;
           const dy = p.door.y - p.y;
           const d = Math.hypot(dx, dy);
@@ -1431,12 +1720,12 @@ export class Game {
 
   /* ---------------- the monsters ---------------- */
 
-  private spawnMonster() {
+  private spawnMonster(atX?: number, atY?: number, turned = false) {
     const m = this.metres;
     const kinds = this.mode === "tutorial" ? (["maw"] as MonsterId[]) : (Object.keys(MONSTERS) as MonsterId[]).filter((k) => MONSTERS[k].from <= m + this.mOff);
     const pick = kinds[Math.min(kinds.length - 1, Math.floor(Math.pow(Math.random(), 0.7) * kinds.length))];
     this.monsters.push({
-      id: this.nextId++, type: pick, x: this.x + (Math.random() - 0.5) * 120, y: this.y - this.PY - 90, vx: 0,
+      id: this.nextId++, type: pick, x: atX ?? this.x + (Math.random() - 0.5) * 120, y: atY ?? this.y - this.PY - 90, vx: 0, turned,
       state: "emerge", timer: 0.6, cool: 2, judged: new Set(), dodgeT: 0, dodgeDir: 0, blind: 0, flinch: 0,
       phase: Math.random() * 6, aimX: this.x,
     });
@@ -1450,7 +1739,7 @@ export class Game {
 
   private hunt(dt: number) {
     const m = this.metres;
-    const alive = this.monsters.filter((q) => q.state !== "dying" && q.state !== "gone").length;
+    const alive = this.monsters.filter((q) => q.state !== "dying" && q.state !== "gone" && !q.turned).length;
     const want = this.mode === "tutorial" ? 0 : this.mode === "mission" ? MISSION.hunters[this.land] : huntersAt(m + this.mOff);
     if (m > 60 && alive < want) {
       this.respawn -= dt;
@@ -1537,7 +1826,7 @@ export class Game {
       }
 
       const fed = Math.min(5, q.fed ?? 0);
-      let sp = base * (1 + TUNE.monsterGain + T.gain + fed * LIFE.fedGain) * (this.mode === "tutorial" ? 0.92 : 1);
+      let sp = base * (1 + TUNE.monsterGain + T.gain + fed * LIFE.fedGain) * (this.mode === "tutorial" ? (this.tut.step >= 7 && this.tut.step <= 9 ? 1.25 : 0.92) : 1);
       if (gap > 300) sp *= 1.7;
       else if (gap > 180) sp *= 1.3;
       if (q.flinch > 0) sp *= 0.55;
@@ -1639,7 +1928,7 @@ export class Game {
       for (const c of this.near(q.x, q.y, 0, 0)) {
         for (const o of c.obs) {
           if (o.dead || Math.abs(o.x - q.x) > o.w / 2 + r || Math.abs(o.y - q.y) > o.h / 2 + 4) continue;
-          if (o.kind === "pit") {
+          if (o.kind === "pit" && (o.scar || BIOMES[this.landAtY(o.y)].well < 3)) {
             this.kill(q, "pit");
             this.stats.pitted++;
             this.say(`${cap(T.name)} fell into the green fire.`);
@@ -1727,7 +2016,9 @@ export class Game {
     if (c.state === "follow") {
       c.x += (this.x + 26 - c.x) * Math.min(1, dt * 6);
       c.y += (this.y - 8 - c.y) * Math.min(1, dt * 6);
-      const near = threats[0] && this.y - threats[0].y < (c.kind === "raven" ? 260 : c.kind === "doe" ? 170 : 120);
+      // in the lessons with weapons the friend only watches
+      const drill = this.mode === "tutorial" && this.tut.step >= 7 && this.tut.step <= 9;
+      const near = !drill && threats[0] && this.y - threats[0].y < (c.kind === "raven" ? 260 : c.kind === "doe" ? 170 : 120);
       if (near) {
         c.state = "act";
         c.t = 0;
@@ -1751,13 +2042,30 @@ export class Game {
       c.y += (q.y - c.y) * Math.min(1, dt * 9);
       if (Math.abs(q.x - c.x) < 10 && Math.abs(q.y - c.y) < 10) {
         this.kill(q, "hound");
-        c.state = "gone";
-        this.say("The hound gave its life for you.");
+        this.gore(q.x, q.y - 10, 40);
+        this.shake = this.o.settings.calm ? 0 : 0.25;
+        this.float(q.x, q.y - 40, "the hound tears it down", "#ffe0a0");
+        c.kills = (c.kills ?? 0) + 1;
+        if (c.kills >= 2) {
+          c.state = "gone";
+          this.say("The hound tore down two of them, and then it was torn too. It gave its life for you.", true);
+        } else {
+          c.state = "follow";
+          this.say("The hound tore it down! It runs back to you, bloody.", true);
+        }
       }
     } else if (c.kind === "raven") {
-      const q = this.monsters.find((z) => this.hunting(z));
-      c.x += ((q?.x ?? this.x) - c.x) * dt * 2;
+      const q = this.monsters.filter((z) => this.hunting(z)).sort((a, b) => b.y - a.y)[0];
+      c.x += ((q?.x ?? this.x) - c.x) * dt * 3;
       c.y = (q?.y ?? this.y) - 30 + Math.sin(c.t * 4) * 8;
+      // after the blinding, it goes for the eyes of the nearest one
+      if (q && c.t > 1.6 && !c.kills) {
+        c.kills = 1;
+        this.kill(q, "hound");
+        this.burst(q.x, q.y - 20, 24, ["#1a1a22", "#3a3a48", "#7a1018"], 90);
+        this.float(q.x, q.y - 44, "the raven takes its eyes", "#d8d8ff");
+        this.say("The raven took its eyes. The others are still blind: lead them into something!", true);
+      }
       if (c.t > 8) c.state = "gone";
     } else {
       c.x += c.vx * dt;
@@ -1765,8 +2073,11 @@ export class Game {
       if (c.t > 3) {
         const q = c.target;
         if (q && this.hunting(q) && q.lure === c) {
-          q.state = "gone";
+          // the doe leads it off the road and the woods close over it
+          this.kill(q, "dawn");
+          this.float(q.x, q.y - 40, "lost in the woods", "#ffffff");
           this.respawn = Math.max(this.respawn, 6);
+          this.say("The doe led it into the deep woods, and it never came out.", true);
         }
         c.state = "gone";
       }
@@ -1940,6 +2251,58 @@ export class Game {
     void k;
     void landA;
     void mpp;
+    // the patches of rot that stay behind: burnt ground with a dark, soft edge
+    {
+      // each scarred cell is a ragged blot: a ring of points whose distance wavers; neighbours run together
+      const blots: [number, number][][] = [];
+      for (let i = Math.floor((ox - CELL) / CELL); i <= Math.floor((ox + W + CELL) / CELL); i++)
+        for (let j = Math.floor((oy - CELL) / CELL); j <= Math.floor((oy + H + CELL) / CELL); j++) {
+          const c = this.cell(i, j);
+          if (!c.scar) continue;
+          const jr = rng(hash2(i * 13 + 7, j * 29 + 3));
+          const cx = i * CELL + CELL / 2 - ox + (jr() - 0.5) * 40;
+          const cy = j * CELL + CELL / 2 - oy + (jr() - 0.5) * 40;
+          const rx = CELL * (0.62 + jr() * 0.22);
+          const ry = CELL * (0.55 + jr() * 0.2);
+          const ph = [jr() * 6, jr() * 6, jr() * 6];
+          const pts: [number, number][] = [];
+          for (let q = 0; q < 22; q++) {
+            const a = (q / 22) * Math.PI * 2;
+            const w = 0.78 + 0.16 * Math.sin(a * 3 + ph[0]) + 0.1 * Math.sin(a * 5 + ph[1]) + 0.07 * Math.sin(a * 9 + ph[2]) + (jr() - 0.5) * 0.12;
+            pts.push([cx + Math.cos(a) * rx * w, cy + Math.sin(a) * ry * w]);
+          }
+          blots.push(pts);
+        }
+      if (blots.length) {
+        const path = (grow: number) => {
+          g.beginPath();
+          for (const pts of blots) {
+            const [mx, my] = pts.reduce(([sx, sy], [x, y]) => [sx + x / pts.length, sy + y / pts.length], [0, 0]);
+            // a smooth ragged edge: curves through the middles of the sides
+            const P = pts.map(([x, y]) => [mx + (x - mx) * grow, my + (y - my) * grow] as [number, number]);
+            const mid = (p: [number, number], q: [number, number]) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+            const [sx, sy] = mid(P[P.length - 1], P[0]);
+            g.moveTo(sx, sy);
+            P.forEach((p, q) => {
+              const [nx, ny] = mid(p, P[(q + 1) % P.length]);
+              g.quadraticCurveTo(p[0], p[1], nx, ny);
+            });
+            g.closePath();
+          }
+        };
+        g.fillStyle = "rgba(24,18,14,0.22)";
+        path(1.14);
+        g.fill();
+        g.fillStyle = "rgba(24,18,14,0.22)";
+        path(1.06);
+        g.fill();
+        g.save();
+        path(1);
+        g.clip();
+        tile(this.lands[0], 1);
+        g.restore();
+      }
+    }
     for (const { gt, Y } of gatesOn) if (Y > -30 && Y < H + 30) this.drawBrook(Y, gt.gold);
     for (const v of this.villages) this.drawVillageGround(v);
 
@@ -1977,7 +2340,7 @@ export class Game {
           list.push({
             y: flat ? o.y - 30 : o.y,
             fn: () => {
-              curLand = landAt(o.y);
+              curLand = o.scar ? this.lands[0] : landAt(o.y);
               if (o.kind === "cottage") this.drawCottage(o, x, y + 2);
               else if (o.kind === "well") this.put(this.life.well, x, y + 2);
               else if (o.kind === "tree") twoWay((l) => l.tree[o.v], x, y + 2);
@@ -1990,6 +2353,7 @@ export class Game {
           });
         }
         for (const p of c.picks) if (!p.taken) list.push({ y: p.y, fn: () => this.drawPick(p) });
+        if (c.life && !this.o.showcase) for (const cr of c.life) list.push({ y: cr.kind === "butterfly" ? cr.y + 40 : cr.y, fn: () => this.drawCritter(cr) });
       }
     for (const p of this.extra) if (!p.taken) list.push({ y: p.y, fn: () => this.drawPick(p) });
     for (const t of this.placed) if (t.alive) list.push({ y: t.y - 40, fn: () => this.put(this.trapArt, this.sx(t.x), this.sy(t.y) + 4) });
@@ -2180,7 +2544,7 @@ export class Game {
     const calm = this.o.settings.calm;
     if (p.kind === "villager") {
       const fr = this.life.folk[p.v];
-      const f = p.state === "flee" ? 1 + wrap(Math.floor(p.t * 9), 2) : 0;
+      const f = p.state === "flee" || p.state === "leave" ? 1 + wrap(Math.floor(p.t * 9), 2) : 0;
       const sway = p.state === "idle" && !calm ? Math.sin(p.t * 1.6 + p.id) * 0.6 : 0;
       this.putFlip(fr[f], x + sway, y + 2, p.dir < 0);
       if (p.state === "flee") {
@@ -2196,8 +2560,10 @@ export class Game {
       return;
     }
     const fr = this.life.animals[p.kind];
-    const f = wrap(Math.floor(p.t * (p.kind === "deer" ? 7 : 9)), 2);
-    const hop = p.kind === "hare" && !calm ? -Math.abs(Math.sin(p.t * 9 * Math.PI)) * 3 : 0;
+    // at home in a healed glade they stand still, and a hare now and then hops
+    const home = p.state === "cheer";
+    const f = home ? 0 : wrap(Math.floor(p.t * (p.kind === "deer" ? 7 : 9)), 2);
+    const hop = p.kind === "hare" && !calm && (!home || Math.sin(p.t * 1.7 + p.id) > 0.93) ? -Math.abs(Math.sin(p.t * 9 * Math.PI)) * 3 : 0;
     this.putFlip(fr[f], x, y + 2 + hop, p.vx < 0);
   }
 
@@ -2308,15 +2674,124 @@ export class Game {
   }
 
   /** under a village: the ring that asks for a heart, the green of a saved one, the scorch of a lost one */
+  /** a crow, a cloud of flies, a butterfly or a little bird; crows and birds fly off when she comes close */
+  private drawCritter(cr: Critter) {
+    const g = this.ctx;
+    const calm = this.o.settings.calm;
+    const t = this.t + cr.ph;
+    if ((cr.kind === "crow" || cr.kind === "finch") && cr.flown === undefined && Math.hypot(cr.x - this.x, cr.y - this.y) < 95) cr.flown = this.t;
+    const away = cr.flown !== undefined ? this.t - cr.flown : 0;
+    if (away > 2.2) return;
+    let x = this.sx(cr.x);
+    let y = this.sy(cr.y);
+    if (y < -40 || y > VIEW_H + 40 || x < -40 || x > this.W + 40) return;
+    if (cr.kind === "flies") {
+      g.fillStyle = "rgba(20,20,20,0.85)";
+      for (let k = 0; k < 5; k++) {
+        const a = (calm ? k : t * (5 + k)) + k * 1.3;
+        g.beginPath();
+        g.arc(x + Math.cos(a) * (6 + k * 2), y - 12 + Math.sin(a * 1.3) * 5, 1.1, 0, Math.PI * 2);
+        g.fill();
+      }
+      return;
+    }
+    if (cr.kind === "butterfly") {
+      x += calm ? 0 : Math.sin(t * 0.7) * 30;
+      y += (calm ? 0 : Math.cos(t * 0.5) * 16) - 14;
+      const flap = calm ? 0.8 : 0.25 + Math.abs(Math.sin(t * 11)) * 0.75;
+      g.fillStyle = cr.c;
+      g.strokeStyle = "rgba(0,0,0,0.5)";
+      g.lineWidth = 0.6;
+      for (const s of [-1, 1]) {
+        g.beginPath();
+        g.ellipse(x + s * 3.2 * flap, y - 1, 3.4 * flap, 2.6, s * 0.4, 0, Math.PI * 2);
+        g.fill();
+        g.stroke();
+      }
+      g.fillStyle = "#2a1a10";
+      g.fillRect(x - 0.6, y - 3, 1.2, 5);
+      return;
+    }
+    // crow or finch, on the ground or flying off
+    const crow = cr.kind === "crow";
+    if (away > 0) {
+      x += away * 90 * (cr.ph % 2 > 1 ? 1 : -1);
+      y -= away * 70;
+      g.globalAlpha = Math.max(0, 1 - away / 2.2);
+    }
+    const hop = !calm && away === 0 && Math.sin(t * 2.3) > 0.92 ? -2 : 0;
+    const sz = crow ? 1.35 : 0.8;
+    g.fillStyle = crow ? "#151217" : cr.c;
+    g.strokeStyle = "rgba(0,0,0,0.7)";
+    g.lineWidth = 0.8;
+    if (away > 0) {
+      const w = Math.sin(this.t * 18) * 5 * sz;
+      g.beginPath();
+      g.moveTo(x - 7 * sz, y - 10 + w);
+      g.quadraticCurveTo(x - 3 * sz, y - 13, x, y - 10);
+      g.quadraticCurveTo(x + 3 * sz, y - 13, x + 7 * sz, y - 10 + w);
+      g.lineWidth = 2;
+      g.strokeStyle = g.fillStyle as string;
+      g.stroke();
+    } else {
+      g.beginPath();
+      g.ellipse(x, y - 5 * sz + hop, 5.5 * sz, 3.8 * sz, -0.2, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+      g.beginPath();
+      g.arc(x + 4.5 * sz, y - 8.5 * sz + hop, 2.6 * sz, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = crow ? "#3a3a3a" : "#f0c060";
+      g.beginPath();
+      g.moveTo(x + 6.6 * sz, y - 9 * sz + hop);
+      g.lineTo(x + 10 * sz, y - 8 * sz + hop);
+      g.lineTo(x + 6.6 * sz, y - 7.4 * sz + hop);
+      g.fill();
+      g.fillStyle = crow ? "#d8c040" : "#111";
+      g.beginPath();
+      g.arc(x + 5.2 * sz, y - 9.2 * sz + hop, 0.7, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.globalAlpha = 1;
+  }
+
+  /** the path from where the road forks to a village or a glade */
+  private drawTrail(v: Village) {
+    if (!v.fork) return;
+    const g = this.ctx;
+    const f = v.fork;
+    const top = Math.min(this.sy(f.y), this.sy(v.ay));
+    if (top > VIEW_H + 40 || Math.max(this.sy(f.y), this.sy(v.ay)) < -40) return;
+    const pts: [number, number][] = [];
+    for (let k = 0; k <= 24; k++) {
+      const [x, y] = this.trailAt(f, v, k / 24);
+      pts.push([this.sx(x), this.sy(y)]);
+    }
+    const line = (w: number, c: string) => {
+      g.lineWidth = w;
+      g.strokeStyle = c;
+      g.lineCap = "round";
+      g.lineJoin = "round";
+      g.beginPath();
+      pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+      g.stroke();
+    };
+    line(34, "rgba(70,52,34,0.45)");
+    line(22, "rgba(150,118,80,0.42)");
+    line(6, "rgba(190,160,110,0.25)");
+  }
+
   private drawVillageGround(v: Village) {
     const g = this.ctx;
+    this.drawTrail(v);
     const x = this.sx(v.ax);
     const y = this.sy(v.ay);
     if (y < -260 || y > VIEW_H + 260 || x < -300 || x > this.W + 300) return;
     const calm = this.o.settings.calm;
+    if (v.kind === "glade") this.drawGlade(v, x, y);
     if (v.state === "saved") {
       const k = Math.min(1, v.t / 1.2);
-      const R = (v.size === 6 ? 250 : v.size === 4 ? 200 : 140) * (0.3 + 0.7 * k);
+      const R = (v.kind === "glade" ? 170 : v.kind === "village" ? 170 : 130) * (0.3 + 0.7 * k);
       const gr = g.createRadialGradient(x, y - 40, 4, x, y - 40, R);
       gr.addColorStop(0, "rgba(140,240,120,0.42)");
       gr.addColorStop(0.7, "rgba(120,220,110,0.18)");
@@ -2336,18 +2811,20 @@ export class Game {
       g.setLineDash([]);
       return;
     }
-    if (v.state === "lost") {
-      g.fillStyle = "rgba(20,10,10,0.35)";
+    if (v.state === "lost" || v.state === "spared" || v.state === "left") {
+      if (v.kind === "glade") return;
+      g.fillStyle = v.state === "lost" ? "rgba(20,10,10,0.35)" : "rgba(20,20,20,0.18)";
       g.beginPath();
-      g.ellipse(x, y - 30, 150, 90, 0, 0, Math.PI * 2);
+      g.ellipse(x, y - 30, 130, 80, 0, 0, Math.PI * 2);
       g.fill();
       return;
     }
-    // waiting: a ring of light at its heart, with a heart floating over it
+    // waiting: a ring of light at its heart; a heart floats over it, or, at a glade, a green shoot
     const pulse = calm ? 0.5 : 0.5 + 0.5 * Math.sin(this.t * 4 + v.id);
+    const rgb = v.kind === "glade" ? "140,255,170" : "255,140,170";
     const glow = g.createRadialGradient(x, y, 2, x, y, 40);
-    glow.addColorStop(0, `rgba(255,140,170,${(0.3 + pulse * 0.2).toFixed(2)})`);
-    glow.addColorStop(1, "rgba(255,140,170,0)");
+    glow.addColorStop(0, `rgba(${rgb},${(0.3 + pulse * 0.2).toFixed(2)})`);
+    glow.addColorStop(1, `rgba(${rgb},0)`);
     g.fillStyle = glow;
     g.beginPath();
     g.ellipse(x, y, 40, 18, 0, 0, Math.PI * 2);
@@ -2358,18 +2835,34 @@ export class Game {
     g.ellipse(x, y, 30, 13, 0, 0, Math.PI * 2);
     g.stroke();
     g.lineWidth = 2.6;
-    g.strokeStyle = `rgba(255,${236 + Math.round(pulse * 19)},190,0.95)`;
+    g.strokeStyle = v.kind === "glade" ? `rgba(${200 + Math.round(pulse * 40)},255,210,0.95)` : `rgba(255,${236 + Math.round(pulse * 19)},190,0.95)`;
     g.stroke();
     g.lineWidth = 1.4;
     g.setLineDash([5, 6]);
     g.lineDashOffset = calm ? 0 : -this.t * 14;
-    g.strokeStyle = "rgba(240,200,90,0.9)";
+    g.strokeStyle = v.kind === "glade" ? "rgba(150,240,120,0.9)" : "rgba(240,200,90,0.9)";
     g.beginPath();
     g.ellipse(x, y, 38, 17, 0, 0, Math.PI * 2);
     g.stroke();
     g.setLineDash([]);
     g.lineDashOffset = 0;
     const hy = y - 18 - (calm ? 0 : Math.sin(this.t * 3 + v.id) * 3);
+    if (v.kind === "glade") {
+      // a shoot with two leaves
+      g.strokeStyle = "#2e6a22";
+      g.lineWidth = 2.4;
+      g.beginPath();
+      g.moveTo(x, hy + 8);
+      g.quadraticCurveTo(x - 1, hy, x, hy - 8);
+      g.stroke();
+      g.fillStyle = "#8ae05a";
+      for (const s of [-1, 1]) {
+        g.beginPath();
+        g.ellipse(x + s * 5, hy - 4, 6, 3, s * -0.5, 0, Math.PI * 2);
+        g.fill();
+      }
+      return;
+    }
     g.beginPath();
     g.moveTo(x, hy + 7);
     g.bezierCurveTo(x - 10, hy, x - 6, hy - 9, x, hy - 4);
@@ -2381,11 +2874,236 @@ export class Game {
     g.stroke();
   }
 
-  /** "6 souls", big and white, over a village that waits; "saved" or "lost" for a moment after */
+  /** a glade: a mire choked with rot, ringed by dead thorn; healed, a spring among bushes, ferns and fireflies */
+  private drawGlade(v: Village, x: number, y: number) {
+    const g = this.ctx;
+    const calm = this.o.settings.calm;
+    const k = v.state === "saved" ? Math.min(1, v.t / 1.4) : 0;
+    const px = x;
+    const py = y - 46;
+    const R = rng(v.id * 7919 + 3);
+    // the ground: the mire, then moss coming over it
+    const mudShapes: [number, number, number, number][] = [];
+    for (let q = 0; q < 6; q++) mudShapes.push([px + (R() - 0.5) * 90, py + (R() - 0.5) * 34, 34 + R() * 26, 16 + R() * 10]);
+    g.fillStyle = "#2a2016";
+    for (const [mx, my, rx, ry] of mudShapes) {
+      g.beginPath();
+      g.ellipse(mx, my, rx, ry, 0, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.fillStyle = "#3a2c1e";
+    for (const [mx, my, rx, ry] of mudShapes) {
+      g.beginPath();
+      g.ellipse(mx - 4, my - 3, rx * 0.7, ry * 0.6, 0, 0, Math.PI * 2);
+      g.fill();
+    }
+    if (k > 0) {
+      g.globalAlpha = k;
+      g.fillStyle = "#4a8a34";
+      for (const [mx, my, rx, ry] of mudShapes) {
+        g.beginPath();
+        g.ellipse(mx, my, rx + 4, ry + 3, 0, 0, Math.PI * 2);
+        g.fill();
+      }
+      g.fillStyle = "#62a844";
+      for (const [mx, my, rx, ry] of mudShapes) {
+        g.beginPath();
+        g.ellipse(mx - 3, my - 3, rx * 0.65, ry * 0.55, 0, 0, Math.PI * 2);
+        g.fill();
+      }
+      g.globalAlpha = 1;
+    }
+    // the water: a black, glistening slough, or a clear spring
+    if (k < 1) {
+      g.globalAlpha = 1 - k;
+      g.fillStyle = "#17110c";
+      g.beginPath();
+      g.ellipse(px, py, 40, 17, 0, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = "rgba(150,140,110,0.3)";
+      for (const [dx, dy, w] of [[-18, -5, 9], [10, -8, 6], [20, 4, 5]] as const) {
+        g.beginPath();
+        g.ellipse(px + dx, py + dy, w, 2, 0, 0, Math.PI * 2);
+        g.fill();
+      }
+      for (let q = 0; q < 5; q++) {
+        const ph = calm ? 0.5 : (this.t * 0.6 + q * 0.31) % 1;
+        g.fillStyle = `rgba(110,150,60,${(0.7 * (1 - ph)).toFixed(2)})`;
+        g.beginPath();
+        g.arc(px - 26 + q * 13, py - 2 + (q % 2) * 6, 1.6 + ph * 3.4, 0, Math.PI * 2);
+        g.fill();
+      }
+      // a rot-green breath over it
+      if (!calm) {
+        const ph = (this.t * 0.4) % 1;
+        g.fillStyle = `rgba(125,255,79,${(0.12 * (1 - ph)).toFixed(3)})`;
+        g.beginPath();
+        g.ellipse(px + 6, py - 14 - ph * 26, 22 + ph * 10, 7, 0, 0, Math.PI * 2);
+        g.fill();
+      }
+      g.globalAlpha = 1;
+    }
+    if (k > 0) {
+      g.globalAlpha = k;
+      const wg = g.createRadialGradient(px - 8, py - 4, 2, px, py, 36);
+      wg.addColorStop(0, "#e8fdff");
+      wg.addColorStop(0.45, "#6fd2dc");
+      wg.addColorStop(1, "#22707e");
+      g.fillStyle = wg;
+      g.beginPath();
+      g.ellipse(px, py, 34 * k + 6, 14 * k + 3, 0, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = "#3a6a2a";
+      g.lineWidth = 2;
+      g.stroke();
+      g.strokeStyle = "rgba(255,255,255,0.7)";
+      g.lineWidth = 1.2;
+      g.beginPath();
+      g.ellipse(px - 8, py - 4, 12, 2.5, -0.1, Math.PI * 1.1, Math.PI * 1.9);
+      g.stroke();
+      g.globalAlpha = 1;
+    }
+    // the ring of bushes: dead thorn, or green and in flower
+    for (let q = 0; q < 9; q++) {
+      const a = Math.PI * 0.9 + (q / 8) * Math.PI * 1.2 + (R() - 0.5) * 0.2;
+      const bx = px + Math.cos(a) * (96 + R() * 10);
+      const by = py + 8 + Math.sin(a) * (46 + R() * 6);
+      const size = 0.8 + R() * 0.5;
+      if (k < 1) {
+        g.globalAlpha = 1 - k;
+        g.strokeStyle = "#3a2e26";
+        g.lineWidth = 1.6;
+        g.beginPath();
+        for (let b = 0; b < 6; b++) {
+          const ang = -Math.PI / 2 + (b - 2.5) * 0.42;
+          const len = (12 + (b % 3) * 4) * size;
+          g.moveTo(bx, by);
+          g.lineTo(bx + Math.cos(ang) * len, by + Math.sin(ang) * len);
+          g.moveTo(bx + Math.cos(ang) * len * 0.6, by + Math.sin(ang) * len * 0.6);
+          g.lineTo(bx + Math.cos(ang + 0.6) * len * 0.85, by + Math.sin(ang + 0.6) * len * 0.85);
+        }
+        g.stroke();
+        g.globalAlpha = 1;
+      }
+      if (k > 0) {
+        const s2 = size * (0.4 + 0.6 * k);
+        g.globalAlpha = Math.min(1, k * 1.4);
+        g.fillStyle = "rgba(0,0,0,0.22)";
+        g.beginPath();
+        g.ellipse(bx, by + 2, 15 * s2, 5 * s2, 0, 0, Math.PI * 2);
+        g.fill();
+        for (const [dx, dy, r, c] of [[-7, -8, 9, "#2e6a22"], [7, -9, 9, "#3a7a2a"], [0, -15, 10, "#4a9a34"], [-3, -19, 6, "#6ab84a"]] as const) {
+          g.fillStyle = c;
+          g.beginPath();
+          g.arc(bx + dx * s2, by + dy * s2, r * s2, 0, Math.PI * 2);
+          g.fill();
+        }
+        // blossoms and berries
+        const bloom = q % 3 === 0 ? "#ffffff" : q % 3 === 1 ? "#ff8ab0" : "#d02a3a";
+        for (let f = 0; f < 3; f++) {
+          g.fillStyle = bloom;
+          g.beginPath();
+          g.arc(bx + (f - 1) * 6 * s2, by - (12 + (f % 2) * 7) * s2, 1.8, 0, Math.PI * 2);
+          g.fill();
+        }
+        g.globalAlpha = 1;
+      }
+    }
+    if (k <= 0) return;
+    // ferns and a fairy ring of mushrooms
+    g.globalAlpha = k;
+    g.strokeStyle = "#5aa040";
+    g.lineWidth = 1.4;
+    for (const [fx, fy, dir] of [[px - 52, py + 22, -1], [px + 50, py + 24, 1], [px - 10, py + 30, 1]] as const) {
+      for (let f = 0; f < 4; f++) {
+        const a = -Math.PI / 2 + dir * (0.3 + f * 0.35);
+        g.beginPath();
+        g.moveTo(fx, fy);
+        g.quadraticCurveTo(fx + Math.cos(a) * 8, fy + Math.sin(a) * 12, fx + Math.cos(a) * 16, fy + Math.sin(a) * 14 + 4);
+        g.stroke();
+      }
+    }
+    for (let q = 0; q < 7; q++) {
+      const a = (q / 7) * Math.PI * 2;
+      const mx = px + Math.cos(a) * 58;
+      const my = py + 6 + Math.sin(a) * 26;
+      g.fillStyle = "#f2ead8";
+      g.fillRect(mx - 0.8, my - 4, 1.6, 4);
+      g.fillStyle = q % 2 ? "#d0303a" : "#e8c66a";
+      g.beginPath();
+      g.ellipse(mx, my - 4, 3, 1.8, 0, Math.PI, 0);
+      g.fill();
+    }
+    // fireflies: the land's own light
+    g.save();
+    g.globalCompositeOperation = "lighter";
+    for (let q = 0; q < 10; q++) {
+      const a = (calm ? q : this.t * (0.4 + (q % 3) * 0.15)) + q * 1.9;
+      const fx = px + Math.cos(a) * (30 + (q % 4) * 16);
+      const fy = py - 22 + Math.sin(a * 1.3) * (14 + (q % 3) * 6);
+      const tw = calm ? 0.7 : 0.4 + 0.6 * Math.abs(Math.sin(this.t * 2 + q));
+      const gr = g.createRadialGradient(fx, fy, 0, fx, fy, 6);
+      gr.addColorStop(0, `rgba(255,250,170,${(0.9 * tw * k).toFixed(2)})`);
+      gr.addColorStop(1, "rgba(255,250,170,0)");
+      g.fillStyle = gr;
+      g.fillRect(fx - 6, fy - 6, 12, 12);
+    }
+    g.restore();
+    g.globalAlpha = 1;
+    // birds over it
+    if (k >= 1) {
+      const fr = this.runArt.raven;
+      for (let q = 0; q < 2; q++) {
+        const a = (calm ? 0 : this.t * 0.9) + q * Math.PI;
+        const f = fr[wrap(Math.floor(this.t * 8) + q, fr.length)];
+        if (f) this.putFlip(f, px + Math.cos(a) * 80, py - 74 + Math.sin(a) * 18, Math.sin(a) < 0);
+      }
+    }
+  }
+
+  /** where the road forks: a post with two arms */
+  private drawSignpost(v: Village) {
+    if (!v.fork || v.kind !== "village" || v.state !== "waiting") return;
+    const other = this.villages.find((w) => w.id === v.pair);
+    const g = this.ctx;
+    const x = this.sx(v.fork.x);
+    const y = this.sy(v.fork.y);
+    if (y < -60 || y > VIEW_H + 60) return;
+    g.fillStyle = "rgba(0,0,0,0.3)";
+    g.beginPath();
+    g.ellipse(x, y + 2, 12, 4, 0, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = "#5a3a22";
+    g.fillRect(x - 3, y - 44, 6, 46);
+    const arm = (dir: number, label: string, c: string, yy: number) => {
+      g.fillStyle = "#8a6a3a";
+      g.strokeStyle = "#2a1a10";
+      g.lineWidth = 1.5;
+      g.beginPath();
+      g.moveTo(x, yy - 8);
+      g.lineTo(x + dir * 52, yy - 8);
+      g.lineTo(x + dir * 60, yy);
+      g.lineTo(x + dir * 52, yy + 8);
+      g.lineTo(x, yy + 8);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.font = "bold 10px system-ui, sans-serif";
+      g.textAlign = dir > 0 ? "left" : "right";
+      g.fillStyle = c;
+      g.fillText(label, x + dir * 6, yy + 3.5);
+    };
+    const vDir = Math.sign(v.ax - v.fork.x) || 1;
+    arm(vDir, "2 souls", "#fff4d8", y - 36);
+    if (other) arm(-vDir, other.memory >= 0 ? "glade ✦" : "glade", "#d8ffd0", y - 18);
+  }
+
+  /** what a place is, big and white, while it waits; then what came of it, for a moment */
   private drawVillageLabel(v: Village) {
+    this.drawSignpost(v);
     const g = this.ctx;
     const x = Math.max(70, Math.min(this.W - 70, this.sx(v.ax)));
-    const y = this.sy(v.ay) - 54;
+    const y = this.sy(v.ay) - (v.kind === "glade" ? 104 : 54);
     if (y < -40 || y > VIEW_H + 40) return;
     g.textAlign = "center";
     g.lineJoin = "round";
@@ -2399,13 +3117,20 @@ export class Game {
       g.fillText(t, x, yy);
       g.globalAlpha = 1;
     };
+    const K = VILLAGE_KINDS[v.kind];
     if (v.state === "waiting") {
-      text(`${v.size} souls`, y, 24, "#ffffff");
-      text(`${VILLAGE_KINDS[v.size].name} · ${v.name}${v.memory >= 0 ? " · ✦ a memory" : ""}`, y + 17, 12, v.memory >= 0 ? "#b8ffe0" : "#f3e6b8");
+      if (v.kind === "glade") {
+        text("The Glade", y, 22, "#d8ffd0");
+        text(v.memory >= 0 ? `an animal friend · ✦ memory ${v.memory + 1}${v.clarify ? ", to clear" : ""}` : "an animal friend", y + 17, 12, "#b8ffe0");
+      } else {
+        text(`${v.size} ${v.size === 1 ? "soul" : "souls"}`, y, 24, "#ffffff");
+        text(`${K.name} · ${v.name}`, y + 17, 12, "#f3e6b8");
+      }
     } else if (v.t < 2.5) {
       const a = Math.max(0, 1 - v.t / 2.5);
-      if (v.state === "saved") text(`+${v.size} souls`, y - v.t * 14, 22, "#b8ffb0", a);
-      else text(`${v.name} is lost`, y, 18, "#ff8a8a", a);
+      if (v.state === "saved") text(v.kind === "glade" ? "healed" : `+${v.size} ${v.size === 1 ? "soul" : "souls"}`, y - v.t * 14, 22, "#b8ffb0", a);
+      else if (v.state === "lost") text(`${v.name} is lost`, y, 18, "#ff8a8a", a);
+      else if (v.state === "spared") text("led into the woods", y, 15, "#d8e0d0", a);
     }
   }
 
@@ -2449,6 +3174,30 @@ export class Game {
     const x = this.sx(this.x);
     const y = this.PY;
     const W = this.W;
+    // the wells light up: a pillar of warm light out of each
+    const wa = Math.min(1, Math.max(0, (T - 4.5) / 1.5));
+    if (wa > 0)
+      for (const o of this.wells) {
+        const wx = this.sx(o.x);
+        const wy = this.sy(o.y) - 8;
+        if (wy < -120 || wy > VIEW_H + 40 || wx < -60 || wx > W + 60) continue;
+        g.save();
+        g.globalCompositeOperation = "lighter";
+        const gr = g.createRadialGradient(wx, wy, 2, wx, wy, 46);
+        gr.addColorStop(0, `rgba(255,250,210,${(0.9 * wa).toFixed(2)})`);
+        gr.addColorStop(0.5, `rgba(180,255,230,${(0.35 * wa).toFixed(2)})`);
+        gr.addColorStop(1, "rgba(180,255,230,0)");
+        g.fillStyle = gr;
+        g.beginPath();
+        g.ellipse(wx, wy, 46, 22, 0, 0, Math.PI * 2);
+        g.fill();
+        const up = g.createLinearGradient(0, wy - 110, 0, wy);
+        up.addColorStop(0, "rgba(255,246,210,0)");
+        up.addColorStop(1, `rgba(255,246,210,${(0.45 * wa).toFixed(2)})`);
+        g.fillStyle = up;
+        g.fillRect(wx - 16, wy - 110, 32, 110);
+        g.restore();
+      }
     g.fillStyle = `rgba(255,240,190,${Math.min(0.22, T * 0.03).toFixed(3)})`;
     g.fillRect(0, 0, W, VIEW_H);
     if (!this.o.settings.calm) {
@@ -2636,6 +3385,12 @@ export class Game {
       if (q.how === "pit") y += (1 - q.timer / 0.8) * 16;
     }
     if (q.state === "windup" && !this.o.settings.calm) x += Math.sin(this.t * 60) * 1.6;
+    // a smoke of the dark it came from, clinging round its feet
+    const smoke = g.createRadialGradient(x, y - b.h * 0.25, 2, x, y - b.h * 0.25, b.w * 0.75);
+    smoke.addColorStop(0, `rgba(12,4,14,${(0.42 * a).toFixed(2)})`);
+    smoke.addColorStop(1, "rgba(12,4,14,0)");
+    g.fillStyle = smoke;
+    g.fillRect(x - b.w, y - b.h, b.w * 2, b.h * 1.3);
     g.fillStyle = "rgba(0,0,0,0.3)";
     g.beginPath();
     g.ellipse(x, y + 2, b.w * 0.3, 5, 0, 0, Math.PI * 2);

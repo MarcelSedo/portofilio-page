@@ -277,6 +277,8 @@ export type Biome = {
   glow: string;
   busy: number;
   pits: number;
+  /** the pits heal land by land: 0 green fire, 1 lower fire and the first stones, 2 a broken rim with embers, 3 a well of water */
+  well: number;
 };
 
 export const BIOMES: Biome[] = [
@@ -296,6 +298,7 @@ export const BIOMES: Biome[] = [
     glow: "#7dff4f",
     busy: 1,
     pits: 1,
+    well: 0,
   },
   {
     name: "First Green",
@@ -313,6 +316,7 @@ export const BIOMES: Biome[] = [
     glow: "#72f24c",
     busy: 1.1,
     pits: 0.85,
+    well: 1,
   },
   {
     name: "Deep Green",
@@ -330,6 +334,7 @@ export const BIOMES: Biome[] = [
     glow: "#8aff6a",
     busy: 1.15,
     pits: 0.7,
+    well: 2,
   },
   {
     name: "Bloom",
@@ -347,6 +352,7 @@ export const BIOMES: Biome[] = [
     glow: "#b8ffb0",
     busy: 1.2,
     pits: 0.45,
+    well: 3,
   },
 ];
 
@@ -389,21 +395,14 @@ export const VILLAGE_NAMES = ["Bibury", "Lower Slaughter", "Castle Combe", "Snow
 
 /** the mission: souls open the gates, hearts are what you pay with */
 export const MISSION = {
-  /** souls needed to open the gate out of each land (Rot, First Green, Deep Green, Bloom) */
-  need: [8, 12, 14, 16],
-  /** each village lost makes the land a little kinder: one soul fewer needed (down to half) */
-  mercy: 1,
-  /** metres between villages, at least and at most */
-  villageGap: [190, 290] as [number, number],
-  /** how often each size turns up */
-  weights: { 6: 0.36, 4: 0.34, 2: 0.3 },
-  /** metres between hearts lying in the land; they come a little more often the longer you stay in one land */
-  heartGap: [140, 220] as [number, number],
-  maxHearts: 9,
-  /** monsters hunting at once in each land */
-  hunters: [1, 2, 2, 3],
-  /** how far a saved village keeps the monsters off (px from its heart) */
-  sanctuary: 120,
-  /** the gate appears this far ahead once enough souls are saved (px) */
-  gateAhead: 900,
+  /** souls each land asks before its gate opens */
+  need: [10, 10, 10, 15],
+  villageGap: [190, 280],
+  /** the shortest the world holds still after a saved village or glade (then it waits for the player) */
+  moment: { village: 1.2, glade: 1.6 },
+  heartGap: [150, 240], maxHearts: 9, hunters: [1, 2, 2, 3], sanctuary: 120, gateAhead: 900,
+  /** how far each way of a fork lies from the road, and how far ahead the fork shows */
+  forkOff: [215, 255], forkAhead: 380,
+  /** monsters made from lost people, beyond the usual hunt */
+  turnedMax: 4,
 };
