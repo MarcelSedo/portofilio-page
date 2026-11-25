@@ -66,10 +66,11 @@ export const profile = {
   ] satisfies Stat[],
 
   links: {
-    github: "https://github.com/[your-handle]",
+    github: "https://github.com/MarcelSedo",
+    linkedin: "https://www.linkedin.com/in/marcel-šedo-61a841194",
     cvPdf: "/cv.pdf",
     npm: "https://www.npmjs.com/package/@id-sk/react",
-    email: "hello@example.com",
+    email: "marcel.sedo1@gmail.com",
   },
 
   abilities: [
