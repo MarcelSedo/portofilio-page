@@ -69,13 +69,23 @@ type Monster = {
   /** the Hands: where the arm is thrown */
   reachX?: number;
 };
+export type LampColour = "green" | "gold" | "blue";
+export const LAMP: Record<LampColour, { rgb: string; core: string; name: string; gift: string }> = {
+  green: { rgb: "125,255,120", core: "#d8ffd0", name: "green", gift: "a heart" },
+  gold: { rgb: "255,208,90", core: "#fff4c8", name: "gold", gift: "three arrows" },
+  blue: { rgb: "120,190,255", core: "#e0f0ff", name: "blue", gift: "a quiet step: they lose you for a while" },
+};
+type LampLight = { id: number; row: number; colour: LampColour; x: number; y: number; ph: number; gone?: boolean; taken?: boolean };
 type Spit = { x: number; y: number; tx: number; ty: number; t: number; dur: number };
 type Puddle = { x: number; y: number; t: number; hit?: boolean };
 type Companion = { kind: "hound" | "raven" | "doe"; x: number; y: number; state: "follow" | "fight" | "rest" | "gone"; t: number; target?: Monster; vx: number; kills?: number };
 type Dir4 = "up" | "down" | "left" | "right";
 type Ford = { id: number; y0: number; y1: number; cx: number; land: number; rows: { y: number; xs: number[]; ok: number; passed?: boolean }[]; lit: number; bridged?: boolean; slipped?: boolean; told?: boolean; counted?: boolean };
 type Wisp = { id: number; x: number; y: number; vx: number; ph: number; memory: number; clarify: boolean; hit?: number };
-type Cast = { seq: Dir4[]; got: number; t: number; limit: number; spell: SpellId; end?: number; ok?: boolean };
+/** one notch-group of an ogham letter: strokes to the right, to the left, across the stem, or dots on it */
+type Piece = { side: "R" | "L" | "X" | "D"; n: number };
+/** a rune being cast: its letter-pieces, shown for a moment, then set back on the stem from memory, bottom up */
+type Cast = { slots: Piece[]; tray: number[]; cur: number; got: number; t: number; show: number; limit: number; spell: SpellId; end?: number; ok?: boolean };
 type Particle = { x: number; y: number; vx: number; vy: number; life: number; c: string; r: number; ground?: boolean };
 
 export type Choice = { rider: Rider; mount: Mount; look: Look };
@@ -86,6 +96,8 @@ export type Hud = {
   rune: SpellId | null; casting: boolean; focus: number; homing: number;
   ability: string; abilityReady: number; companion: string | null; companionRest: boolean; danger: number;
   biome: string; wordGot: number; aiming: boolean;
+  /** the endless ride's lamp: the lights it wants, in order, and how many are in */
+  lamp: { want: LampColour[]; got: number } | null;
   mode: Mode; souls: number; need: number; land: number; finale: boolean; finaleT: number;
 };
 
@@ -122,6 +134,7 @@ export type GameEvent =
   | { type: "say"; text: string; important?: boolean }
   | { type: "mission"; slot: number }
   | { type: "letter"; got: number; done: boolean }
+  | { type: "lamp" }
   | { type: "biome"; index: number }
   | { type: "seen"; monster: MonsterId }
   | { type: "killed"; monster: MonsterId }
@@ -256,6 +269,11 @@ export class Game {
   /** the rune you carry, and the one being cast */
   private rune: SpellId | null = null;
   private casting: Cast | null = null;
+  /** the endless ride: a lamp to fill with lights, in the right order */
+  private lamp: { want: LampColour[]; got: number; spilt: number } | null = null;
+  private lights: LampLight[] = [];
+  private nextLights = 90;
+  private lightRow = 0;
   /** the Hands have hold of you */
   private grab: { q: Monster; t: number } | null = null;
   private spits: Spit[] = [];
@@ -264,6 +282,7 @@ export class Game {
   private nextBoss = 0;
   private bossDone = false;
   private lastCast: { ok: boolean; t: number } | undefined;
+  private coarse = typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse)").matches;
   private homing = 0;
   private bridge = false;
   private lastSpell: SpellId | undefined;
@@ -502,7 +521,7 @@ export class Game {
   /** keyboard and touch both land here */
   key(k: "left" | "right" | "up" | "down" | "aim" | "sword" | "trap" | "ability" | "rune", down: boolean) {
     if (!this.running || this.dead || this.won || this.finaleT) return;
-    // while a rune is being cast the arrows draw its strokes, and the mount runs straight on
+    // while a rune is being cast the arrows choose and set its pieces, and the mount runs straight on
     if (this.casting && !this.casting.end && (k === "left" || k === "right" || k === "up" || k === "down")) {
       if (down) this.runeStroke(k);
       return;
@@ -586,7 +605,7 @@ export class Game {
       [
         ["tree", 30], ["boulder", 12], ["menhir", 5], ["stone", 7], ["pit", 9 * b.pits], ["log", 11], ["arch", 3.5], ["thorns", 6],
         // what the rot left: burnt-out houses in the dark lands
-        ["ruin", landHere === 0 ? 5 : landHere === 1 ? 2.5 : scar ? 1.5 : 0],
+        ["ruin", landHere === 0 ? 2 : landHere === 1 ? 1 : scar ? 0.6 : 0],
       ] as [Kind, number][]
     ).filter(([k]) => ok(k));
     const total = weights.reduce((s, [, w]) => s + w, 0);
@@ -634,14 +653,14 @@ export class Game {
     const okPick = (x: number, y: number) => free(x, y, 12, 12, 6);
     // bones and ash where the rot has been
     {
-      const pBones = landHere === 0 ? 0.55 : landHere === 1 ? 0.3 : scar ? 0.25 : 0;
+      const pBones = landHere === 0 ? 0.12 : landHere === 1 ? 0.06 : scar ? 0.04 : 0;
       if (r() < pBones) {
-        const k = 1 + Math.floor(r() * 2);
+        const k = 1;
         c.decor = [];
         for (let q = 0; q < k; q++) {
           const x = i * CELL + 20 + r() * (CELL - 40);
           const y = y0 + 16 + r() * (CELL - 32);
-          if (free(x, y, 40, 10, 2)) c.decor.push({ x, y, v: Math.floor(r() * 4) });
+          if (free(x, y, 40, 10, 2)) c.decor.push({ x, y, v: r() < 0.25 ? 4 : Math.floor(r() * 4) });
         }
       }
     }
@@ -784,25 +803,42 @@ export class Game {
     if (this.casting && !this.casting.end) return;
     if (!this.rune) return this.say("No rune. Rune-stones stand here and there in the land: ride through one.");
     const m = this.metres;
-    const len = RUNE.len[Math.min(3, this.mode === "endless" ? (m < 1500 ? 0 : m < 4000 ? 1 : m < 7000 ? 2 : 3) : this.land)];
-    const dirs: Dir4[] = ["up", "down", "left", "right"];
-    const seq: Dir4[] = [];
-    for (let i = 0; i < len; i++) {
-      let d = dirs[Math.floor(Math.random() * 4)];
-      while (i >= 2 && d === seq[i - 1] && d === seq[i - 2]) d = dirs[Math.floor(Math.random() * 4)];
-      seq.push(d);
+    const len = RUNE.len[Math.min(3, this.mode === "endless" ? (m < 1500 ? 0 : m < 4000 ? 1 : m < 7000 ? 2 : 3) : this.mode === "tutorial" ? 0 : this.land)];
+    const all: Piece[] = [];
+    for (const side of ["R", "L", "X", "D"] as Piece["side"][]) for (let n = 1; n <= 4; n++) all.push({ side, n });
+    const slots: Piece[] = [];
+    while (slots.length < len) {
+      const p = all.splice(Math.floor(Math.random() * all.length), 1)[0];
+      slots.push(p);
     }
-    this.casting = { seq, got: 0, t: 0, limit: RUNE.base + len * RUNE.perStroke, spell: this.rune };
+    const tray = slots.map((_, i) => i).sort(() => Math.random() - 0.5);
+    if (tray.every((v, i) => v === i) && len > 1) tray.reverse();
+    const show = RUNE.show + len * 0.2;
+    this.casting = { slots, tray, cur: 0, got: 0, t: 0, show, limit: show + RUNE.base + len * RUNE.perPiece, spell: this.rune };
     this.keys.left = this.keys.right = false;
     this.aimT = -1;
     sfx.chime();
   }
+  /** while casting: left and right choose a piece, up (or down) sets it on the stem */
   private runeStroke(d: Dir4) {
     const c = this.casting!;
-    if (d !== c.seq[c.got]) return this.endCast(false);
+    if (c.t < c.show || !c.tray.length) return;
+    if (d === "left" || d === "right") {
+      c.cur = (c.cur + (d === "left" ? -1 : 1) + c.tray.length) % c.tray.length;
+      sfx.duck();
+      return;
+    }
+    const pick = c.tray[c.cur];
+    if (pick !== c.got) {
+      const a = c.slots[pick];
+      const b = c.slots[c.got];
+      if (a.side !== b.side || a.n !== b.n) return this.endCast(false);
+    }
+    c.tray.splice(c.cur, 1);
+    c.cur = Math.min(c.cur, Math.max(0, c.tray.length - 1));
     c.got++;
     sfx.pick();
-    if (c.got >= c.seq.length) this.endCast(true);
+    if (c.got >= c.slots.length) this.endCast(true);
   }
   private endCast(ok: boolean) {
     const c = this.casting!;
@@ -964,8 +1000,10 @@ export class Game {
     // the stumble: the nearest monster is suddenly on your neck
     const hunters = this.monsters.filter((m) => m.state === "run" || m.state === "recover").sort((a, b) => b.y - a.y);
     if (hunters[0]) {
-      hunters[0].y = Math.max(hunters[0].y, this.y - TUNE.surgeTo);
-      hunters[0].cool = Math.min(hunters[0].cool, 0.3);
+      // it closes in, but you always see it come over the edge before it can leap
+      hunters[0].y = Math.max(hunters[0].y, this.y - Math.max(TUNE.surgeTo, this.PY - 24));
+      hunters[0].cool = Math.max(hunters[0].cool, 1.2);
+      if (hunters[0].state === "recover") hunters[0].state = "run";
     }
     for (const m of hunters.slice(1)) m.y += 60;
     if (this.hearts <= 0) this.die(cause);
@@ -1130,26 +1168,12 @@ export class Game {
     }
     for (const p of this.extra) if (!p.taken && Math.abs(p.x - this.x) < 20 && Math.abs(p.y - this.y) < 18) this.take(p);
 
-    // the daily word: put the next letter on the road ahead
-    if (this.mode === "endless" && this.wordGot < this.o.word.length && m >= this.nextLetter - 70) {
-      const ly = this.nextLetter / TUNE.metresPerPx;
-      if (!this.extra.some((p) => p.kind === "letter" && !p.taken)) {
-        let lx = this.x + (Math.random() - 0.5) * 140;
-        for (let k = 0; k < 10; k++) {
-          const hit = this.near(lx, ly).some((c) => c.obs.some((o) => !o.dead && Math.abs(o.x - lx) < o.w / 2 + 16 && Math.abs(o.y - ly) < o.h / 2 + 16));
-          if (!hit) break;
-          lx += 24;
-        }
-        this.extra.push({ id: this.nextId++, kind: "letter", x: lx, y: ly, letter: this.o.word[this.wordGot] });
-      }
-      this.nextLetter += LETTER_GAP_M;
-    }
-
     this.wildlife(dt);
     if (!this.o.showcase) this.missionStep(dt);
     if (!this.o.showcase) {
       this.fordStep();
       this.wispStep(dt);
+      this.lampStep(dt);
     }
     if (this.mode === "tutorial") this.tutorialStep();
     this.hunt(dt);
@@ -1270,7 +1294,7 @@ export class Game {
         const fordAhead = this.fords.some((f) => !f.bridged && f.y0 > this.y) || (this.mode === "mission" && this.fordDone < this.land && this.land <= 2);
         const pool: SpellId[] = fordAhead ? ["thorn", "light", "wind", "bridge"] : ["thorn", "light", "wind"];
         this.rune = pool[Math.floor(Math.random() * pool.length)];
-        this.say(`A rune-stone: ${SPELLS[this.rune].name}. ${SPELLS[this.rune].help} Press R to cast it: repeat its strokes before they fade.`, true);
+        this.say(`A rune-stone: ${SPELLS[this.rune].name}. ${SPELLS[this.rune].help} Press R to cast it: remember its letter, then set the pieces back on the stem.`, true);
         break;
       }
       case "heart":
@@ -1335,6 +1359,8 @@ export class Game {
       // hearts in the land, a little more often the longer you stay in one land
       const nearPlace = this.villages.some((v) => v.state === "waiting" && v.y0 < this.y + VIEW_H + 300 && v.y1 > this.y - 200);
       if (m >= this.nextHeart && nearPlace) this.nextHeart = m + 30;
+      const fordNear = this.fords.some((f) => f.y1 + 260 > this.y && f.y0 - 900 < this.y + VIEW_H);
+      if (m >= this.nextHeart && fordNear) this.nextHeart = m + 30;
       if (m >= this.nextHeart) {
         const [a, b] = MISSION.heartGap;
         const kind = Math.max(0.55, 1 - (m - this.landM) / 4000);
@@ -1342,6 +1368,7 @@ export class Game {
         const y = this.y + (VIEW_H - this.PY) + 60;
         this.extra.push({ id: this.nextId++, kind: "heart", x: this.freeX(this.x + (Math.random() - 0.5) * 260, y), y });
       }
+      if (m >= this.nextVillageM && fordNear) this.nextVillageM = m + 40;
       if (m >= this.nextVillageM && !pendingGate) {
         const [a, b] = MISSION.villageGap;
         this.nextVillageM = m + a + Math.random() * (b - a);
@@ -1357,7 +1384,9 @@ export class Game {
           this.forkNext = Math.random() < 0.7;
         }
       }
-      if (!pendingGate && this.souls >= this.need) this.openGate();
+      if (!pendingGate && !fordNear && this.souls >= this.need) this.openGate();
+    } else if (this.mode === "endless" && !this.o.showcase && m >= this.nextVillageM + 200 && this.fords.some((f) => f.y1 + 260 > this.y && f.y0 - 900 < this.y + VIEW_H)) {
+      this.nextVillageM += 40;
     } else if (this.mode === "endless" && !this.o.showcase && m >= this.nextVillageM + 200) {
       // the endless ride has villages too, without forks: a heart for souls, and a record of them
       this.nextVillageM = m + 260 + Math.random() * 180;
@@ -1510,7 +1539,7 @@ export class Game {
       }
     this.clearArea((x, y) => Math.hypot(x - fork.x, y - fork.y) < 60, fork.x - 80, fork.x + 80, fork.y - 80, fork.y + 80);
     // the way to the glade has a weapon lying on it: one more reason to go there
-    if (this.villageRand() < 0.6) {
+    {
       const [wx, wy] = this.trailAt(fork, gl, 0.45 + this.villageRand() * 0.25);
       const weapons: PickKind[] = ["bow", "sword", "trap", "bow", "trap", "rune"];
       this.extra.push({ id: this.nextId++, kind: weapons[Math.floor(this.villageRand() * weapons.length)], x: wx, y: wy });
@@ -1827,7 +1856,7 @@ export class Game {
         this.lastSpell = undefined;
         this.rune = "light";
         this.spawnMonster(this.x, this.y - 220);
-        say("A rune-stone: Light. Press R and the rune shows its strokes for a moment. Then draw them from memory with the arrows (or flick the left stick), before the time runs out.");
+        say("A rune-stone: Light. Press R: its ogham letter shows for a moment, then falls apart. Set the pieces back on the stem, from the bottom up: left and right to choose, up to set.");
         break;
       case 11:
         this.hearts = Math.max(this.hearts, 3);
@@ -1943,7 +1972,7 @@ export class Game {
           this.tutorialNext();
         } else if (lc && !lc.ok && this.t - lc.t > 1) {
           for (const q of this.monsters) this.kill(q, "dawn");
-          again("The rune broke. Another stone: look hard, then draw the strokes.");
+          again("The rune broke. Another stone: look hard at the letter, then set its pieces again.");
         } else if (!this.monsters.some((q) => this.hunting(q) || q.state === "emerge" || q.state === "stunned") && !c && this.t - T.t > 2) {
           this.spawnMonster(this.x, this.y - 220);
         }
@@ -2154,6 +2183,91 @@ export class Game {
     this.kill(q, how);
     if (line) this.say(line);
     return true;
+  }
+
+  private newLamp() {
+    const all: LampColour[] = ["green", "gold", "blue"];
+    // the colour it wants twice is the gift
+    const gift = all[Math.floor(Math.random() * 3)];
+    const other = all.filter((c) => c !== gift)[Math.floor(Math.random() * 2)];
+    const orders: LampColour[][] = [[gift, other, gift], [gift, gift, other], [other, gift, gift]];
+    this.lamp = { want: orders[Math.floor(Math.random() * 3)], got: 0, spilt: 0 };
+  }
+  private lampGift(): LampColour {
+    const w = this.lamp!.want;
+    return w.filter((c) => c === w[0]).length >= 2 ? w[0] : w[1];
+  }
+
+  /** lights float over the road in threes; ride through the one the lamp wants next */
+  private lampStep(dt: number) {
+    if (this.mode !== "endless" || this.o.showcase) return;
+    const m = this.metres;
+    if (!this.lamp && m > 60) {
+      this.newLamp();
+      if (!this.o.seenKinds.includes("lamp")) {
+        this.o.seenKinds.push("lamp");
+        this.say(`Your lamp wants lights, in order: ${this.lamp!.want.join(", ")}. Ride through them. Fill it, and it gives you ${LAMP[this.lampGift()].gift}.`, true);
+      }
+    }
+    for (const l of this.lights) l.ph += dt;
+    if (this.lamp && m >= this.nextLights) {
+      const y = this.y + (VIEW_H - this.PY) + 140;
+      const busy =
+        this.fords.some((f) => y > f.y0 - 160 && y < f.y1 + 160) ||
+        this.villages.some((v) => v.state === "waiting" && y > v.y0 - 300 && y < v.y1 + 200);
+      if (busy) this.nextLights = m + 20;
+      else {
+        const row = ++this.lightRow;
+        const cols: LampColour[] = ["green", "gold", "blue"].sort(() => Math.random() - 0.5) as LampColour[];
+        const cx = this.x + (Math.random() - 0.5) * 120;
+        cols.forEach((colour, k) => {
+          const x = cx + (k - 1) * 78;
+          this.clearArea((ox, oy) => Math.hypot(ox - x, (oy - y) * 1.4) < 40, x - 50, x + 50, y - 50, y + 50);
+          this.lights.push({ id: this.nextId++, row, colour, x, y, ph: Math.random() * 6 });
+        });
+        this.nextLights = m + 70 + Math.random() * 50;
+      }
+    }
+    for (const l of this.lights) {
+      if (l.gone || l.taken) continue;
+      if (Math.abs(l.x - this.x) < 26 && Math.abs(l.y - this.y) < 20) {
+        l.taken = true;
+        for (const o of this.lights) if (o.row === l.row && o !== l) o.gone = true;
+        this.takeLight(l);
+      }
+    }
+    this.lights = this.lights.filter((l) => l.y > this.y - this.PY - 60);
+  }
+
+  private takeLight(l: LampLight) {
+    const lamp = this.lamp;
+    if (!lamp) return;
+    const c = LAMP[l.colour];
+    this.burst(l.x, l.y - 24, 12, [c.core, `rgb(${c.rgb})`], 70);
+    if (lamp.want[lamp.got] === l.colour) {
+      lamp.got++;
+      sfx.pick();
+      if (lamp.got >= lamp.want.length) {
+        const gift = this.lampGift();
+        if (gift === "green") {
+          if (this.hearts < this.maxHearts) this.hearts++;
+          else this.souls += 2;
+        } else if (gift === "gold") this.arrows = Math.min(9, this.arrows + 3);
+        else for (const q of this.monsters) if (this.hunting(q)) q.blind = Math.max(q.blind, 6);
+        this.float(this.x, this.y - 60, `the lamp is full: ${LAMP[gift].gift}`, c.core);
+        this.say(`The lamp is full: ${LAMP[gift].gift}.`);
+        this.stats.lamps++;
+        sfx.chime();
+        this.newLamp();
+        this.o.onEvent({ type: "lamp" });
+      }
+    } else {
+      lamp.got = 0;
+      lamp.spilt = this.t;
+      sfx.hit();
+      this.float(this.x, this.y - 60, "the lamp spills", "#e0c0c0");
+      this.say(`Wrong light: the lamp spills. It wants ${lamp.want.join(", ")}.`);
+    }
   }
 
   /** the Spitter's rot in the air, and burning on the ground */
@@ -2565,7 +2679,11 @@ export class Game {
       const threat = this.monsters
         .filter((q) => this.hunting(q) && q.state !== "stunned" && q.state !== "rooted" && q.state !== "flee" && !q.lure)
         .sort((a, b) => b.y - a.y)[0];
-      if (!drill && threat && (threat.state === "windup" || threat.state === "lunge" || this.y - threat.y < 75)) {
+      // not by a place you have healed: its light stops them anyway, and the friend should not die for nothing
+      const sheltered = this.villages.some(
+        (v) => (v.state === "saved" || (v.kind === "glade" && v.state === "waiting")) && Math.hypot(v.ax - this.x, (v.ay - this.y) * 1.3) < MISSION.sanctuary + 140,
+      );
+      if (!drill && !sheltered && threat && (threat.state === "windup" || threat.state === "lunge" || this.y - threat.y < 75)) {
         c.state = "fight";
         c.t = 0;
         c.target = threat;
@@ -2808,8 +2926,9 @@ export class Game {
       for (const r of f.rows) {
         if (r.passed || this.y < r.y) continue;
         r.passed = true;
-        if (f.bridged) continue;
-        if (Math.abs(this.x - r.xs[r.ok]) <= 17) {
+        // one slip per ford is enough: the current carries you over the rest
+        if (f.bridged || f.slipped) continue;
+        if (Math.abs(this.x - r.xs[r.ok]) <= 27) {
           this.burst(this.x, this.y + 2, 8, ["#cfe0e8", "#8ea2b0", "#ffffff"], 50, true);
         } else {
           f.slipped = true;
@@ -2877,6 +2996,7 @@ export class Game {
       danger: this.danger(),
       biome: BIOMES[this.biome].name,
       wordGot: this.wordGot,
+      lamp: this.lamp ? { want: this.lamp.want, got: this.lamp.got } : null,
       aiming: this.aimT >= 0,
       mode: this.mode,
       souls: this.souls,
@@ -3074,12 +3194,13 @@ export class Game {
             },
           });
         }
-        if (c.decor) for (const d of c.decor) list.push({ y: d.y - 40, fn: () => this.put(this.boneArt[d.v % 4], this.sx(d.x), this.sy(d.y)) });
+        if (c.decor) for (const d of c.decor) list.push({ y: d.y - 40, fn: () => this.put(this.boneArt[d.v % 5], this.sx(d.x), this.sy(d.y)) });
         for (const p of c.picks) if (!p.taken) list.push({ y: p.y, fn: () => this.drawPick(p) });
         if (c.life && !this.o.showcase) for (const cr of c.life) list.push({ y: cr.kind === "butterfly" ? cr.y + 40 : cr.y, fn: () => this.drawCritter(cr) });
       }
     for (const p of this.extra) if (!p.taken) list.push({ y: p.y, fn: () => this.drawPick(p) });
     for (const w of this.wisps) list.push({ y: w.y + 40, fn: () => this.drawWisp(w) });
+    for (const l of this.lights) if (!l.taken && !l.gone) list.push({ y: l.y, fn: () => this.drawLight(l) });
     for (const t of this.placed) if (t.alive) list.push({ y: t.y - 40, fn: () => this.put(this.trapArt, this.sx(t.x), this.sy(t.y) + 4) });
     for (const { gt, Y } of gatesOn)
       for (let ax = archX(ox - 70); ax <= ox + W + 70; ax += 260) list.push({ y: gt.y, fn: () => this.drawGate(gt, ax, Y) });
@@ -4507,6 +4628,41 @@ export class Game {
     }
   }
 
+  /** a lamp-light hanging over the road on its own glow */
+  private drawLight(l: LampLight) {
+    const g = this.ctx;
+    const c = LAMP[l.colour];
+    const x = this.sx(l.x);
+    const gy = this.sy(l.y);
+    if (gy < -40 || gy > VIEW_H + 40) return;
+    const y = gy - 26 + Math.sin(l.ph * 2.4) * 3;
+    g.fillStyle = "rgba(0,0,0,0.28)";
+    g.beginPath();
+    g.ellipse(x, gy + 1, 8, 3, 0, 0, Math.PI * 2);
+    g.fill();
+    this.glow(x, gy, 18, c.rgb, 0.25);
+    this.glow(x, y, 22 + Math.sin(l.ph * 5) * 2, c.rgb, 0.75);
+    // not by colour alone: green round, gold a diamond, blue a square
+    g.fillStyle = c.core;
+    g.beginPath();
+    if (l.colour === "green") g.arc(x, y, 4.4, 0, Math.PI * 2);
+    else if (l.colour === "gold") {
+      g.moveTo(x, y - 5.5);
+      g.lineTo(x + 5.5, y);
+      g.lineTo(x, y + 5.5);
+      g.lineTo(x - 5.5, y);
+      g.closePath();
+    } else g.rect(x - 4, y - 4, 8, 8);
+    g.fill();
+    // a thin thread of light down to the ground, so you can tell where it stands
+    g.strokeStyle = `rgba(${c.rgb},0.35)`;
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(x, y + 5);
+    g.lineTo(x, gy);
+    g.stroke();
+  }
+
   private drawWisp(w: Wisp) {
     const g = this.ctx;
     const x = this.sx(w.x);
@@ -4536,67 +4692,128 @@ export class Game {
     }
   }
 
-  /** the rune being cast: its stone, its strokes, and the time left */
+  /** one ogham piece: a few strokes off the stem (or across it, or dots on it) */
+  private drawPiece(cx: number, cy: number, p: Piece, colour: string, stem: boolean, scale = 1) {
+    const g = this.ctx;
+    const gap = 6 * scale;
+    const len = 13 * scale;
+    const top = cy - ((p.n - 1) * gap) / 2;
+    g.lineCap = "round";
+    if (stem) {
+      g.strokeStyle = "rgba(240,230,200,0.35)";
+      g.lineWidth = 3 * scale;
+      g.beginPath();
+      g.moveTo(cx, top - 9 * scale);
+      g.lineTo(cx, top + (p.n - 1) * gap + 9 * scale);
+      g.stroke();
+    }
+    g.strokeStyle = colour;
+    g.fillStyle = colour;
+    g.lineWidth = 3 * scale;
+    for (let k = 0; k < p.n; k++) {
+      const y = top + k * gap;
+      g.beginPath();
+      if (p.side === "R") {
+        g.moveTo(cx, y);
+        g.lineTo(cx + len, y);
+      } else if (p.side === "L") {
+        g.moveTo(cx - len, y);
+        g.lineTo(cx, y);
+      } else if (p.side === "X") {
+        g.moveTo(cx - len * 0.9, y + 3 * scale);
+        g.lineTo(cx + len * 0.9, y - 3 * scale);
+      } else {
+        g.arc(cx, y, 2.6 * scale, 0, Math.PI * 2);
+        g.fill();
+        continue;
+      }
+      g.stroke();
+    }
+  }
+
+  /** the rune being cast: the letter on its stem, then the pieces to set back, and the time left */
   private drawCast() {
     const g = this.ctx;
     const c = this.casting!;
     const sp = SPELLS[c.spell];
     const W = this.W;
-    const n = c.seq.length;
-    const cw = Math.min(W - 30, 70 + n * 46);
+    const n = c.slots.length;
+    const cw = Math.min(W - 24, 150 + n * 54);
     const x0 = (W - cw) / 2;
-    const y0 = 70;
+    // up at the top, over the monsters behind, never over the road ahead
+    const y0 = 6;
+    const ph = 50 + n * 25;
     const fade = c.end ? Math.max(0, 1 - (this.t - c.end) / 0.9) : 1;
+    const showing = c.t < c.show && !c.end;
     g.globalAlpha = fade;
-    g.fillStyle = "rgba(20,18,24,0.82)";
+    g.fillStyle = "rgba(16,18,16,0.86)";
     g.strokeStyle = c.end ? (c.ok ? sp.colour : "#e0303a") : "#a8a090";
     g.lineWidth = 2;
     g.beginPath();
-    g.roundRect(x0, y0, cw, 104, 10);
+    g.roundRect(x0, y0, cw, ph, 10);
     g.fill();
     g.stroke();
     g.textAlign = "center";
     g.fillStyle = sp.colour;
     g.font = "bold 15px Georgia, serif";
-    g.fillText(c.end ? (c.ok ? `${sp.name}!` : "The rune breaks") : `${sp.name} · repeat the strokes`, W / 2, y0 + 22);
-    // the strokes: shown for a moment, then only the ones already drawn
-    const showFor = RUNE.show + n * 0.12;
-    const visible = c.t < showFor;
-    const arrow: Record<Dir4, number> = { up: -Math.PI / 2, right: 0, down: Math.PI / 2, left: Math.PI };
-    c.seq.forEach((d, i) => {
-      const cx = W / 2 + (i - (n - 1) / 2) * 44;
-      const cy = y0 + 56;
-      g.fillStyle = i < c.got ? "rgba(168,232,255,0.25)" : "rgba(255,255,255,0.07)";
-      g.beginPath();
-      g.arc(cx, cy, 17, 0, Math.PI * 2);
-      g.fill();
-      if (i < c.got || visible || (c.end && !c.ok)) {
-        g.save();
-        g.translate(cx, cy);
-        g.rotate(arrow[d]);
-        g.strokeStyle = i < c.got ? sp.colour : visible ? "#f6f1e4" : "rgba(255,120,120,0.7)";
-        g.lineWidth = 3.5;
-        g.lineCap = "round";
-        g.beginPath();
-        g.moveTo(-9, 0);
-        g.lineTo(9, 0);
-        g.moveTo(3, -6);
-        g.lineTo(9, 0);
-        g.lineTo(3, 6);
-        g.stroke();
-        g.restore();
+    g.fillText(c.end ? (c.ok ? `${sp.name}!` : "The rune breaks") : showing ? `${sp.name}: remember the rune` : `${sp.name}: set it again, from the bottom`, W / 2, y0 + 21);
+    // the stem: the letter, bottom to top
+    const sx = x0 + 52;
+    const bottom = y0 + ph - 24;
+    const topY = y0 + 40;
+    g.strokeStyle = "#d8ccb0";
+    g.lineWidth = 3.4;
+    g.lineCap = "round";
+    g.beginPath();
+    g.moveTo(sx, bottom + 8);
+    g.lineTo(sx, topY - 6);
+    g.stroke();
+    const step = (bottom - topY) / Math.max(1, n - 1 || 1);
+    c.slots.forEach((p, i) => {
+      const cy = n === 1 ? (bottom + topY) / 2 : bottom - i * step;
+      if (showing || i < c.got || (c.end && !c.ok)) {
+        const col = i < c.got ? sp.colour : showing ? "#f6f1e4" : "rgba(255,120,120,0.75)";
+        this.drawPiece(sx, cy, p, col, false);
       } else {
-        g.fillStyle = "rgba(246,241,228,0.5)";
-        g.font = "bold 16px Georgia, serif";
-        g.fillText("?", cx, cy + 6);
+        g.strokeStyle = i === c.got ? "rgba(255,240,180,0.7)" : "rgba(255,255,255,0.18)";
+        g.lineWidth = 1;
+        g.setLineDash([3, 3]);
+        g.strokeRect(sx - 16, cy - 11, 32, 22);
+        g.setLineDash([]);
       }
     });
+    // the pieces, mixed up, to choose from
+    if (!showing && !c.end) {
+      const tx0 = x0 + 104;
+      const tw = cw - 116;
+      const each = Math.min(54, tw / Math.max(1, c.tray.length));
+      const ty = y0 + ph / 2 + 6;
+      c.tray.forEach((si, k) => {
+        const cx = tx0 + each * (k + 0.5);
+        const sel = k === c.cur;
+        g.fillStyle = sel ? "rgba(255,240,180,0.18)" : "rgba(255,255,255,0.05)";
+        g.strokeStyle = sel ? "#f6e6a0" : "rgba(255,255,255,0.2)";
+        g.lineWidth = sel ? 2 : 1;
+        g.beginPath();
+        g.roundRect(cx - each / 2 + 3, ty - 26, each - 6, 52, 8);
+        g.fill();
+        g.stroke();
+        this.drawPiece(cx, ty, c.slots[si], sel ? "#fff6d0" : "#d8ccb0", true, 0.9);
+      });
+      g.fillStyle = "rgba(246,241,228,0.6)";
+      g.font = "12px Georgia, serif";
+      g.fillText(this.coarse ? "flick ◀ ▶ to choose, ▲ to set" : "◀ ▶ choose · ▲ set", tx0 + tw / 2, ty + 40);
+    } else if (showing) {
+      g.fillStyle = "rgba(246,241,228,0.6)";
+      g.font = "italic 13px Georgia, serif";
+      g.fillText("Look hard: it fades.", x0 + 104 + (cw - 116) / 2, y0 + ph / 2 + 6);
+    }
     if (!c.end) {
-      const k = Math.max(0, 1 - c.t / c.limit);
+      const k = c.t < c.show ? 1 : Math.max(0, 1 - (c.t - c.show) / (c.limit - c.show));
       g.fillStyle = "rgba(255,255,255,0.15)";
-      g.fillRect(x0 + 14, y0 + 86, cw - 28, 5);
+      g.fillRect(x0 + 14, y0 + ph - 9, cw - 28, 4);
       g.fillStyle = k > 0.3 ? sp.colour : "#e0303a";
-      g.fillRect(x0 + 14, y0 + 86, (cw - 28) * k, 5);
+      g.fillRect(x0 + 14, y0 + ph - 9, (cw - 28) * k, 4);
     }
     g.globalAlpha = 1;
     g.textAlign = "left";

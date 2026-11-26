@@ -739,3 +739,36 @@ html.ls-lock, html.ls-lock body { overflow: hidden; }
   .ls-panel.is-bestiary .ls-beast { grid-template-columns: 1fr; }
   .ls-beast-frame { min-height: 0; }
 }
+
+/* the portfolio lets clicks fall through empty boxes to the forest behind; the game must catch every one (sticks, mouse aim) */
+.ls { pointer-events: auto; }
+.ls-stick-knob, .ls-stick-label { pointer-events: none; }
+.ls-stick-mark { position: absolute; font-size: 0.8rem; line-height: 1; color: #8fb89a; opacity: 0.85; pointer-events: none; }
+.ls-stick-mark.is-up { top: 8px; left: 50%; transform: translateX(-50%); }
+.ls-stick-mark.is-down { bottom: 14px; left: 50%; transform: translateX(-50%); }
+.ls-stick-mark.is-left { left: 8px; top: 50%; transform: translateY(-50%); }
+.ls-stick-mark.is-right { right: 8px; top: 50%; transform: translateY(-50%); }
+.ls-stick-ring { position: absolute; inset: 16px; border-radius: 50%; border: 1px dashed rgba(240, 200, 90, 0.55); pointer-events: none; }
+
+/* the endless ride's lamp: the lights it wants, in order */
+.ls-lamp { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border: 1px solid var(--ls-line); border-radius: 999px; background: rgba(0, 0, 0, 0.25); }
+.ls-lamp-ico { font-size: 0.95rem; }
+.ls-lamp-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid currentColor; opacity: 0.75; }
+.ls-lamp-dot.is-green { color: #7dff78; }
+.ls-lamp-dot.is-gold { color: #ffd05a; }
+.ls-lamp-dot.is-blue { color: #78beff; }
+.ls-lamp-dot.is-in { background: currentColor; opacity: 1; box-shadow: 0 0 8px currentColor; }
+/* not by colour alone: green is round, gold a diamond, blue a square */
+.ls-lamp-dot.is-gold { border-radius: 2px; transform: rotate(45deg) scale(0.85); }
+.ls-lamp-dot.is-blue { border-radius: 2px; }
+
+/* a memory's picture: the same frame always, so nothing jumps; the mist is a blur that lifts */
+.ls-mempic { display: block; position: relative; aspect-ratio: 16 / 9; width: 100%; overflow: hidden; border-radius: 6px; border: 1px solid rgba(240, 200, 90, 0.35); background: #10160f; margin: 0 0 8px; }
+.ls-mempic img { display: block; width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; transition: filter 1.2s ease, transform 1.2s ease; }
+.ls-mempic.is-missing img { filter: blur(7px) grayscale(0.8) brightness(0.55); transform: scale(1.12); }
+.ls-mempic.is-mist img { filter: blur(2.2px) grayscale(0.35) brightness(0.9); transform: scale(1.04); }
+.ls-mempic.is-missing::after, .ls-mempic.is-mist::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 60%, rgba(200, 210, 200, 0), rgba(170, 180, 170, 0.45)); pointer-events: none; }
+.ls-mempic.is-mist::after { opacity: 0.55; }
+.ls-mist.is-pop .ls-mempic { margin: 6px 0 10px; }
+.ls-mist.is-card .ls-mempic { margin: -2px 0 6px; }
+.ls.is-calm .ls-mempic img { transition: none; }

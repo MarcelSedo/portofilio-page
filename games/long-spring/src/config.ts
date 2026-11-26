@@ -297,9 +297,11 @@ export const SPELLS: Record<SpellId, { name: string; help: string; colour: strin
   bridge: { name: "Root bridge", help: "Roots knit across the next ford: you ride over it safely.", colour: "#d8b070", ogham: "᚛ᚇᚏ᚜" },
 };
 /** a rune is cast by repeating its pattern: how long it is in each land, how long it shows, time per stroke */
-export const RUNE = { len: [3, 4, 5, 6], show: 1.0, perStroke: 0.62, base: 0.9 };
+/** ogham pieces per rune (by land), how long the letter shows, and the time to set it again */
+export const RUNE = { len: [3, 3, 4, 5], show: 1.5, perPiece: 1.4, base: 1.6 };
 /** fords: rows of stepping stones over black water; the right stone of each row lights up in turn, then goes dark */
-export const FORD = { rows: 5, gap: 70, stones: 4, spread: 56, lightEach: 0.42, ahead: 470, endlessGap: [700, 1100] as [number, number] };
+/** a smaller river: four rows of three stones, wide apart, built well beyond the bottom of the screen */
+export const FORD = { rows: 4, gap: 64, stones: 3, spread: 76, lightEach: 0.45, ahead: 720, endlessGap: [800, 1200] as [number, number] };
 
 /** how many monsters hunt you at once, by distance (m) */
 /** how many hunt you at once in the endless ride: one for a long while, then more */

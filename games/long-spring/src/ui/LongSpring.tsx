@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as RKeyboardEvent } from "react";
 import { BIOMES, ENDLESS, MONSTERS, type MonsterId, MOUNTS, RIDERS, SPELLS, SWATCHES, TUNE, type Look, type Mount, type Rider } from "../config";
 import { Game, heroPreview, type GameEvent, type Hud, type Mode } from "../game";
-import { freshSave, loadSave, missionAt, today, wordOfDay, writeSave, type Save, type Settings, type Stats } from "../meta";
+import { freshSave, loadSave, missionAt, writeSave, type Save, type Settings, type Stats } from "../meta";
 import { setSound, setSoundVolume } from "../sound";
 import { setMusic, setMusicDanger, setMusicLand, setMusicMood, setMusicVolume } from "../music";
 import { STUDIO_LOGO } from "../studio-logo";
+import { memoryPicture } from "../vignettes";
 import { MONSTER_BOX, iconUrls, monsterFrames, type IconId, type Spr } from "../sprites";
 import "../styles/long-spring.css";
 import { Divider, Ornament } from "./Ornament";
@@ -73,6 +74,17 @@ function Preview({ rider, mount, look, calm, height, label, locked }: { rider: R
       role="img"
       aria-label={label}
     />
+  );
+}
+
+/** A memory's picture: deep in mist until it is found, clouded until it is cleared, then plain */
+function MemPic({ i, state }: { i: number; state: "missing" | "mist" | "clear" }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => setSrc(memoryPicture(i)), [i]);
+  return (
+    <span className={`ls-mempic is-${state}`} aria-hidden="true">
+      {src && <img src={src} alt="" draggable={false} />}
+    </span>
   );
 }
 
@@ -282,6 +294,16 @@ function Stick({ side, label, onDown, onMove, onUp }: {
       onPointerCancel={end}
       onContextMenu={(e) => e.preventDefault()}
     >
+      {side === "left" ? (
+        <>
+          <span className="ls-stick-mark is-up">▲</span>
+          <span className="ls-stick-mark is-down">▼</span>
+          <span className="ls-stick-mark is-left">◀</span>
+          <span className="ls-stick-mark is-right">▶</span>
+        </>
+      ) : (
+        <span className="ls-stick-ring" />
+      )}
       <span className="ls-stick-knob" style={knob ? { transform: `translate(${knob.x}px, ${knob.y}px)` } : undefined} />
       <span className="ls-stick-label">{label}</span>
     </div>
@@ -552,17 +574,6 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         });
         say(`Mission complete! Score multiplier ×${s.multiplier}.`);
         g?.setMissions(s.open.map(missionAt), s.multiplier);
-      } else if (e.type === "letter") {
-        const word = wordOfDay();
-        const s = update((s) => {
-          const done = e.done && !s.word.done;
-          return { ...s, word: { day: today(), got: e.got, done: s.word.done || e.done }, multiplier: s.multiplier + (done ? 1 : 0) };
-        });
-        if (e.done) {
-          runRef.current.word = true;
-          say(`You spelled ${word}! Score multiplier ×${s.multiplier}.`);
-          g?.setMissions(s.open.map(missionAt), s.multiplier);
-        } else say(`Letter ${word[e.got - 1]}: ${word.slice(0, e.got)}${"·".repeat(word.length - e.got)}`);
       } else if (e.type === "biome") {
         const b = BIOMES[e.index];
         setBanner(b.banner);
@@ -690,8 +701,8 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
       settings: s.settings,
       multiplier: endless ? s.multiplier : 1,
       missions: endless ? s.open.map(missionAt) : [],
-      word: endless ? wordOfDay() : "",
-      wordGot: s.word.done ? wordOfDay().length : s.word.got,
+      word: "",
+      wordGot: 0,
       seenSword: s.seenSword,
       seenMonsters: [...s.seenMonsters],
       seenKinds: [...s.seenKinds],
@@ -874,18 +885,6 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
     if (d === "left" || d === "right") gameRef.current?.key(d, false);
   };
 
-  const word = wordOfDay();
-  const wordGot = save.word.done ? word.length : save.word.got;
-  const wordStrip = (got: number) => (
-    <span className="ls-word" aria-label={`Today's word: ${got} of ${word.length} letters found${got ? `, ${word.slice(0, got)}` : ""}`}>
-      {[...word].map((ch, i) => (
-        <span key={i} className={i < got ? "is-got" : ""} aria-hidden="true">
-          {i < got ? ch : "·"}
-        </span>
-      ))}
-    </span>
-  );
-
   const ico = (id: IconId, fallback: string) =>
     icons ? <img src={icons[id]} alt="" className="ls-ico" draggable={false} /> : <span aria-hidden="true">{fallback}</span>;
   const fsButton = (cls: string) => (
@@ -1010,6 +1009,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         <p className="ls-kicker ls-mist-kick">
           Memory {i + 1} of {MEMORIES.length} · {save.clear.includes(i) ? "clear" : "still in mist"}
         </p>
+        <MemPic i={i} state={save.clear.includes(i) ? "clear" : "mist"} />
         <p className="ls-mist-sign">{m.sign}</p>
         <h4 className="ls-mist-title">{m.title}</h4>
         <p className="ls-mist-text">{save.clear.includes(i) ? m.text : mistOf(i).text}</p>
@@ -1064,6 +1064,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                 save.memories.includes(i) ? (
                   <li key={i}>
                     <button type="button" className="ls-mist is-card" onClick={() => setReading(i)}>
+                      <MemPic i={i} state={save.clear.includes(i) ? "clear" : "mist"} />
                       <span className="ls-mist-n" aria-hidden="true">
                         {i + 1}
                       </span>
@@ -1077,6 +1078,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                 ) : (
                   <li key={i}>
                     <span className="ls-mist is-card is-missing">
+                      <MemPic i={i} state="missing" />
                       <span className="ls-mist-n" aria-hidden="true">
                         {i + 1}
                       </span>
@@ -1597,10 +1599,11 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
             <ul className="ls-help">
               <li>
                 <strong>Rune-stones</strong> stand here and there in the land. Ride through one to carry its rune. Press{" "}
-                <kbd>R</kbd> (or the rune button): the strokes show for a moment, then hide. Draw them from memory with the
-                arrow keys (or flick the left stick) before the time runs out. One wrong stroke and the rune breaks.
+                <kbd>R</kbd> (or the rune button): its ogham letter, a stem with notches, shows for a moment and then falls
+                apart. Set the pieces back on the stem from the bottom up before the time runs out: ← → to choose a piece, ↑ to
+                set it (on a phone, flick the left stick). The wrong piece breaks the rune.
               </li>
-              <li>The further you ride, the longer the runes: three strokes in The Rot, six in Bloom.</li>
+              <li>The further you ride, the more pieces: three in The Rot, five in Bloom.</li>
             </ul>
             <ul className="ls-spells">
               {Object.entries(SPELLS).map(([id, sp]) => (
@@ -1665,6 +1668,12 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                 <strong>Only souls.</strong> Nothing else lies on the road. Every {ENDLESS.soulsPerHeart} souls give you a
                 heart back. Shoot the drifting soul-lights for {ENDLESS.wispSouls} souls each.
               </li>
+              <li>
+                <strong>The lamp.</strong> Up in the bar you see which lights your lamp wants, in order. They float over the road
+                three at a time, one of each colour: ride through the right one. Take a wrong one and the lamp spills. Fill it, and
+                the colour it wanted twice is your gift: <em>green</em> a heart, <em>gold</em> three arrows, <em>blue</em> a quiet
+                step (the monsters lose you for a while).
+              </li>
               <li>An animal eaten by the rot costs you points.</li>
             </ul>
             <h3 className="ls-h3">Missions · score ×{save.multiplier}</h3>
@@ -1677,11 +1686,6 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                 <li key={i}>{missionAt(i).text}</li>
               ))}
             </ol>
-            <h3 className="ls-h3">Today&apos;s word</h3>
-            <p>
-              {wordStrip(wordGot)}{" "}
-              {save.word.done ? "Spelled! Come back tomorrow for a new word." : "Its letters lie on the road, one at a time. Spell it for one more ×."}
-            </p>
             <h3 className="ls-h3">Opens as you grow</h3>
             <ul className="ls-unlocks">
               {[...RIDERS, ...MOUNTS]
@@ -1708,13 +1712,13 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                 ["↓  or  S", "Duck"],
                 ["Mouse: point, hold the button, let go", "Aim the bow and shoot"],
                 ["Space (hold, then let go)", "The bow, with the swinging line"],
-                ["R or E, then the arrows", "Cast the rune you carry"],
+                ["R or E, then ← → and ↑", "Cast the rune you carry: choose a piece, set it"],
                 ["X", "Sword"],
                 ["Z", "Drop a trap"],
                 ["C or Shift", "Your rider's ability"],
                 ["Esc or P", "Pause"],
                 ["F", "Full screen"],
-                ["Phone: left stick", "Steer; flick up to jump, down to duck; flicks draw a rune"],
+                ["Phone: left stick", "Steer; flick up to jump, down to duck; while casting, flick to choose and set"],
                 ["Phone: right stick", "Push to aim and draw, let go to shoot"],
               ].map(([k, v]) => (
                 <tr key={k}>
@@ -1932,7 +1936,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                 aria-hidden="true"
               >
                 {ico("rune", "ᚑ")} <b>{h?.rune ? SPELLS[h.rune].name : "–"}</b>
-                {mode === "tutorial" && tutStep === 10 && <span className="ls-teach">R · then the strokes, from memory</span>}
+                {mode === "tutorial" && tutStep === 10 && <span className="ls-teach">R · then set the pieces back, bottom up</span>}
               </span>
               {h?.companion && (
                 <span title={h.companionRest ? "Companion, resting" : "Companion, on guard"} className={`ls-item${h.companionRest ? " is-rest" : ""}`} aria-hidden="true">
@@ -1947,7 +1951,14 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                 <kbd>C</kbd> {r.ability} {(h?.abilityReady ?? 1) >= 1 ? "ready" : `${Math.round((h?.abilityReady ?? 0) * 100)}%`}
               </span>
             </span>
-            {wordStrip(h?.wordGot ?? wordGot)}
+            {mode === "endless" && h?.lamp && (
+              <span className="ls-lamp" aria-label={`Lamp: wants ${h.lamp.want.join(", ")}; ${h.lamp.got} of 3 in`} title="The lamp wants these lights, in this order">
+                <span className="ls-lamp-ico" aria-hidden="true">🏮</span>
+                {h.lamp.want.map((c, i) => (
+                  <span key={i} className={`ls-lamp-dot is-${c}${i < h.lamp!.got ? " is-in" : ""}`} aria-hidden="true" />
+                ))}
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -2104,6 +2115,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
               <p className="ls-kicker">
                 Memory {memoryCard + 1} of {MEMORIES.length} · {memClear ? "it comes back clear" : "it comes back, in mist"}
               </p>
+              <MemPic i={memoryCard} state={memClear ? "clear" : "mist"} />
               <p className="ls-mist-sign">{MEMORIES[memoryCard].sign}</p>
               <h2 id="ls-mem-title" className="ls-mist-title" tabIndex={-1} ref={memHead}>
                 {MEMORIES[memoryCard].title}
@@ -2278,20 +2290,20 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                     {statTable("The ride", [
                       ["Score", `${fmt(result.score)} (best ${fmt(save.best)})`],
                       ["Soul-lights shot", result.stats.wisps],
+                      ["Lamps filled", result.stats.lamps],
                       ["Fords crossed dry", result.stats.fords],
                       ["Runes cast", result.stats.spells],
                       ...(result.stats.animalsLost > 0 ? [["Animals eaten", result.stats.animalsLost] as [string, React.ReactNode]] : []),
                     ])}
                     {statTable("The rot", monsterRows(result.stats))}
                   </div>
-                  {(result.missions.length > 0 || result.word) && (
+                  {result.missions.length > 0 && (
                     <div className="ls-done">
                       <h3 className="ls-h3">This run</h3>
                       <ul>
                         {result.missions.map((m) => (
                           <li key={m}>✓ {m}</li>
                         ))}
-                        {result.word && <li>✓ You spelled today&apos;s word, {word}</li>}
                       </ul>
                       <p className="ls-muted">Score multiplier now ×{save.multiplier}.</p>
                     </div>

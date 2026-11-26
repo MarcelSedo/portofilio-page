@@ -2244,9 +2244,31 @@ export function ruinSprites(S: number): Spr[] {
 
 /** bones and ash on the ground, flat; you ride over them */
 export function boneSprites(S: number): Spr[] {
-  return [0, 1, 2, 3].map((v) =>
+  return [0, 1, 2, 3, 4].map((v) =>
     bake(S, 60, 30, 30, 22, (g) => {
       const r = rnd(v * 17 + 3);
+      if (v === 4) {
+        // a heap of meat, what the rot left of a deer, with flies
+        ell(g, 0, 0, 22, 7);
+        g.fillStyle = "rgba(60,10,12,0.5)";
+        g.fill();
+        for (const [x, y, rx, ry, c] of [[-8, -3, 9, 5, "#7a1a1e"], [5, -4, 10, 6, "#9a2a2a"], [-1, -7, 7, 4.5, "#b8484a"], [10, -1, 6, 3.5, "#6a1418"]] as [number, number, number, number, string][]) {
+          ell(g, x, y, rx, ry, 0.2);
+          paint(g, c, 1);
+        }
+        g.strokeStyle = "#e8d8c0";
+        g.lineWidth = 0.8;
+        for (let k = 0; k < 3; k++) {
+          g.beginPath();
+          g.moveTo(-6 + k * 5, -8);
+          g.quadraticCurveTo(-3 + k * 5, -12, 0 + k * 5, -8);
+          g.stroke();
+        }
+        line(g, [[8, -6], [20, -12]], 2, BONE_C);
+        g.fillStyle = "#101010";
+        for (const [x, y] of [[-12, -14], [6, -16], [14, -11]]) g.fillRect(x, y, 1.4, 1.4);
+        return;
+      }
       ell(g, 0, 0, 24, 7);
       g.fillStyle = v === 3 ? "rgba(70,64,56,0.55)" : "rgba(40,34,30,0.35)";
       g.fill();

@@ -37,13 +37,15 @@ export type Stats = {
   spells: number;
   fords: number;
   wisps: number;
+  /** lamps filled in the endless ride */
+  lamps: number;
 };
 
 export const emptyStats = (): Stats => ({
   metres: 0, seeds: 0, logs: 0, branches: 0, pitted: 0, crashed: 0, trapped: 0,
   arrowKills: 0, swordKills: 0, companions: 0, clean: 0, afterSword: 0,
   gates: 0, animalsLost: 0, peopleLost: 0, villagesSafe: 0,
-  souls: 0, villagesSaved: 0, villagesLost: 0, memoriesFound: 0, spells: 0, fords: 0, wisps: 0,
+  souls: 0, villagesSaved: 0, villagesLost: 0, memoriesFound: 0, spells: 0, fords: 0, wisps: 0, lamps: 0,
 });
 
 export type Mission = { stat: keyof Stats; goal: number; text: string };
@@ -77,6 +79,7 @@ const LIST: Mission[] = [
   m("trapped", 3, "Catch 3 monsters in traps"),
   m("fords", 2, "Cross 2 fords without slipping"),
   m("wisps", 3, "Shoot 3 drifting soul-lights"),
+  m("lamps", 2, "Fill your lamp twice in one ride"),
   m("souls", 80, "Gather 80 souls"),
   m("metres", 5000, "Reach Bloom (5,000 m)"),
   m("villagesSafe", 1, "Lead the hunt past a village with nobody taken"),
