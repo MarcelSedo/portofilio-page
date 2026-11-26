@@ -24,8 +24,8 @@ export const TUNE = {
 /** where the run ends: ten kilometres of real riding is about nine minutes */
 export const GOAL_M = 10000;
 
-export type Kind = "tree" | "boulder" | "menhir" | "stone" | "pit" | "log" | "thorns" | "arch" | "cottage" | "well";
-export type PickKind = "seed" | "bow" | "sword" | "trap" | "bark" | "heart" | "hound" | "raven" | "doe" | "letter";
+export type Kind = "tree" | "boulder" | "menhir" | "stone" | "pit" | "log" | "thorns" | "arch" | "cottage" | "well" | "ruin";
+export type PickKind = "soul" | "bow" | "sword" | "trap" | "rune" | "heart" | "hound" | "raven" | "doe" | "letter";
 
 /**
  * What you do with each obstacle. The rule is simple and the pictures say it:
@@ -40,6 +40,7 @@ export const OBSTACLES: Record<Kind, { from: number; hint?: string }> = {
   log: { from: 700, hint: "A fallen trunk: jump over it (↑)." },
   arch: { from: 1600, hint: "A stone arch: duck (↓) and ride under it. Its pillars are solid." },
   thorns: { from: 2600, hint: "Thorns lying low: jump them (↑). The boar runs straight through." },
+  ruin: { from: 0 },
   // only in the villages, never scattered on their own
   cottage: { from: Infinity },
   well: { from: Infinity },
@@ -77,11 +78,11 @@ export const RIDERS: Rider[] = [
     id: "knight",
     name: "The Knight",
     line: "The last of an order that swore to hold the rot back.",
-    ability: "Shield",
-    abilityHelp: "Her shield stops one monster that catches her, then grows back after 400 m. It works on its own.",
+    ability: "Warhorn",
+    abilityHelp: "Her horn stops every monster behind her for 1.5 s and throws the nearest one back. Ready again after 14 s.",
     passive: "She can carry two swords.",
     unlock: 3,
-    cooldown: 0,
+    cooldown: 14,
   },
   {
     id: "amazon",
@@ -178,14 +179,19 @@ export const DEFAULT_LOOK: Record<RiderId, Look> = {
 
 /* ---------------- monsters ---------------- */
 
-export type MonsterId = "maw" | "crawler" | "eye" | "colossus";
+export type MonsterId = "hollow" | "hound" | "spitter" | "burrower" | "hands" | "collector" | "colossus";
 
 export type MonsterType = {
   id: MonsterId;
   name: string;
+  /** what it was before the rot (the bestiary) */
+  lore: string;
   /** what the player learns about it the first time it appears */
   tell: string;
-  /** shows up from this distance (m) */
+  /** how it gets you, and how to stay alive (the bestiary) */
+  danger: string;
+  counter: string;
+  /** shows up from this distance (m) in the endless ride */
   from: number;
   /** extra speed on top of TUNE.monsterGain */
   gain: number;
@@ -195,68 +201,116 @@ export type MonsterType = {
   radius: number;
   /** how it aims: "trail" follows your scent (where you were), "lead" aims where you will be */
   aim: "trail" | "lead" | "zigzag";
+  /** how it reaches you */
+  way: "plain" | "spit" | "burrow" | "grab" | "thief";
   /** chance to see and dodge each kind of thing in its path */
   sees: { tree: number; pit: number; trap: number };
+  /** walks through trees and rocks */
   smashes: boolean;
+  /** blows to bring it down: an arrow is one, a trap, the sword or a companion three */
+  hp: number;
+  /** how often it turns up, against the others it is allowed beside */
+  weight: number;
 };
 
+/** every weapon works on every monster; they differ in how they come for you */
 export const MONSTERS: Record<MonsterId, MonsterType> = {
-  maw: {
-    id: "maw",
-    name: "the Maw",
-    tell: "The Maw is nearly blind: it follows your scent, so it runs where you ran. Swerve close past a tree and it goes straight in.",
-    from: 0,
-    gain: 0.03,
-    side: 120,
-    agility: 4,
-    radius: 13,
-    aim: "trail",
-    sees: { tree: 0.25, pit: 0.2, trap: 0.15 },
-    smashes: false,
+  hollow: {
+    id: "hollow",
+    name: "the Hollow",
+    lore: "Once a villager nobody reached in time. The rot ate the rest and left the hunger. It runs on all fours now, on arms grown too long, and its jaw hangs open to the chest.",
+    tell: "The Hollow is slow and nearly blind: it runs where you ran. Swerve close past a tree and it goes straight in.",
+    danger: "Numbers. It follows your scent and leaps when it is close.",
+    counter: "Anything kills it. Lead it into a tree, or shoot it once.",
+    from: 0, gain: 0, side: 115, agility: 4, radius: 13, aim: "trail", way: "plain",
+    sees: { tree: 0.25, pit: 0.2, trap: 0.15 }, smashes: false, hp: 1, weight: 5,
   },
-  crawler: {
-    id: "crawler",
-    name: "the Crawler",
-    tell: "The Crawler runs on its hands and never in a straight line.",
-    from: 500,
-    gain: 0.02,
-    side: 150,
-    agility: 6,
-    radius: 12,
-    aim: "zigzag",
-    sees: { tree: 0.6, pit: 0.45, trap: 0.4 },
-    smashes: false,
+  hound: {
+    id: "hound",
+    name: "the Rot-hound",
+    lore: "It has more legs than a dog should, and they do not all bend the same way. Its spine has come out through its back like a row of thorns.",
+    tell: "The Rot-hound is fast and never runs straight, and it jumps the logs you jump.",
+    danger: "Speed. It weaves from side to side and leaps from further off than the rest.",
+    counter: "Anything kills it, if you can hit it. A trap where it will run is surest.",
+    from: 600, gain: 0.06, side: 170, agility: 7, radius: 12, aim: "zigzag", way: "plain",
+    sees: { tree: 0.5, pit: 0.4, trap: 0.2 }, smashes: false, hp: 1, weight: 4,
   },
-  eye: {
-    id: "eye",
-    name: "the Eye",
-    tell: "The Eye sees pits and traps, and aims where you are going. Blind it, or shoot it.",
-    from: 1500,
-    gain: 0,
-    side: 115,
-    agility: 5,
-    radius: 13,
-    aim: "lead",
-    sees: { tree: 0.85, pit: 0.9, trap: 0.8 },
-    smashes: false,
+  spitter: {
+    id: "spitter",
+    name: "the Spitter",
+    lore: "A thing of swollen throats. It has three mouths and every one of them is full. What it brings up burns the ground for a long time.",
+    tell: "The Spitter keeps its distance and spits rot where you are going. A ring on the ground shows where it will land: don't be there.",
+    danger: "From afar. It stops, swells and spits; the rot lands where you will be, and burns there a while.",
+    counter: "Watch for the ring and swerve. Shoot it while it swells: it holds still.",
+    from: 1300, gain: -0.04, side: 120, agility: 4, radius: 14, aim: "lead", way: "spit",
+    sees: { tree: 0.6, pit: 0.6, trap: 0.3 }, smashes: false, hp: 1, weight: 3,
+  },
+  burrower: {
+    id: "burrower",
+    name: "the Burrower",
+    lore: "A worm the length of a cart, with a ring of teeth that were once somebody's. It hears hooves through the ground.",
+    tell: "The Burrower comes from in front, under the ground. Where the earth swells ahead of you, ride round it.",
+    danger: "From below and ahead. The ground swells, follows you a little, and bursts.",
+    counter: "Steer away from the swelling. Once it is out, anything kills it.",
+    from: 2000, gain: 0, side: 110, agility: 3, radius: 15, aim: "trail", way: "burrow",
+    sees: { tree: 0.4, pit: 0.4, trap: 0.3 }, smashes: false, hp: 2, weight: 2,
+  },
+  hands: {
+    id: "hands",
+    name: "the Hands",
+    lore: "No body any more: only arms, knotted together, walking on their fingers. Some of them still wear rings.",
+    tell: "The Hands reach. When one stretches out behind you, swerve, or it drags you back to the rest.",
+    danger: "Reach. It throws out a long arm from far behind and pulls you back towards it.",
+    counter: "Swerve when the arm draws back. Two arrows, a trap, the sword.",
+    from: 2800, gain: 0.02, side: 150, agility: 6, radius: 14, aim: "lead", way: "grab",
+    sees: { tree: 0.6, pit: 0.6, trap: 0.4 }, smashes: false, hp: 2, weight: 2,
+  },
+  collector: {
+    id: "collector",
+    name: "the Collector",
+    lore: "A belly like a sack, sewn shut with sinew, and inside it the stolen souls glow. It has no face to speak of: only a slit, and fingers.",
+    tell: "The Collector does not kill. It takes a soul and runs: shoot it before it is gone, and the soul comes back.",
+    danger: "Theft. It rushes you, takes a soul and runs off sideways.",
+    counter: "Shoot it as it runs. Anything kills it.",
+    from: 3600, gain: 0.06, side: 170, agility: 6, radius: 11, aim: "lead", way: "thief",
+    sees: { tree: 0.7, pit: 0.7, trap: 0.5 }, smashes: false, hp: 1, weight: 1,
   },
   colossus: {
     id: "colossus",
     name: "the Colossus",
-    tell: "The Colossus walks through trees and rocks. Only pits and traps stop it.",
-    from: 4000,
-    gain: -0.02,
-    side: 80,
-    agility: 2.5,
-    radius: 20,
-    aim: "lead",
-    sees: { tree: 0, pit: 0.35, trap: 0.45 },
-    smashes: true,
+    lore: "Stitched together out of many: arms and legs that belonged to other people stick out of it at every angle, and some of them still move on their own.",
+    tell: "The Colossus! It breaks trees and rocks like straw. It takes six blows: arrows, traps, the sword, the green fire.",
+    danger: "Strength. Trees and rocks don't stop it; it only slows in the water and the fire.",
+    counter: "Six blows: an arrow is one, a trap or the sword three. It comes only when you are armed.",
+    from: 4500, gain: -0.03, side: 80, agility: 2.5, radius: 20, aim: "lead", way: "plain",
+    sees: { tree: 0, pit: 0.35, trap: 0.3 }, smashes: true, hp: 6, weight: 0,
   },
 };
 
+/* ---------------- runes and fords ---------------- */
+
+export type SpellId = "thorn" | "light" | "wind" | "bridge";
+export const SPELLS: Record<SpellId, { name: string; help: string; colour: string; ogham: string }> = {
+  thorn: { name: "Thorn wall", help: "A hedge of thorns springs up behind you and holds every monster there for 3 s.", colour: "#8ae05a", ogham: "᚛ᚑᚅ᚜" },
+  light: { name: "Light", help: "A burst of light: the Hollow and the Rot-hound near you fall, the rest stagger.", colour: "#fff4a0", ogham: "᚛ᚂᚔ᚜" },
+  wind: { name: "Wind arrow", help: "Your next three arrows bend in the air and find a memory or a monster on their own.", colour: "#a8e8ff", ogham: "᚛ᚃᚆ᚜" },
+  bridge: { name: "Root bridge", help: "Roots knit across the next ford: you ride over it safely.", colour: "#d8b070", ogham: "᚛ᚇᚏ᚜" },
+};
+/** a rune is cast by repeating its pattern: how long it is in each land, how long it shows, time per stroke */
+export const RUNE = { len: [3, 4, 5, 6], show: 1.0, perStroke: 0.62, base: 0.9 };
+/** fords: rows of stepping stones over black water; the right stone of each row lights up in turn, then goes dark */
+export const FORD = { rows: 5, gap: 70, stones: 4, spread: 56, lightEach: 0.42, ahead: 470, endlessGap: [700, 1100] as [number, number] };
+
 /** how many monsters hunt you at once, by distance (m) */
-export const huntersAt = (m: number) => (m < 1000 ? 1 : m < 3000 ? 2 : 3);
+/** how many hunt you at once in the endless ride: one for a long while, then more */
+export const huntersAt = (m: number) => (m < 1500 ? 1 : m < 4000 ? 2 : 3);
+/** who hunts in each land of the mission (the Colossus comes on its own, once, in Bloom) */
+export const MISSION_ROSTER: MonsterId[][] = [
+  ["hollow", "hound"],
+  ["hollow", "hound", "spitter", "burrower"],
+  ["hollow", "hound", "spitter", "burrower", "hands", "collector"],
+  ["hollow", "hound", "spitter", "burrower", "hands", "collector"],
+];
 
 /* ---------------- the land ---------------- */
 
@@ -405,4 +459,16 @@ export const MISSION = {
   forkOff: [215, 255], forkAhead: 380,
   /** monsters made from lost people, beyond the usual hunt */
   turnedMax: 4,
+  /** the quiver: arrows at the start of each ride, and what a saved village or glade gives */
+  arrows: 4, villageArrows: 3,
+  /** a lost memory floats over the land every so often: shoot it to bring it back (m) */
+  wispGap: [240, 400] as [number, number],
+  /** a ford in each of the first three lands, this far past its gate (m) */
+  fordAt: [380, 700] as [number, number],
 };
+
+/** the endless ride: only souls lie on the road; every ten bring a heart back */
+export const ENDLESS = { soulsPerHeart: 10, wispGap: [300, 520] as [number, number], wispSouls: 3 };
+
+/** how much of each land the rot still holds: all of The Rot, then less and less */
+export const RUIN = [1, 0.7, 0.4, 0.2];

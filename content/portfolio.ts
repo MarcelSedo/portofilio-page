@@ -130,6 +130,13 @@ export const gamesIntro = {
 
 export const games: Game[] = [
   {
+    title: "Emma: A Rainy Day at Hartfield",
+    kicker: "Detective adventure · Act I · EN / SK",
+    note: "A Pokémon-like walk through Hartfield in the rain. Emma sends you about the house and always guesses wrong; find the proof, object, and bring a maid and a coachman together. Puzzles, accomplishments and a Casebook, in English and Slovak.",
+    href: "/games/hartfield",
+    image: "/portfolio/hartfield.webp",
+  },
+  {
     title: "Emma: The Matchmaker of Bramblewick",
     kicker: "Detective game · Phone first",
     note: "Walk a Regency village, follow four love stories through gossip and proof, and announce all the matches at once.",

@@ -336,12 +336,12 @@ export function line(r: () => number) {
   return pick(LINES, r);
 }
 
-export type GiftId = "sword" | "bow" | "traps" | "bark" | "hound" | "raven" | "doe" | "heart";
+export type GiftId = "sword" | "bow" | "traps" | "rune" | "hound" | "raven" | "doe" | "heart";
 export const GIFTS: { id: GiftId; weight: number; text: string }[] = [
   { id: "sword", weight: 22, text: "an old sword" },
   { id: "bow", weight: 22, text: "a bow and five arrows" },
   { id: "traps", weight: 18, text: "two root traps" },
-  { id: "bark", weight: 12, text: "a coat of bark" },
+  { id: "rune", weight: 12, text: "a rune-stone" },
   { id: "hound", weight: 5, text: "a hound, who follows you" },
   { id: "raven", weight: 5, text: "a raven, who flies with you" },
   { id: "doe", weight: 5, text: "a white doe, who runs with you" },

@@ -19,7 +19,8 @@ const cardBase = "quest-card flex w-full flex-col p-7 no-underline";
 
 const h2 = "m-0 mb-3 font-pixel text-base leading-relaxed tracking-wide text-amber contrast-more:text-white";
 const textMuted = "m-0 text-sm leading-relaxed text-slate-300 contrast-more:text-slate-100";
-// the call to action looks like a button, but it is only text inside the link (aria-hidden: the card has the name)
+// the call to action looks like a button, but it is only text inside the link (aria-hidden).
+// The card's name is its own text, heading first: what you see is what a voice command finds (WCAG 2.5.3).
 const cta = "quest-cta mt-6 self-start px-3 py-2 font-pixel text-[11px] !text-[#0b1226]";
 
 // The card's wrapper: its width and side (zig-zag), and room for a figure
@@ -48,7 +49,7 @@ export default function QuestLog() {
         {/* Left: experience */}
         <div className={left}>
           <FolkPerch id="knight" side="right" />
-          <Link href="/experience" className={cardBase} aria-labelledby="nav-exp">
+          <Link href="/experience" className={cardBase}>
             <h2 id="nav-exp" className={h2}>EXPERIENCE</h2>
             <p className={textMuted}>
               From databases and level design to accessible public services: the ID-SK design system, aligned with
@@ -62,7 +63,7 @@ export default function QuestLog() {
 
         {/* Right: the games (there is no fifth figure in the forest, so this card has none) */}
         <div className={right}>
-          <Link href="/portfolio" className={cardBase} aria-labelledby="nav-games">
+          <Link href="/portfolio" className={cardBase}>
             <h2 id="nav-games" className={h2}>GAMES & PORTFOLIO</h2>
             <p className={textMuted}>
               Browser games I designed and built end to end, art and all: The Long Spring, Emma, Time Traveller and
@@ -77,7 +78,7 @@ export default function QuestLog() {
         {/* Left: about */}
         <div className={left}>
           <FolkPerch id="fairy" side="right" />
-          <Link href="/about" className={cardBase} aria-labelledby="nav-about">
+          <Link href="/about" className={cardBase}>
             <h2 id="nav-about" className={h2}>ABOUT</h2>
             <p className={textMuted}>
               Who is behind the code: a philosopher, a former level designer and an incurable Britophile. A love letter to
@@ -92,7 +93,7 @@ export default function QuestLog() {
         {/* Right: notes */}
         <div className={right}>
           <FolkPerch id="traveller" side="left" />
-          <Link href="/notes" className={cardBase} aria-labelledby="nav-notes">
+          <Link href="/notes" className={cardBase}>
             <h2 id="nav-notes" className={h2}>NOTES</h2>
             <p className={textMuted}>
               Letters about Britain, film reviews and reading notes on British literature, from Shakespeare to Ishiguro.
@@ -106,7 +107,7 @@ export default function QuestLog() {
         {/* Left: contact */}
         <div className={left}>
           <FolkPerch id="wisp" side="right" />
-          <Link href="/contact" className={cardBase} aria-labelledby="nav-contact">
+          <Link href="/contact" className={cardBase}>
             <h2 id="nav-contact" className={h2}>CONTACT</h2>
             <p className={textMuted}>
               A role, a project, or a question about web accessibility: send a raven.

@@ -1,0 +1,9 @@
+{
+  "name": "emma-hartfield",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Emma: A Rainy Day at Hartfield – Act I. A Pokémon-like detective game after Jane Austen, in English and Slovak.",
+  "main": "index.ts",
+  "license": "UNLICENSED",
+  "peerDependencies": { "next": ">=15", "react": ">=19", "react-dom": ">=19" }
+}

@@ -1,30 +1,30 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as RKeyboardEvent } from "react";
-import { BIOMES, MONSTERS, MOUNTS, RIDERS, SWATCHES, TUNE, type Look, type Mount, type Rider } from "../config";
+import { BIOMES, ENDLESS, MONSTERS, type MonsterId, MOUNTS, RIDERS, SPELLS, SWATCHES, TUNE, type Look, type Mount, type Rider } from "../config";
 import { Game, heroPreview, type GameEvent, type Hud, type Mode } from "../game";
 import { freshSave, loadSave, missionAt, today, wordOfDay, writeSave, type Save, type Settings, type Stats } from "../meta";
 import { setSound, setSoundVolume } from "../sound";
 import { setMusic, setMusicDanger, setMusicLand, setMusicMood, setMusicVolume } from "../music";
 import { STUDIO_LOGO } from "../studio-logo";
-import { iconUrls, type IconId, type Spr } from "../sprites";
+import { MONSTER_BOX, iconUrls, monsterFrames, type IconId, type Spr } from "../sprites";
 import "../styles/long-spring.css";
 import { Divider, Ornament } from "./Ornament";
 import { ENDING, HEROINE, LAND_CHAPTERS, MEMORIES, MEMORIES_PER_LAND, PROLOGUE, RULES, VILLAGE_KINDS, mistOf } from "../story";
 
 export type LongSpringProps = { exitHref?: string; exitLabel?: string };
 
-type Screen = "title" | "begin" | "credits" | "rider" | "missions" | "help" | "settings" | "prologue" | "book" | "play" | "over";
+type Screen = "title" | "begin" | "credits" | "rider" | "bestiary" | "help" | "settings" | "prologue" | "book" | "play" | "over";
 type Result = {
   win: boolean; cause: string; metres: number; score: number; stats: Stats; best: boolean; missions: string[]; word: boolean;
   mode: Mode; land: number; reborn: number; memories: number[];
 };
-type Act = "left" | "right" | "up" | "down" | "aim" | "sword" | "trap" | "ability";
+type Act = "left" | "right" | "up" | "down" | "aim" | "sword" | "trap" | "ability" | "rune";
 
 const KEYS: Record<string, Act> = {
   ArrowLeft: "left", KeyA: "left", ArrowRight: "right", KeyD: "right",
   ArrowUp: "up", KeyW: "up", ArrowDown: "down", KeyS: "down",
-  Space: "aim", KeyX: "sword", KeyK: "sword", KeyZ: "trap", KeyJ: "trap", KeyC: "ability", KeyL: "ability", ShiftLeft: "ability", ShiftRight: "ability",
+  Space: "aim", KeyX: "sword", KeyK: "sword", KeyZ: "trap", KeyJ: "trap", KeyC: "ability", KeyL: "ability", ShiftLeft: "ability", ShiftRight: "ability", KeyR: "rune", KeyE: "rune",
 };
 
 const fmt = (n: number) => Math.floor(n).toLocaleString("en-GB");
@@ -48,7 +48,8 @@ const choiceOf = (s: Save) => ({ rider: RIDERS.find((r) => r.id === s.rider)!, m
 /** the mission is always Brigid (the dryad), on whichever mount you have chosen */
 /** the mission is always Brigid on her elk, whatever rides the endless road */
 const brigidOf = (s: Save) => ({ rider: RIDERS.find((r) => r.id === "dryad")!, mount: MOUNTS.find((m) => m.id === "elk")!, look: s.looks.dryad });
-const endlessLand = (s: Save) => Math.min(BIOMES.length - 1, s.furthestLand);
+/** the endless ride is always painted as the second land: dark, with green coming through, and the rain */
+const endlessLand = (_s: Save) => 1;
 
 /** An animated picture of a rider on her mount, at the screen's resolution. */
 function Preview({ rider, mount, look, calm, height, label, locked }: { rider: Rider; mount: Mount; look: Look; calm: boolean; height: number; label: string; locked?: boolean }) {
@@ -73,6 +74,43 @@ function Preview({ rider, mount, look, calm, height, label, locked }: { rider: R
       aria-label={label}
     />
   );
+}
+
+/** A monster of the bestiary, alive on its page; one not met yet is only a shadow */
+function BeastPic({ id, known, calm, height }: { id: MonsterId; known: boolean; calm: boolean; height: number }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const b = MONSTER_BOX[id];
+  // each fills its frame: the small ones are not shrunk next to the Colossus
+  const scale = Math.min(height / b.h, 156 / b.w);
+  useEffect(() => {
+    const c = ref.current;
+    if (!c) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const S = scale * dpr;
+    const frames = monsterFrames(S, id);
+    c.width = Math.ceil(b.w * S);
+    c.height = Math.ceil(b.h * S);
+    const g = c.getContext("2d")!;
+    let f = 0;
+    const paintIt = () => {
+      g.clearRect(0, 0, c.width, c.height);
+      g.globalCompositeOperation = "source-over";
+      g.drawImage(frames[f % 4].c, 0, 0);
+      if (!known) {
+        g.globalCompositeOperation = "source-in";
+        g.fillStyle = "#0b120d";
+        g.fillRect(0, 0, c.width, c.height);
+      }
+    };
+    paintIt();
+    if (calm || !known) return;
+    const t = setInterval(() => {
+      f++;
+      paintIt();
+    }, 140);
+    return () => clearInterval(t);
+  }, [id, known, calm, scale, b.w, b.h]);
+  return <canvas ref={ref} className="ls-beast-pic" style={{ width: b.w * scale, height: b.h * scale }} aria-hidden="true" />;
 }
 
 /** A row in the picker: ◀ value ▶, also worked by the arrow keys. */
@@ -198,12 +236,64 @@ function Sapling({ big }: { big: boolean }) {
   );
 }
 
+/** A touch stick: a ring with a knob that follows the thumb. It reports the offset from where the thumb came down. */
+function Stick({ side, label, onDown, onMove, onUp }: {
+  side: "left" | "right"; label: string;
+  onDown?: () => void; onMove: (dx: number, dy: number) => void; onUp: () => void;
+}) {
+  const [knob, setKnob] = useState<{ x: number; y: number } | null>(null);
+  const origin = useRef<{ x: number; y: number; id: number } | null>(null);
+  const RAD = 46;
+  const end = () => {
+    if (!origin.current) return;
+    origin.current = null;
+    setKnob(null);
+    onUp();
+  };
+  return (
+    <div
+      className={`ls-stick is-${side}${knob ? " is-on" : ""}`}
+      aria-hidden="true"
+      onPointerDown={(e) => {
+        e.preventDefault();
+        (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+        const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        origin.current = { x: r.left + r.width / 2, y: r.top + r.height / 2, id: e.pointerId };
+        onDown?.();
+        const dx = e.clientX - origin.current.x;
+        const dy = e.clientY - origin.current.y;
+        setKnob({ x: dx, y: dy });
+        onMove(dx, dy);
+      }}
+      onPointerMove={(e) => {
+        const o = origin.current;
+        if (!o || o.id !== e.pointerId) return;
+        let dx = e.clientX - o.x;
+        let dy = e.clientY - o.y;
+        onMove(dx, dy);
+        const d = Math.hypot(dx, dy);
+        if (d > RAD) {
+          dx = (dx / d) * RAD;
+          dy = (dy / d) * RAD;
+        }
+        setKnob({ x: dx, y: dy });
+      }}
+      onPointerUp={end}
+      onPointerCancel={end}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      <span className="ls-stick-knob" style={knob ? { transform: `translate(${knob.x}px, ${knob.y}px)` } : undefined} />
+      <span className="ls-stick-label">{label}</span>
+    </div>
+  );
+}
+
 type Moment = {
   village: string; kind: "village" | "glade"; names: string[]; gift?: string; giftId?: string; memory: number; clear: boolean; line?: string; key: number;
   hearts: number; souls: number; need: number;
 };
 /** the picture for each gift of the Named */
-const GIFT_ICON: Record<string, IconId> = { sword: "sword", bow: "bow", traps: "trap", bark: "bark", heart: "heart", hound: "hound", raven: "raven", doe: "doe" };
+const GIFT_ICON: Record<string, IconId> = { sword: "sword", bow: "bow", traps: "trap", rune: "rune", heart: "heart", hound: "hound", raven: "raven", doe: "doe" };
 
 export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
   const [save, setSave] = useState<Save>(() => freshSave());
@@ -406,7 +496,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
       if (screen === "over") setView("main");
       else if (reading !== null) setReading(null);
       else if (screen === "prologue" && page > 0) setPage(page - 1);
-      else setScreen(screen === "missions" ? "rider" : "title");
+      else setScreen(screen === "book" ? "begin" : "title");
     };
     window.addEventListener("keydown", down);
     return () => window.removeEventListener("keydown", down);
@@ -507,6 +597,20 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         setTutStep(e.done ? -1 : e.step);
         if (e.done) update((s) => ({ ...s, tutorialDone: true }));
       } else if (e.type === "seen") update((s) => ({ ...s, seenMonsters: [...new Set([...s.seenMonsters, e.monster])] }));
+      else if (e.type === "killed") {
+        if (!saveRef.current.killedMonsters.includes(e.monster)) update((s) => ({ ...s, killedMonsters: [...new Set([...s.killedMonsters, e.monster])] }));
+      } else if (e.type === "wisp") {
+        // a memory shot out of the air: the world holds still while it is read
+        g?.pause();
+        update((s) => ({
+          ...s,
+          memories: !e.clear && !s.memories.includes(e.memory) ? [...s.memories, e.memory] : s.memories,
+          clear: e.clear && !s.clear.includes(e.memory) ? [...s.clear, e.memory] : s.clear,
+        }));
+        runRef.current.memories.push(e.memory);
+        setMemClear(e.clear);
+        setMemoryCard(e.memory);
+      } else if (e.type === "spell") setLive(e.ok ? `${SPELLS[e.spell].name} cast.` : "The rune breaks.");
       else if (e.type === "seenKind") update((s) => ({ ...s, seenKinds: [...new Set([...s.seenKinds, e.kind])] }));
       else if (e.type === "swordFirst") {
         g?.pause();
@@ -747,6 +851,29 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
     </button>
   );
 
+  /** the left stick: held to a side it steers; a flick up jumps, down ducks; while a rune is cast each flick is a stroke */
+  const lDir = useRef<"left" | "right" | "up" | "down" | null>(null);
+  const leftMove = (dx: number, dy: number) => {
+    const g = gameRef.current;
+    if (!g) return;
+    const d = Math.hypot(dx, dy);
+    let dir: typeof lDir.current = null;
+    if (d > 28) dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? "left" : "right") : dy < 0 ? "up" : "down";
+    else if (d > 14) dir = lDir.current;
+    if (dir === lDir.current) return;
+    if (lDir.current === "left" || lDir.current === "right") g.key(lDir.current, false);
+    lDir.current = dir;
+    if (dir) {
+      g.key(dir, true);
+      if (dir === "up" || dir === "down") g.key(dir, false);
+    }
+  };
+  const leftUp = () => {
+    const d = lDir.current;
+    lDir.current = null;
+    if (d === "left" || d === "right") gameRef.current?.key(d, false);
+  };
+
   const word = wordOfDay();
   const wordGot = save.word.done ? word.length : save.word.got;
   const wordStrip = (got: number) => (
@@ -850,8 +977,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
   const memCount = save.memories.length;
   const openMission = () => {
     if (!save.prologueSeen || !save.tutorialDone) setScreen("prologue");
-    else if (save.checkpoint > 0) setScreen("begin");
-    else ride("mission");
+    else setScreen("begin");
   };
   /** the whole mission again from the Rot: the book and the Named stay */
   const beginAgain = () => {
@@ -1041,15 +1167,8 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
             <span className="ls-btn-sub">Any rider · {landName(endlessLand(save))}</span>
           </button>
           <div className="ls-grid2">
-            <button
-              type="button"
-              className="ls-btn is-ghost"
-              onClick={() => {
-                openBook();
-                setScreen("book");
-              }}
-            >
-              The book · {memCount}/{MEMORIES.length}
+            <button type="button" className="ls-btn is-ghost" onClick={() => setScreen("bestiary")}>
+              Bestiary · {save.seenMonsters.length}/{Object.keys(MONSTERS).length}
             </button>
             <button type="button" className="ls-btn is-ghost" onClick={() => setScreen("rider")}>
               Rider &amp; mount
@@ -1114,17 +1233,31 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         </h2>
         <div className="ls-stack is-wide">
           <button type="button" className="ls-btn is-big" onClick={() => ride("mission")}>
-            Ride on
-            <span className="ls-btn-sub">from the gate of {landName(save.checkpoint)}</span>
+            {save.checkpoint > 0 ? "Ride on" : "Ride"}
+            <span className="ls-btn-sub">{save.checkpoint > 0 ? `from the gate of ${landName(save.checkpoint)}` : "from The Rot, where it is deepest"}</span>
           </button>
-          <button type="button" className="ls-btn is-big is-alt" onClick={beginAgain}>
-            Begin again
-            <span className="ls-btn-sub">the whole mission, from The Rot</span>
+          {save.checkpoint > 0 && (
+            <button type="button" className="ls-btn is-big is-alt" onClick={beginAgain}>
+              Begin again
+              <span className="ls-btn-sub">the whole mission, from The Rot</span>
+            </button>
+          )}
+          <button
+            type="button"
+            className="ls-btn is-ghost"
+            onClick={() => {
+              openBook();
+              setScreen("book");
+            }}
+          >
+            Book of Memories · {memCount}/{MEMORIES.length}
           </button>
         </div>
-        <p className="ls-muted ls-small">
-          Beginning again keeps the Book of Memories and the Named. The lands, the souls and the gates start over.
-        </p>
+        {save.checkpoint > 0 && (
+          <p className="ls-muted ls-small">
+            Beginning again keeps the Book of Memories and the Named. The lands, the souls and the gates start over.
+          </p>
+        )}
         <div className="ls-grid2 is-narrow">
           <button type="button" className="ls-btn is-ghost" onClick={() => ride("tutorial")}>
             The First Morning
@@ -1230,7 +1363,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
     menu = (
       <section className="ls-panel is-text is-book" aria-labelledby="ls-book-title">
         <Ornament medal />
-        {x}
+        <Close onClick={() => setScreen("begin")} label="Close, back to the mission" />
         <p className="ls-kicker">
           {memCount} of {MEMORIES.length} memories · {fmt(save.soulsTotal)} souls saved
         </p>
@@ -1316,46 +1449,63 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
             <button type="button" className="ls-btn is-go" onClick={() => ride("endless")} disabled={riderLocked || mountLocked}>
               Endless ride
             </button>
-            <button type="button" className="ls-chipbtn" onClick={() => setScreen("missions")}>
-              Missions · ×{save.multiplier}
-            </button>
           </div>
         </div>
       </section>
     );
-  else if (screen === "missions")
+  else if (screen === "bestiary")
     menu = (
-      <section className="ls-panel is-text" aria-labelledby="ls-missions-title">
+      <section className="ls-panel is-text is-bestiary" aria-labelledby="ls-beast-title">
         <Ornament />
-        <Close onClick={() => setScreen("rider")} label="Close, back to the rider" />
-        <p className="ls-kicker">The endless ride</p>
-        <h2 id="ls-missions-title" className="ls-h2" tabIndex={-1} ref={headRef}>
-          Missions · score ×{save.multiplier}
+        {x}
+        <p className="ls-kicker">What the rot made</p>
+        <h2 id="ls-beast-title" className="ls-h2" tabIndex={-1} ref={headRef}>
+          Bestiary
         </h2>
-        <p className="ls-muted">
-          Small tasks for the endless ride. Each one you finish raises your score multiplier by one, for good, and opens new
-          riders and mounts. Three are open at a time, each to be done within a single run.
+        <p className="ls-muted ls-small ls-center">
+          Everything you carry works on every one of them. What sets them apart is how they come for you. A page fills in once
+          you have met the monster.
         </p>
-        <ol className="ls-missions">
-          {save.open.map((i) => (
-            <li key={i}>{missionAt(i).text}</li>
-          ))}
-        </ol>
-        <h3 className="ls-h3">Today&apos;s word</h3>
-        <p>
-          {wordStrip(wordGot)}{" "}
-          {save.word.done ? "Spelled! Come back tomorrow for a new word." : "Its letters lie on the road, one at a time. Spell it for one more ×."}
-        </p>
-        <h3 className="ls-h3">Opens as you grow</h3>
-        <ul className="ls-unlocks">
-          {[...RIDERS, ...MOUNTS]
-            .filter((x) => x.unlock > 1)
-            .sort((a, b) => a.unlock - b.unlock)
-            .map((x) => (
-              <li key={x.id} className={save.multiplier >= x.unlock ? "is-open" : ""}>
-                ×{x.unlock}: {x.name} {save.multiplier >= x.unlock ? "✓" : "🔒"}
+        <ul className="ls-beasts">
+          {(Object.values(MONSTERS)).map((m) => {
+            const seen = save.seenMonsters.includes(m.id);
+            const killed = save.killedMonsters.includes(m.id);
+            const title = m.name[0].toUpperCase() + m.name.slice(1);
+            return (
+              <li key={m.id} className={`ls-beast${seen ? "" : " is-unknown"}`}>
+                <div className="ls-beast-frame">
+                  <BeastPic id={m.id} known={seen} calm={save.settings.calm} height={m.id === "colossus" ? 150 : 112} />
+                </div>
+                <div className="ls-beast-text">
+                  <h3 className="ls-beast-name">
+                    {seen ? title : "Not met yet"}
+                    <span className="ls-muted ls-small">
+                      {" "}
+                      · {m.hp} {m.hp === 1 ? "blow" : "blows"}
+                      {killed ? " · ✓ killed" : ""}
+                    </span>
+                  </h3>
+                  {seen ? (
+                    <>
+                      <p className="ls-beast-lore">{m.lore}</p>
+                      <dl className="ls-beast-dl">
+                        <div>
+                          <dt>How it hunts</dt>
+                          <dd>{m.danger}</dd>
+                        </div>
+                        <div>
+                          <dt>How to live</dt>
+                          <dd>{m.counter}</dd>
+                        </div>
+                      </dl>
+                    </>
+                  ) : (
+                    <p className="ls-muted">Something waits further on the road.</p>
+                  )}
+                </div>
               </li>
-            ))}
+            );
+          })}
         </ul>
       </section>
     );
@@ -1368,8 +1518,8 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
           <ul className="ls-help">
             <li>
               <strong>Two ways to ride.</strong> <em>The mission</em>: {HEROINE}&apos;s story, four lands, villages to save,
-              and an end. <em>The endless ride</em>: any rider, no end, kilometres and points, in the furthest land the mission
-              has reached.
+              and an end. <em>The endless ride</em>: any rider, no end, souls and kilometres, in the dark land where the green is
+              coming back.
             </li>
             <li>
               <strong>Ride and steer.</strong> You ride down the screen; the monsters come from behind, at the top. Hitting
@@ -1380,7 +1530,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
               the middle. Everything else (trees, rocks, stones, the green fire): ride round it.
             </li>
             <li>
-              New to it? Ride <em>The First Morning</em> from the prologue: it can&apos;t kill you.
+              New to it? Ride <em>The First Morning</em> from the mission: it can&apos;t kill you.
             </li>
           </ul>
         ),
@@ -1411,18 +1561,66 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         content: (
           <ul className="ls-help">
             <li>
-              <strong>A bow</strong> brings arrows: hold Space and a line swings behind you, let go to shoot.
+              <strong>The bow is everything.</strong> Hold to draw, let go to shoot. With the <em>mouse</em> the arrow flies
+              where the pointer is (hold the left button); on a <em>phone</em>, push the right stick where you want to shoot
+              and let go; with the <em>keyboard</em> (Space) a line swings behind you and you let go when it points right.
             </li>
             <li>
-              <strong>A root trap</strong> (Z) drops behind you. <strong>Bark armour</strong> stops one monster. <strong>A companion</strong>, rarest
-              of all, saves you once.
+              <strong>Calm.</strong> While the string is drawn the world slows down. The ring above {HEROINE} is how much calm
+              is left: it fills again as you ride, and faster with every hit. Hold too long and the bow starts to shake.
+            </li>
+            <li>
+              <strong>Arrows</strong> come with a bow, found on the road or given by a glade. They also find drifting
+              memories (in the mission) and soul-lights (in the endless ride).
+            </li>
+            <li>
+              <strong>Everything works on everything.</strong> An arrow is one blow, a root trap (Z, dropped behind you) or the
+              sword three. Most monsters fall to one; the Colossus takes six. The monsters differ in how they come for you:
+              see the <em>Bestiary</em>.
+            </li>
+            <li>
+              <strong>A companion</strong> (a hound, a raven or a doe from a glade) waits for the moment a monster is on your
+              heels. Then it throws itself at it, kills it, and dies with it. Once.
             </li>
             <li>
               <strong>The sword (X) is the last resort.</strong> It kills whatever is on your neck, but the blood wakes the
               rot: every sword kill brings two new monsters.
             </li>
-            <li>In the mission, weapons come only from the glades you heal, when an animal already walks with you.</li>
           </ul>
+        ),
+      },
+      {
+        id: "runes",
+        label: "Runes & fords",
+        content: (
+          <>
+            <ul className="ls-help">
+              <li>
+                <strong>Rune-stones</strong> stand here and there in the land. Ride through one to carry its rune. Press{" "}
+                <kbd>R</kbd> (or the rune button): the strokes show for a moment, then hide. Draw them from memory with the
+                arrow keys (or flick the left stick) before the time runs out. One wrong stroke and the rune breaks.
+              </li>
+              <li>The further you ride, the longer the runes: three strokes in The Rot, six in Bloom.</li>
+            </ul>
+            <ul className="ls-spells">
+              {Object.entries(SPELLS).map(([id, sp]) => (
+                <li key={id}>
+                  <span className="ls-ogham" style={{ color: sp.colour }} aria-hidden="true">
+                    {sp.ogham}
+                  </span>
+                  <strong>{sp.name}</strong> <span>{sp.help}</span>
+                </li>
+              ))}
+            </ul>
+            <ul className="ls-help">
+              <li>
+                <strong>Fords.</strong> Black water across the whole road, and rows of stepping stones. As the ford comes into
+                view, one stone in each row lights up, one row after another. Then they go dark: ride the same stones from
+                memory. A wrong stone costs a heart. One ford in each of the first three lands of the mission, now and then in
+                the endless ride, none in Bloom.
+              </li>
+            </ul>
+          </>
         ),
       },
       {
@@ -1432,18 +1630,22 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
           <ul className="ls-help">
             <li>
               <strong>Hearts are what you give.</strong> Ride through the glowing ring of a hamlet (one soul) or a village
-              (two) to give it a heart, never your last.
+              (two) to give it a heart, never your last. Every saved village refills your quiver.
             </li>
             <li>
               <strong>Where the road forks</strong> you heal one way only: the village, two souls, or the glade, no souls
               and no heart, but an animal friend and one of {HEROINE}&apos;s memories. Its animals lead the villagers away.
             </li>
             <li>
+              <strong>Memories drift</strong> over the road as pale lights. Shoot one and it comes back to the book.
+            </li>
+            <li>
               <strong>Ride past</strong> a hamlet, or both ways of a fork, and the people are lost: their souls come off your
               count, and the rot makes one of them into a monster that hunts you.
             </li>
             <li>
-              <strong>Gates of spring.</strong> When enough souls are saved, a brook of light runs across the land ahead.
+              <strong>Four lands.</strong> The Rot is wholly dark, and a dirty rain falls; each land after it is less ruined,
+              until Bloom, where the fairies dance. When enough souls are saved, a brook of light runs across the land ahead.
               Crossing it heals you. Fall, and you rise again at the last gate. After Bloom comes the golden gate, and the end.
             </li>
           </ul>
@@ -1453,16 +1655,45 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         id: "endless",
         label: "Endless",
         content: (
-          <ul className="ls-help">
-            <li>
-              <strong>Ride as far as you can.</strong> Any rider, any mount, in the furthest land the mission has opened.
-            </li>
-            <li>
-              <strong>Missions and the daily word</strong> raise your score multiplier for good and open new riders and mounts.
-              You find them under <em>Rider &amp; mount</em>.
-            </li>
-            <li>An animal eaten by the rot costs you points.</li>
-          </ul>
+          <>
+            <ul className="ls-help">
+              <li>
+                <strong>Ride as far as you can</strong>, on any rider and mount. It starts gently: one monster at a time, and more
+                kinds the further you get. The Colossus comes only far on, and only to someone armed.
+              </li>
+              <li>
+                <strong>Only souls.</strong> Nothing else lies on the road. Every {ENDLESS.soulsPerHeart} souls give you a
+                heart back. Shoot the drifting soul-lights for {ENDLESS.wispSouls} souls each.
+              </li>
+              <li>An animal eaten by the rot costs you points.</li>
+            </ul>
+            <h3 className="ls-h3">Missions · score ×{save.multiplier}</h3>
+            <p className="ls-muted ls-small">
+              Each one you finish raises your score multiplier by one, for good, and opens new riders and mounts. Three are
+              open at a time, each to be done within a single run.
+            </p>
+            <ol className="ls-missions">
+              {save.open.map((i) => (
+                <li key={i}>{missionAt(i).text}</li>
+              ))}
+            </ol>
+            <h3 className="ls-h3">Today&apos;s word</h3>
+            <p>
+              {wordStrip(wordGot)}{" "}
+              {save.word.done ? "Spelled! Come back tomorrow for a new word." : "Its letters lie on the road, one at a time. Spell it for one more ×."}
+            </p>
+            <h3 className="ls-h3">Opens as you grow</h3>
+            <ul className="ls-unlocks">
+              {[...RIDERS, ...MOUNTS]
+                .filter((x) => x.unlock > 1)
+                .sort((a, b) => a.unlock - b.unlock)
+                .map((x) => (
+                  <li key={x.id} className={save.multiplier >= x.unlock ? "is-open" : ""}>
+                    ×{x.unlock}: {x.name} {save.multiplier >= x.unlock ? "✓" : "🔒"}
+                  </li>
+                ))}
+            </ul>
+          </>
         ),
       },
       {
@@ -1475,12 +1706,16 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                 ["← →  or  A D", "Steer"],
                 ["↑  or  W", "Jump"],
                 ["↓  or  S", "Duck"],
-                ["Space (hold, then let go)", "Aim the bow and shoot"],
+                ["Mouse: point, hold the button, let go", "Aim the bow and shoot"],
+                ["Space (hold, then let go)", "The bow, with the swinging line"],
+                ["R or E, then the arrows", "Cast the rune you carry"],
                 ["X", "Sword"],
                 ["Z", "Drop a trap"],
                 ["C or Shift", "Your rider's ability"],
                 ["Esc or P", "Pause"],
                 ["F", "Full screen"],
+                ["Phone: left stick", "Steer; flick up to jump, down to duck; flicks draw a rune"],
+                ["Phone: right stick", "Push to aim and draw, let go to shoot"],
               ].map(([k, v]) => (
                 <tr key={k}>
                   <th scope="row">{k}</th>
@@ -1489,19 +1724,6 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
               ))}
             </tbody>
           </table>
-        ),
-      },
-      {
-        id: "monsters",
-        label: "Monsters",
-        content: (
-          <ul className="ls-help is-tight">
-            {Object.values(MONSTERS).map((m) => (
-              <li key={m.id}>
-                <strong>{m.name[0].toUpperCase() + m.name.slice(1)}</strong> <span className="ls-muted">(from {km(m.from)})</span>: {m.tell}
-              </li>
-            ))}
-          </ul>
         ),
       },
     ];
@@ -1602,6 +1824,28 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
     </div>
   );
 
+  const statTable = (caption: string, rows: [string, React.ReactNode][]) => (
+    <table className="ls-stats">
+      <caption>{caption}</caption>
+      <tbody>
+        {rows.map(([k, v]) => (
+          <tr key={k}>
+            <th scope="row">{k}</th>
+            <td>{v}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+  const monsterRows = (st: Stats): [string, React.ReactNode][] => [
+    ["Shot", st.arrowKills],
+    ["Into trees and rocks", st.crashed],
+    ["Burned", st.pitted],
+    ["Trapped", st.trapped],
+    ["By the sword", st.swordKills],
+    ["In all", st.arrowKills + st.crashed + st.pitted + st.trapped + st.swordKills],
+  ];
+
   if (!loaded) return <div className="ls" aria-busy="true" />;
   const h = hud;
   const r = mode === "endless" ? choiceOf(save).rider : brigidOf(save).rider;
@@ -1662,14 +1906,15 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
             <span
               className="ls-items"
               role="group"
-              aria-label={`${h?.arrows ?? 0} arrows, ${h?.swords ?? 0} swords, ${h?.traps ?? 0} root traps${h?.bark ? ", bark armour" : ""}${h?.companion ? `, a ${h.companion} runs with you` : ""}`}
+              aria-label={`${h?.arrows ?? 0} arrows, ${h?.swords ?? 0} swords, ${h?.traps ?? 0} root traps${h?.rune ? `, the rune ${SPELLS[h.rune].name}` : ""}${h?.homing ? `, ${h.homing} wind arrows` : ""}${h?.companion ? `, a ${h.companion} guards you${h.companionRest ? ", resting" : ""}` : ""}`}
             >
               <span
-                title="Arrows (Space: hold to aim, let go to shoot)"
+                title="Arrows (mouse: point and hold; Space: hold, let go to shoot)"
                 className={`ls-item${h?.arrows ? "" : " is-none"}${mode === "tutorial" && tutStep === 7 ? " is-teach" : ""}`}
                 aria-hidden="true"
               >
                 {ico("bow", "🏹")} <b>{h?.arrows ?? 0}</b>
+                {!!h?.homing && <span className="ls-homing">+{h.homing} wind</span>}
                 {mode === "tutorial" && tutStep === 7 && <span className="ls-teach">Hold Space · let go when the line points at it</span>}
               </span>
               <span title="Swords (X)" className={`ls-item${h?.swords ? "" : " is-none"}${mode === "tutorial" && tutStep === 9 ? " is-teach" : ""}`} aria-hidden="true">
@@ -1680,16 +1925,24 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                 {ico("trap", "⊗")} <b>{h?.traps ?? 0}</b>
                 {mode === "tutorial" && tutStep === 8 && <span className="ls-teach">Z · when it is right behind you</span>}
               </span>
-              {h?.bark && (
-                <span title="Bark armour" className="ls-item" aria-hidden="true">
-                  {ico("bark", "🛡")}
-                </span>
-              )}
+              <span
+                title={h?.rune ? `Rune: ${SPELLS[h.rune].name} (R). ${SPELLS[h.rune].help}` : "No rune: ride through a rune-stone"}
+                className={`ls-item is-rune${h?.rune ? "" : " is-none"}${h?.casting ? " is-casting" : ""}${mode === "tutorial" && tutStep === 10 ? " is-teach" : ""}`}
+                style={h?.rune ? { color: SPELLS[h.rune].colour } : undefined}
+                aria-hidden="true"
+              >
+                {ico("rune", "ᚑ")} <b>{h?.rune ? SPELLS[h.rune].name : "–"}</b>
+                {mode === "tutorial" && tutStep === 10 && <span className="ls-teach">R · then the strokes, from memory</span>}
+              </span>
               {h?.companion && (
-                <span title="Companion" className="ls-item" aria-hidden="true">
+                <span title={h.companionRest ? "Companion, resting" : "Companion, on guard"} className={`ls-item${h.companionRest ? " is-rest" : ""}`} aria-hidden="true">
                   {ico(h.companion as "hound" | "raven" | "doe", "✦")}
+                  {h.companionRest && <span className="ls-zz">z</span>}
                 </span>
               )}
+              <span className="ls-focus" title="Calm: time slows while the bow is drawn" aria-hidden="true">
+                <span style={{ width: `${Math.round((h?.focus ?? 1) * 100)}%` }} />
+              </span>
               <span className={`ls-ability${(h?.abilityReady ?? 1) >= 1 ? " is-ready" : ""}`} title={`${r.ability} (C or Shift): ${r.abilityHelp}`}>
                 <kbd>C</kbd> {r.ability} {(h?.abilityReady ?? 1) >= 1 ? "ready" : `${Math.round((h?.abilityReady ?? 0) * 100)}%`}
               </span>
@@ -1702,12 +1955,36 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
       <div
         className="ls-stage"
         ref={stageRef}
+        onPointerMove={(e) => {
+          if (e.pointerType !== "mouse" || screen !== "play") return;
+          const c = canvasRef.current;
+          const g = gameRef.current;
+          if (!c || !g) return;
+          const rr = c.getBoundingClientRect();
+          const p = g.viewPoint(e.clientX - rr.left, e.clientY - rr.top);
+          g.setPointer(p.x, p.y);
+        }}
+        onPointerDown={(e) => {
+          if (e.pointerType !== "mouse" || e.button !== 0 || screen !== "play" || dialog) return;
+          if ((e.target as HTMLElement).closest("button, a, input, [role=dialog]")) return;
+          const c = canvasRef.current;
+          const g = gameRef.current;
+          if (!c || !g) return;
+          const rr = c.getBoundingClientRect();
+          const p = g.viewPoint(e.clientX - rr.left, e.clientY - rr.top);
+          g.setPointer(p.x, p.y);
+          g.key("aim", true);
+        }}
+        onPointerUp={(e) => {
+          if (e.pointerType !== "mouse" || screen !== "play") return;
+          gameRef.current?.key("aim", false);
+        }}
         tabIndex={playing ? 0 : -1}
         role={playing ? "application" : undefined}
         aria-roledescription={playing ? "game" : undefined}
         aria-label={
           playing
-            ? "The Long Spring. Left and right arrows steer, up jumps, down ducks, hold Space to aim the bow, X sword, Z trap, C ability, Escape pauses."
+            ? "The Long Spring. Left and right arrows steer, up jumps, down ducks, hold Space or the mouse button to draw the bow, R casts a rune, X sword, Z trap, C ability, Escape pauses."
             : undefined
         }
       >
@@ -1929,38 +2206,25 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                       {BIOMES[Math.min(save.checkpoint, BIOMES.length - 1)].name}.
                     </p>
                   )}
-                  <dl className="ls-results">
-                    <div>
-                      <dt>Souls saved</dt>
-                      <dd>{result.stats.souls}</dd>
-                    </div>
-                    {result.win && (
-                      <div>
-                        <dt>Reborn</dt>
-                        <dd>
-                          {result.reborn} more, from the hearts she had left
-                        </dd>
-                      </div>
-                    )}
-                    <div>
-                      <dt>Villages</dt>
-                      <dd>
-                        {result.stats.villagesSaved} saved · {result.stats.villagesLost} lost
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Memories</dt>
-                      <dd>
-                        {result.memories.length
-                          ? result.memories.map((i) => MEMORIES[i].title).join(" · ")
-                          : "none on this ride"}{" "}
-                        <span className="ls-muted">
-                          ({save.memories.length}/{MEMORIES.length} in the book)
-                        </span>
-                      </dd>
-                    </div>
-                  </dl>
-                  {result.win && <p className="ls-muted">The endless ride now runs through Bloom.</p>}
+                  <div className="ls-tables">
+                    {statTable("The ride", [
+                      ["Souls saved", result.stats.souls],
+                      ...(result.win ? [["Reborn", `${result.reborn}, from the hearts she had left`] as [string, React.ReactNode]] : []),
+                      ["Villages saved", result.stats.villagesSaved],
+                      ["Villages lost", result.stats.villagesLost],
+                      ["Fords crossed dry", result.stats.fords],
+                      ["Runes cast", result.stats.spells],
+                      ["Ridden", km(result.metres)],
+                    ])}
+                    {statTable("The rot", monsterRows(result.stats))}
+                  </div>
+                  <p className="ls-mem-line">
+                    <strong>Memories:</strong>{" "}
+                    {result.memories.length ? result.memories.map((i) => MEMORIES[i].title).join(" · ") : "none on this ride"}{" "}
+                    <span className="ls-muted">
+                      ({save.memories.length}/{MEMORIES.length} in the book)
+                    </span>
+                  </p>
                   <div className="ls-actions">
                     {!result.win && (
                       <button type="button" className="ls-btn is-go" onClick={() => ride("mission")}>
@@ -2010,29 +2274,16 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                       <span className="ls-record-b">best {fmt(save.bestSouls)}</span>
                     </div>
                   </div>
-                  <dl className="ls-results">
-                    <div>
-                      <dt>Score</dt>
-                      <dd>
-                        {fmt(result.score)} · best {fmt(save.best)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Monsters lost</dt>
-                      <dd>
-                        {result.stats.pitted} burned · {result.stats.crashed} crashed · {result.stats.trapped} trapped ·{" "}
-                        {result.stats.arrowKills} shot · {result.stats.swordKills} by the sword
-                      </dd>
-                    </div>
-                    {result.stats.animalsLost > 0 && (
-                      <div>
-                        <dt>Eaten</dt>
-                        <dd>
-                          {result.stats.animalsLost} {result.stats.animalsLost === 1 ? "animal" : "animals"}
-                        </dd>
-                      </div>
-                    )}
-                  </dl>
+                  <div className="ls-tables">
+                    {statTable("The ride", [
+                      ["Score", `${fmt(result.score)} (best ${fmt(save.best)})`],
+                      ["Soul-lights shot", result.stats.wisps],
+                      ["Fords crossed dry", result.stats.fords],
+                      ["Runes cast", result.stats.spells],
+                      ...(result.stats.animalsLost > 0 ? [["Animals eaten", result.stats.animalsLost] as [string, React.ReactNode]] : []),
+                    ])}
+                    {statTable("The rot", monsterRows(result.stats))}
+                  </div>
                   {(result.missions.length > 0 || result.word) && (
                     <div className="ls-done">
                       <h3 className="ls-h3">This run</h3>
@@ -2064,19 +2315,26 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
       </div>
 
       {screen === "play" && (
-        <div className="ls-pad" role="group" aria-label="Touch controls" inert={dialog}>
-          <div className="ls-pad-steer">
-            {touchBtn("left", "Steer left", "◀", "is-big")}
-            {touchBtn("right", "Steer right", "▶", "is-big")}
-          </div>
-          <div className="ls-pad-acts">
-            {touchBtn("up", "Jump", "⤒")}
-            {touchBtn("down", "Duck", "⤓")}
-            {touchBtn("aim", "Bow: hold to aim, let go to shoot", ico("bow", "🏹"))}
+        <div className="ls-pad is-twin" role="group" aria-label="Touch controls" inert={dialog}>
+          <Stick side="left" label="steer · jump · duck" onMove={leftMove} onUp={leftUp} />
+          <div className="ls-pad-mid">
             {touchBtn("sword", "Sword", ico("sword", "🗡"))}
             {touchBtn("trap", "Drop a trap", ico("trap", "⊗"))}
             {touchBtn("ability", r.ability, "✦")}
+            {touchBtn("rune", h?.rune ? `Cast the rune: ${SPELLS[h.rune].name}` : "Cast a rune (none carried)", ico("rune", "ᚑ"), h?.rune ? "is-rune" : "is-none")}
           </div>
+          <Stick
+            side="right"
+            label="aim · let go to shoot"
+            onDown={() => gameRef.current?.key("aim", true)}
+            onMove={(dx, dy) => {
+              if (Math.hypot(dx, dy) > 12) gameRef.current?.setStick(Math.atan2(dx, -dy));
+            }}
+            onUp={() => {
+              gameRef.current?.key("aim", false);
+              gameRef.current?.setStick(null);
+            }}
+          />
         </div>
       )}
 

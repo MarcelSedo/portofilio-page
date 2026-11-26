@@ -619,3 +619,123 @@ html.ls-lock, html.ls-lock body { overflow: hidden; }
 .ls.is-calm .ls-item.is-teach { animation: none; }
 @media (prefers-reduced-motion: reduce) { .ls-item.is-teach { animation: none; } }
 .ls-ability kbd { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 3px; border: 1px solid currentColor; border-radius: 4px; font: 700 0.7rem/1 ui-sans-serif, system-ui, sans-serif; }
+
+/* ---------- v10: panels that always fit, the death tables, runes, the bestiary, the twin sticks ---------- */
+
+/* a dialog never grows past the screen: it scrolls inside, and its buttons stay in reach */
+.ls-menu { place-items: safe center; }
+.ls-overlay { place-items: safe center; }
+.ls-overlay > .ls-panel { max-height: calc(100% - 8px); overflow-y: auto; overscroll-behavior: contain; margin: auto; }
+.ls-menu > .ls-panel { margin-top: auto; margin-bottom: auto; }
+.ls-overlay:not(.is-end) .ls-actions, .ls-overlay .ls-panel > .ls-stack:last-child {
+  position: sticky; bottom: -22px; margin-bottom: -22px; padding: 10px 0 18px; background: linear-gradient(180deg, rgba(12, 24, 17, 0), rgba(12, 24, 17, 0.97) 30%); z-index: 2;
+}
+@media (max-width: 420px) { .ls-grid3 { grid-template-columns: 1fr 1fr; } .ls-grid3 > :last-child { grid-column: 1 / -1; } }
+@media (max-height: 700px) { .ls-overlay.is-end::before { flex-basis: 16%; } }
+@media (max-height: 520px) { .ls-overlay.is-end::before { flex-basis: 0; } }
+@media (max-width: 600px) {
+  .ls-panel, .ls-panel.is-text, .ls-panel.is-book { max-width: 100%; }
+  .ls-actions, .ls-overlay.is-end .ls-actions, .ls-tables { grid-template-columns: 1fr !important; }
+  .ls-overlay { padding: 6px; }
+}
+
+.ls-grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 4px; }
+.ls-grid3 .ls-btn { min-height: 44px; padding: 8px 10px; font-size: 0.92rem; }
+.ls-grid3 .ls-btn::before, .ls-grid3 .ls-btn::after { display: none; }
+
+/* the end of a ride: two clear tables */
+.ls-tables { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; margin: 10px 0 6px; text-align: left; }
+.ls-stats { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+.ls-stats caption { text-align: left; font-family: Georgia, serif; font-weight: 700; color: var(--ls-gold); padding: 0 0 4px; border-bottom: 1px solid var(--ls-gold-d); }
+.ls-stats th { text-align: left; font-weight: 400; color: var(--ls-muted); padding: 3px 8px 3px 0; }
+.ls-stats td { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; padding: 3px 0; }
+.ls-stats tr + tr th, .ls-stats tr + tr td { border-top: 1px solid rgba(240, 200, 90, 0.12); }
+.ls-stats tr:last-child th { color: var(--ls-ink); }
+.ls-mem-line { text-align: left; font-size: 0.9rem; margin: 6px 0; }
+
+/* hud: the rune, calm, the companion at rest */
+.ls-item.is-rune b { font-size: 0.78rem; font-weight: 700; }
+.ls-item.is-casting { animation: ls-pulse 0.6s ease-in-out infinite alternate; }
+@keyframes ls-pulse { to { filter: brightness(1.6); } }
+.ls.is-calm .ls-item.is-casting { animation: none; text-decoration: underline; }
+.ls-homing { margin-left: 4px; font-size: 0.72rem; color: #a8e8ff; }
+.ls-item.is-rest { opacity: 0.55; position: relative; }
+.ls-zz { font-size: 0.72rem; margin-left: 1px; color: var(--ls-muted); }
+.ls-focus { display: inline-block; width: 54px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.12); overflow: hidden; vertical-align: middle; }
+.ls-focus > span { display: block; height: 100%; background: #a8e8ff; transition: width 0.15s linear; }
+
+/* help: spells and the bestiary */
+.ls-spells { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 6px; }
+.ls-spells li { display: grid; grid-template-columns: 4.2em 1fr; column-gap: 8px; align-items: baseline; }
+.ls-spells li > span:last-child { grid-column: 2; color: var(--ls-muted); font-size: 0.9rem; }
+.ls-ogham { grid-row: span 2; font-size: 1.3rem; letter-spacing: 1px; }
+.ls-beasts { list-style: none; padding: 0; margin: 6px 0; display: grid; gap: 10px; }
+.ls-beast { padding: 8px 10px; border: 1px solid rgba(240, 200, 90, 0.25); border-radius: 10px; background: rgba(0, 0, 0, 0.18); }
+.ls-beast.is-unknown { opacity: 0.6; }
+.ls-beast-name { margin: 0 0 4px; font-family: Georgia, serif; font-size: 1rem; }
+.ls-beast p { margin: 4px 0; font-size: 0.9rem; }
+.ls-beast-lore { font-style: italic; font-family: Georgia, serif; }
+.ls-beast-dl { display: grid; gap: 2px; margin: 4px 0 0; font-size: 0.88rem; }
+.ls-beast-dl div { display: grid; grid-template-columns: 5.5em 1fr; gap: 8px; }
+.ls-beast-dl dt { color: var(--ls-muted); }
+.ls-beast-dl dd { margin: 0; }
+
+/* twin sticks: steering on the far left, the bow on the far right, everything else between */
+.ls-pad.is-twin { align-items: center; justify-content: space-between; padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); }
+.ls-stick { position: relative; flex: 0 0 auto; width: 124px; height: 124px; border-radius: 50%; border: 2px solid var(--ls-line); background: radial-gradient(circle, #1d2c22 0 30%, #121b15 70%); touch-action: none; display: grid; place-items: center; }
+.ls-stick.is-right { border-color: rgba(240, 200, 90, 0.5); }
+.ls-stick.is-on { background: radial-gradient(circle, #26402c 0 30%, #142018 70%); }
+.ls-stick-knob { width: 50px; height: 50px; border-radius: 50%; background: #2f4a36; border: 2px solid #8fb89a; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); pointer-events: none; }
+.ls-stick.is-right .ls-stick-knob { background: #4a3f22; border-color: #f0c85a; }
+.ls-stick-label { position: absolute; bottom: -2px; left: 0; right: 0; text-align: center; font-size: 0.62rem; color: var(--ls-muted); pointer-events: none; }
+.ls-pad-mid { display: grid; grid-template-columns: repeat(2, minmax(44px, 56px)); gap: 6px; }
+.ls-pad-mid .ls-touch.is-none { opacity: 0.45; }
+.ls-pad-mid .ls-touch.is-rune { border-color: #d8b070; }
+@media (hover: none) and (pointer: coarse) {
+  .ls.is-playing .ls-stage { height: calc(100dvh - 250px); }
+}
+@media (max-width: 360px) { .ls-stick { width: 108px; height: 108px; } }
+@media (forced-colors: active) { .ls-stick, .ls-stick-knob { border: 2px solid ButtonText; } }
+
+/* long pages scroll inside their own frame; the corner knots move inside it */
+.ls-menu > .ls-panel.is-text, .ls-overlay > .ls-panel { max-height: calc(100% - 12px); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.ls-menu > .ls-panel.is-text { margin-top: 6px; margin-bottom: 6px; }
+:is(.ls-menu > .ls-panel.is-text, .ls-overlay > .ls-panel) > .ls-orn.is-tl { top: 3px; left: 3px; }
+:is(.ls-menu > .ls-panel.is-text, .ls-overlay > .ls-panel) > .ls-orn.is-tr { top: 3px; right: 3px; }
+:is(.ls-menu > .ls-panel.is-text, .ls-overlay > .ls-panel) > .ls-orn.is-bl,
+:is(.ls-menu > .ls-panel.is-text, .ls-overlay > .ls-panel) > .ls-orn.is-br,
+:is(.ls-menu > .ls-panel.is-text, .ls-overlay > .ls-panel) > .ls-medal { display: none; }
+.ls-menu > .ls-panel.is-text > .ls-tabs { position: sticky; top: -28px; z-index: 3; padding: 6px 0; margin-top: 0; background: rgba(12, 24, 17, 0.97); }
+.ls-overlay.is-end .ls-actions {
+  position: sticky; bottom: -14px; margin: 10px -16px -14px; padding: 10px 16px 14px; background: rgba(16, 24, 18, 0.97);
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)) !important; z-index: 2;
+}
+.ls-overlay.is-end .ls-actions .ls-btn { font-size: 0.85rem; padding: 6px 8px; }
+@media (hover: none) and (pointer: coarse) {
+  .ls.is-playing .ls-stage { height: calc(100dvh - 292px); }
+}
+.ls-overlay.is-end::before { flex-basis: 22%; }
+@media (max-height: 760px) { .ls-overlay.is-end::before { flex-basis: 6%; } .ls-records .ls-record-n { font-size: 1.5rem; } }
+@media (max-width: 440px) {
+  .ls-pad.is-twin { padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); gap: 4px; }
+  .ls-stick { width: 100px; height: 100px; }
+  .ls-stick-knob { width: 42px; height: 42px; }
+  .ls-pad-mid { grid-template-columns: repeat(2, 44px); gap: 5px; }
+}
+@media (hover: none) and (pointer: coarse) and (max-width: 600px) {
+  .ls.is-playing .ls-stage { height: calc(100dvh - 330px); }
+}
+
+/* the bestiary: each monster on its own page, its picture beside it */
+.ls-panel.is-bestiary { max-width: 720px; }
+.ls-panel.is-bestiary .ls-beast { display: grid; grid-template-columns: 170px 1fr; gap: 12px; align-items: center; }
+.ls-beast-frame { display: grid; place-items: end center; min-height: 112px; padding: 6px; border-radius: 10px; background: radial-gradient(ellipse at 50% 85%, rgba(90, 20, 30, 0.35), rgba(0, 0, 0, 0.25) 70%); }
+.ls-beast-pic { display: block; max-width: 100%; height: auto; filter: brightness(1.4) contrast(1.05); }
+.ls-beast.is-unknown .ls-beast-pic { filter: none; opacity: 0.9; }
+.ls-beast.is-unknown .ls-beast-frame { background: rgba(0, 0, 0, 0.25); }
+.ls-beast-name { margin: 0 0 4px; font-family: Georgia, serif; font-size: 1.05rem; }
+.ls-beast-dl div { grid-template-columns: 7em 1fr; }
+@media (max-width: 520px) {
+  .ls-panel.is-bestiary .ls-beast { grid-template-columns: 1fr; }
+  .ls-beast-frame { min-height: 0; }
+}

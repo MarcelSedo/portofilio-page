@@ -1000,14 +1000,23 @@ const GLOW = "#b8ff5a";
 const TOOTH = "#e2d6b0";
 
 export const MONSTER_BOX: Record<MonsterId, { w: number; h: number }> = {
-  maw: { w: 70, h: 66 },
-  crawler: { w: 92, h: 54 },
-  eye: { w: 80, h: 70 },
-  colossus: { w: 112, h: 112 },
+  hollow: { w: 84, h: 70 },
+  hound: { w: 96, h: 62 },
+  spitter: { w: 80, h: 84 },
+  burrower: { w: 72, h: 92 },
+  hands: { w: 100, h: 74 },
+  collector: { w: 76, h: 80 },
+  colossus: { w: 136, h: 132 },
 };
 
-function limb(g: G, pts: [number, number][], w: number) {
-  line(g, pts, w, FLESH_D);
+const SKIN2 = "#a8968a";
+const SKIN3 = "#7a6458";
+const PALE = "#bdb2a6";
+const BONE = "#e6dcc4";
+const BILE = "#a8b83a";
+
+function limb(g: G, pts: [number, number][], w: number, c = FLESH_D) {
+  line(g, pts, w, c);
   const [x, y] = pts[pts.length - 1];
   g.strokeStyle = FLESH_S;
   g.lineWidth = 1;
@@ -1018,225 +1027,322 @@ function limb(g: G, pts: [number, number][], w: number) {
     g.stroke();
   }
 }
+/** a hand: a palm and fingers, spread towards `dir` */
+function hand(g: G, x: number, y: number, dir: number, s: number, skin: string, curl = 0, ring = false) {
+  for (let k = -2; k <= 2; k++) {
+    const a = dir + k * 0.32;
+    const len = (k === 2 || k === -2 ? 5 : 7) * s * (1 - curl * 0.4);
+    line(g, [[x, y], [x + Math.cos(a) * len * 0.6, y + Math.sin(a) * len * 0.6], [x + Math.cos(a + curl) * len, y + Math.sin(a + curl) * len]], 1.6 * s, skin);
+    if (ring && k === 0) {
+      g.fillStyle = "#e8c050";
+      g.fillRect(x + Math.cos(a) * len * 0.4 - 1, y + Math.sin(a) * len * 0.4 - 1, 2.2, 2.2);
+    }
+  }
+  ell(g, x, y, 3.4 * s, 2.8 * s, dir);
+  paint(g, skin, 1);
+}
+/** a mouth: dark, with uneven teeth */
+function mouth(g: G, x: number, y: number, w: number, h: number, blunt = false) {
+  ell(g, x, y, w, h);
+  paint(g, "#2a0508", 1.2);
+  ell(g, x, y + h * 0.35, w * 0.55, h * 0.35);
+  paint(g, GORE, 0);
+  g.fillStyle = blunt ? BONE : TOOTH;
+  g.strokeStyle = OL;
+  g.lineWidth = 0.5;
+  const n = Math.max(3, Math.round(w / 2.2));
+  for (let i = 0; i < n; i++) {
+    const tx = x - w + ((i + 0.5) / n) * w * 2;
+    const k = Math.sqrt(Math.max(0, 1 - ((tx - x) / w) ** 2));
+    for (const s of [-1, 1]) {
+      const ty = y + s * h * k;
+      g.beginPath();
+      if (blunt) g.rect(tx - 0.9, ty - (s > 0 ? 2.4 : 0), 1.8, 2.4);
+      else {
+        g.moveTo(tx - 1, ty);
+        g.lineTo(tx, ty - s * (2.6 + (i % 2)));
+        g.lineTo(tx + 1, ty);
+      }
+      g.fill();
+      g.stroke();
+    }
+  }
+}
+function eyes(g: G, pts: [number, number, number][]) {
+  for (const [x, y, r] of pts) {
+    ell(g, x, y, r + 0.6, r + 0.6);
+    paint(g, "#1a0a04", 0);
+    ell(g, x, y, r * 0.6, r * 0.6);
+    paint(g, GLOW, 0);
+  }
+}
+function stitches(g: G, pts: [number, number][]) {
+  g.strokeStyle = FLESH_S;
+  g.lineWidth = 1.1;
+  g.beginPath();
+  g.moveTo(pts[0][0], pts[0][1]);
+  for (const p of pts.slice(1)) g.lineTo(p[0], p[1]);
+  g.stroke();
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x0, y0] = pts[i];
+    const [x1, y1] = pts[i + 1];
+    const d = Math.hypot(x1 - x0, y1 - y0);
+    const nx = -(y1 - y0) / d;
+    const ny = (x1 - x0) / d;
+    for (let t = 0.2; t < 1; t += 0.3) {
+      const x = x0 + (x1 - x0) * t;
+      const y = y0 + (y1 - y0) * t;
+      g.beginPath();
+      g.moveTo(x - nx * 3, y - ny * 3);
+      g.lineTo(x + nx * 3, y + ny * 3);
+      g.stroke();
+    }
+  }
+}
+function drip(g: G, x: number, y: number, len: number, c: string) {
+  g.strokeStyle = c;
+  g.lineWidth = 1.2;
+  g.beginPath();
+  g.moveTo(x, y);
+  g.lineTo(x + 0.4, y + len);
+  g.stroke();
+  ell(g, x + 0.4, y + len + 1, 1.2, 1.5);
+  g.fillStyle = c;
+  g.fill();
+}
 
 function monsterArt(g: G, id: MonsterId, f: number) {
   const a = Math.sin((f / 4) * TAU);
-  if (id === "maw") {
-    for (const s of [-1, 1]) limb(g, [[s * 9, -16], [s * 16, -8 + s * a * 2], [s * 11, -1]], 5);
-    for (const s of [-1, 1]) limb(g, [[s * 12, -46], [s * 24, -58 + s * a * 3], [s * 27, -38 - s * a * 3]], 3.4);
-    ell(g, 0, -32, 23, 21);
-    paint(g, FLESH, 1.3);
-    ell(g, 7, -24, 13, 11);
-    g.fillStyle = alpha(FLESH_D, 0.55);
-    g.fill();
-    const open = 10 + (f % 2) * 2;
-    ell(g, 0, -28, 16, open);
-    const gr = g.createRadialGradient(0, -26, 2, 0, -28, 16);
-    gr.addColorStop(0, "#4a0a10");
-    gr.addColorStop(1, "#1a0204");
-    g.fillStyle = gr;
-    g.fill();
-    g.lineWidth = 1.3;
-    g.strokeStyle = OL;
-    g.stroke();
-    ell(g, 0, -22 + (f % 2), 7, 3.5);
-    paint(g, GORE, 0);
-    // teeth
-    g.fillStyle = TOOTH;
-    g.strokeStyle = OL;
-    g.lineWidth = 0.5;
-    for (let i = -6; i <= 6; i++) {
-      const x = i * 2.3;
-      const top = -28 - open * Math.sqrt(1 - (x / 16) ** 2) + 0.5;
-      const bot = -28 + open * Math.sqrt(1 - (x / 16) ** 2) - 0.5;
-      g.beginPath();
-      g.moveTo(x - 1.1, top);
-      g.lineTo(x, top + 3.2 + (i % 2));
-      g.lineTo(x + 1.1, top);
-      g.fill();
-      g.stroke();
-      g.beginPath();
-      g.moveTo(x - 1.1, bot);
-      g.lineTo(x, bot - 3 - ((i + 1) % 2));
-      g.lineTo(x + 1.1, bot);
-      g.fill();
-      g.stroke();
-    }
-    // drool
-    g.strokeStyle = "rgba(220,240,200,0.7)";
-    g.lineWidth = 0.8;
-    g.beginPath();
-    g.moveTo(-5, -19);
-    g.lineTo(-5.5, -13 + a * 2);
-    g.moveTo(6, -19);
-    g.lineTo(6.3, -15 - a * 2);
-    g.stroke();
-    // a cluster of tiny eyes
-    for (const [x, y] of [[-6, -46], [-2, -49], [2, -48], [6, -45], [0, -44.5]]) {
-      ell(g, x, y, 1.4, 1.4);
-      paint(g, "#1a0a04", 0);
-      ell(g, x, y, 0.8, 0.8);
-      paint(g, GLOW, 0);
-    }
-    g.strokeStyle = "rgba(140,20,30,0.5)";
-    g.lineWidth = 0.6;
-    g.beginPath();
-    g.moveTo(-18, -40);
-    g.quadraticCurveTo(-12, -38, -14, -32);
-    g.moveTo(16, -42);
-    g.quadraticCurveTo(12, -40, 14, -34);
-    g.stroke();
-  } else if (id === "eye") {
+  const b = Math.cos((f / 4) * TAU);
+  if (id === "hollow") {
+    // it runs on all fours, on arms grown far too long; the jaw hangs open to the chest
+    for (const s of [-1, 1]) limb(g, [[s * 9, -18], [s * 17, -10 + s * a * 2], [s * 12, -1]], 5);
     for (const s of [-1, 1]) {
-      limb(g, [[s * 14, -34], [s * 28, -46 + s * a * 3], [s * 26, -10]], 3);
-      limb(g, [[s * 12, -24], [s * 22, -20 - s * a * 3], [s * 15, -1]], 3);
-      limb(g, [[s * 16, -42], [s * 32, -60 - s * a * 2], [s * 34, -34]], 2.6);
+      const sw = s * a * 4;
+      line(g, [[s * 13, -40], [s * 32, -34 + sw], [s * 30, -10 - sw]], 4.2, FLESH);
+      hand(g, s * 30, -8 - sw, Math.PI / 2 + s * 0.3, 1, FLESH_D, 0.2);
     }
-    ell(g, 0, -36, 21, 20);
-    paint(g, FLESH_D, 1.3);
     ell(g, 0, -36, 17, 16);
-    const gr = g.createRadialGradient(-5, -42, 2, 0, -36, 18);
-    gr.addColorStop(0, "#ffffff");
-    gr.addColorStop(1, "#d8ccb8");
-    g.fillStyle = gr;
-    g.fill();
-    g.strokeStyle = "rgba(190,30,40,0.8)";
-    g.lineWidth = 0.7;
-    for (const [x0, y0, x1, y1] of [[-16, -36, -7, -34], [16, -32, 7, -35], [-8, -50, -4, -42], [10, -48, 5, -41], [-12, -26, -5, -31]]) {
-      g.beginPath();
-      g.moveTo(x0, y0);
-      g.quadraticCurveTo((x0 + x1) / 2 + 2, (y0 + y1) / 2 - 2, x1, y1);
-      g.stroke();
-    }
-    const ig = g.createRadialGradient(0, -35, 1, 0, -35, 8);
-    ig.addColorStop(0, "#f8ff90");
-    ig.addColorStop(0.6, "#b8d030");
-    ig.addColorStop(1, "#4a6010");
-    ell(g, 0, -35, 7.5, 7.5);
-    g.fillStyle = ig;
-    g.fill();
-    ell(g, 0, -35, 1.6, 5.5);
-    paint(g, "#050505", 0);
-    ell(g, -2.6, -38, 1.4, 1);
-    paint(g, "#ffffff", 0);
-    // eyelids, blinking on the last frame
-    const lid = f === 3 ? 13 : 4;
-    g.beginPath();
-    g.ellipse(0, -36, 17.5, 16.5, 0, Math.PI, TAU);
-    g.lineTo(17.5, -36);
-    g.ellipse(0, -36 - 16.5 + lid, 17.5, lid, 0, 0, Math.PI, false);
-    g.closePath();
-    paint(g, FLESH, 1.1);
-    g.beginPath();
-    g.ellipse(0, -36, 17.5, 16.5, 0, 0, Math.PI);
-    g.ellipse(0, -36 + 16.5 - 3, 17.5, 3, 0, Math.PI, TAU, true);
-    g.closePath();
-    paint(g, FLESH, 1.1);
-    ell(g, 0, -15, 4, 1.4);
-    paint(g, "#2a0608", 0.8);
-  } else if (id === "crawler") {
-    for (const s of [-1, 1])
-      for (let i = 0; i < 4; i++) {
-        const lift = (i + (s > 0 ? 1 : 0) + f) % 2 === 0 ? -3 : 0;
-        const bx = s * (7 + i * 4);
-        limb(g, [[bx, -16], [s * (16 + i * 7), -26 + i * 2 + lift], [s * (19 + i * 7), -2 + lift * 0.5]], 3);
-      }
-    ell(g, 0, -16, 19, 10);
     paint(g, FLESH, 1.3);
-    ell(g, 5, -12, 11, 6);
+    // the spine has come through the skin
+    for (let i = 0; i < 6; i++) {
+      ell(g, (i % 2) * 1.5 - 0.7, -50 + i * 3.4, 2.6 - i * 0.2, 1.8);
+      paint(g, BONE, 0.7);
+    }
+    ell(g, 6, -28, 10, 9);
     g.fillStyle = alpha(FLESH_D, 0.5);
     g.fill();
-    // the head, hair dragging, the face upside down
+    // the head, low between the shoulders
+    ell(g, 0, -34, 10, 8);
+    paint(g, SKIN2, 1.1);
+    mouth(g, 0, -20 + a, 7, 12 + (f % 2));
+    drip(g, -4, -9, 4 + a * 2, "rgba(220,240,200,0.75)");
+    drip(g, 5, -10, 3 - a * 2, "rgba(220,240,200,0.75)");
+    eyes(g, [[-5, -38, 1.2], [-1.5, -40.5, 1], [2.5, -39.5, 1.3], [6, -37, 0.9], [0.5, -36.5, 0.8]]);
+  } else if (id === "hound") {
+    // six legs, and they do not all bend the same way
+    for (const [k, s] of [[0, -1], [0, 1], [1, -1], [1, 1], [2, -1], [2, 1]] as [number, number][]) {
+      const y0 = -30 + k * 8;
+      const ph = (k % 2 ? a : -a) * 3;
+      const knee: [number, number] = k === 1 ? [s * 22, y0 - 10 + ph] : [s * 28, y0 + 4 + ph];
+      limb(g, [[s * 12, y0], knee, [s * (24 + k * 2), -1 - (k === 1 ? ph : 0)]], 3.4, k === 1 ? SKIN3 : FLESH_D);
+    }
+    ell(g, 0, -28, 15, 19);
+    paint(g, FLESH_D, 1.3);
+    // the ribs show, and the spine is out, a row of thorns
+    g.strokeStyle = FLESH_S;
+    g.lineWidth = 1;
+    for (let i = -2; i <= 2; i++) {
+      g.beginPath();
+      g.moveTo(-12, -30 + i * 5);
+      g.quadraticCurveTo(0, -27 + i * 5, 12, -30 + i * 5);
+      g.stroke();
+    }
+    for (let i = 0; i < 7; i++) {
+      const y = -46 + i * 4.4;
+      g.beginPath();
+      g.moveTo(-2, y);
+      g.lineTo((i % 2 ? 1 : -1) * 1.5, y - 7 - (f % 2));
+      g.lineTo(2, y);
+      paint(g, BONE, 0.8);
+    }
+    // the head: a long skull with no lips
+    g.beginPath();
+    g.moveTo(-8, -18);
+    g.quadraticCurveTo(-7, -4, 0, 2);
+    g.quadraticCurveTo(7, -4, 8, -18);
+    g.closePath();
+    paint(g, SKIN2, 1.2);
+    mouth(g, 0, -6, 4.2, 6.5);
+    eyes(g, [[-4, -15, 1.3], [4, -15, 1.3], [0, -18, 0.9]]);
+  } else if (id === "spitter") {
+    // a thing of swollen throats; three mouths, all of them full
+    for (const s of [-1, 1]) limb(g, [[s * 12, -14], [s * 18, -7 + s * a], [s * 14, -1]], 5.5);
+    for (const s of [-1, 1]) line(g, [[s * 20, -42], [s * 27, -36 + s * a * 2], [s * 24, -28]], 2.6, SKIN3);
+    ell(g, 0, -40, 25, 26);
+    paint(g, SKIN2, 1.4);
+    // the sacs, glowing with what is in them
+    for (const [x, y, r] of [[-12, -30, 9], [11, -27, 10], [0, -54, 8]] as [number, number, number][]) {
+      ell(g, x, y, r + (f % 2) * 0.6, r * 0.85);
+      paint(g, "#c8b088", 1);
+      ell(g, x - r * 0.2, y - r * 0.2, r * 0.6, r * 0.45);
+      g.fillStyle = "rgba(190,220,70,0.55)";
+      g.fill();
+      g.strokeStyle = "rgba(120,30,40,0.6)";
+      g.lineWidth = 0.6;
+      g.beginPath();
+      g.moveTo(x - r * 0.6, y);
+      g.quadraticCurveTo(x, y + r * 0.3, x + r * 0.5, y - r * 0.2);
+      g.stroke();
+    }
+    mouth(g, -2, -41, 8, 4 + (f % 2));
+    mouth(g, -14, -46, 4, 2.5);
+    mouth(g, 13, -45, 4.5, 3);
+    drip(g, -2, -36, 6 + a * 2, BILE);
+    drip(g, 13, -42, 4 - a, BILE);
+    eyes(g, [[-6, -56, 1.2], [5, -58, 1], [0, -61, 0.8]]);
+  } else if (id === "burrower") {
+    // a worm the length of a cart; its mouth a ring of somebody's teeth
+    ell(g, 0, -4, 24, 7);
+    paint(g, "#4a3a2a", 1);
+    for (const [x, y, r] of [[-18, -6, 4], [16, -7, 5], [-9, -2, 3], [22, -2, 3]] as [number, number, number][]) {
+      ell(g, x, y, r, r * 0.7);
+      paint(g, "#5e4a34", 0.8);
+    }
+    for (let i = 0; i < 6; i++) {
+      const t = i / 5;
+      const y = -8 - t * 58;
+      const x = Math.sin(t * 3 + a * 0.8) * 4;
+      ell(g, x, y, 15 - t * 2, 7);
+      paint(g, i % 2 ? SKIN2 : FLESH, 1.2);
+      g.strokeStyle = alpha(FLESH_S, 0.6);
+      g.lineWidth = 0.8;
+      g.beginPath();
+      g.moveTo(x - 10, y + 1);
+      g.quadraticCurveTo(x, y + 4, x + 10, y + 1);
+      g.stroke();
+    }
+    const hx = Math.sin(3 + a * 0.8) * 4;
+    ell(g, hx, -72, 17, 14);
+    paint(g, "#c28a80", 1.4);
+    ell(g, hx, -72, 12, 9.5);
+    paint(g, "#2a0508", 1);
+    // human teeth, blunt, all the way round
+    g.fillStyle = BONE;
+    g.strokeStyle = OL;
+    g.lineWidth = 0.5;
+    for (let k = 0; k < 14; k++) {
+      const an = (k / 14) * TAU + f * 0.1;
+      const tx = hx + Math.cos(an) * 11;
+      const ty = -72 + Math.sin(an) * 8.5;
+      g.save();
+      g.translate(tx, ty);
+      g.rotate(an + Math.PI / 2);
+      g.fillRect(-1.3, 0, 2.6, 3.2);
+      g.strokeRect(-1.3, 0, 2.6, 3.2);
+      g.restore();
+    }
+    ell(g, hx, -71, 5, 3.5);
+    paint(g, GORE, 0);
+  } else if (id === "hands") {
+    // no body: only arms, knotted together, walking on their fingers
+    const arms: [number, number, string, boolean][] = [
+      [-2.7, 40, FLESH, false], [-2.1, 36, SKIN2, true], [-1.2, 30, PALE, false], [-0.4, 36, SKIN3, false],
+      [0.4, 34, FLESH, true], [1.2, 30, SKIN2, false], [2.0, 36, PALE, false], [2.7, 40, SKIN3, true],
+    ];
+    arms.forEach(([dir0, len, skin, ring], k) => {
+      const dir = dir0 + Math.PI / 2 * 0 + (k % 2 ? a : -a) * 0.12;
+      const ex = Math.sin(dir) * len;
+      const ey = -30 - Math.cos(dir) * len * 0.55 + 30 * (Math.abs(dir) > 1.2 ? 0.9 : 0.4);
+      const mx = Math.sin(dir) * len * 0.55;
+      const my = -42 - (k % 2 ? 6 : 2) + (k % 2 ? b : -b) * 2;
+      line(g, [[0, -32], [mx, my], [ex, Math.min(-2, ey)]], 3.6, skin);
+      hand(g, ex, Math.min(-2, ey), Math.PI / 2 + Math.sin(dir) * 0.6, 1.35, skin, (k % 2) * 0.3 + (f % 2) * 0.2, ring);
+    });
+    ell(g, 0, -32, 14, 11);
+    paint(g, SKIN2, 1.3);
+    stitches(g, [[-9, -36], [-2, -30], [8, -34]]);
+    ell(g, -4, -36, 5, 3);
+    g.fillStyle = alpha(FLESH_D, 0.6);
+    g.fill();
+    // one arm, raised, always reaching
+    line(g, [[2, -40], [6 + a * 3, -54], [4 + a * 4, -64]], 3.2, PALE);
+    hand(g, 4 + a * 4, -66, -Math.PI / 2, 1.4, PALE, 0.4 + (f % 2) * 0.3);
+  } else if (id === "collector") {
+    // a belly like a sack, sewn shut; souls glow inside; no face, only a slit
+    for (const s of [-1, 1]) limb(g, [[s * 9, -14], [s * 13, -7 + s * a * 2], [s * 10, -1]], 3.2);
+    ell(g, 0, -34, 22, 23);
+    paint(g, "#a89478", 1.4);
+    for (const [x, y, r] of [[-7, -30, 5], [6, -38, 4], [4, -24, 3.5]] as [number, number, number][]) {
+      ell(g, x, y, r + (f % 2) * 0.5, r);
+      g.fillStyle = `rgba(184,255,224,${0.35 + 0.15 * (f % 2)})`;
+      g.fill();
+    }
+    stitches(g, [[-2, -56], [0, -44], [-3, -30], [1, -16]]);
+    g.strokeStyle = alpha(FLESH_S, 0.5);
+    g.lineWidth = 0.7;
     for (const s of [-1, 1]) {
       g.beginPath();
-      g.moveTo(s * 6, -32);
-      g.bezierCurveTo(s * 13, -24, s * 10, -10, s * 13 + a, 0);
-      g.lineTo(s * 8 + a, 0);
-      g.bezierCurveTo(s * 6, -10, s * 7, -22, s * 3, -30);
-      paint(g, "#141214", 1);
+      g.moveTo(s * 18, -46);
+      g.quadraticCurveTo(s * 22, -30, s * 14, -16);
+      g.stroke();
     }
-    ell(g, 0, -26, 8, 9);
-    paint(g, FLESH, 1.2);
-    g.beginPath();
-    g.moveTo(-5, -31);
-    g.quadraticCurveTo(0, -36, 5, -31);
-    g.quadraticCurveTo(0, -28, -5, -31);
-    paint(g, "#2a0608", 0.8);
-    g.fillStyle = TOOTH;
-    for (let x = -3.5; x <= 3.5; x += 1.75) g.fillRect(x - 0.4, -32.2, 0.8, 1.4);
+    // long thin arms and too many fingers
     for (const s of [-1, 1]) {
-      ell(g, s * 3, -22, 1.6, 2);
-      paint(g, "#100804", 0);
-      ell(g, s * 3, -21.8, 0.8, 1);
-      paint(g, GLOW, 0);
+      line(g, [[s * 16, -46], [s * 30, -40 + s * a * 2], [s * 28, -24]], 2.2, SKIN3);
+      hand(g, s * 28, -22, Math.PI / 2 + s * 0.2, 1.1, SKIN3, 0.5);
     }
+    ell(g, 0, -62, 7, 9);
+    paint(g, SKIN2, 1.2);
     g.beginPath();
-    g.moveTo(-8, -33);
-    g.quadraticCurveTo(0, -40, 8, -33);
-    g.lineWidth = 3;
-    g.strokeStyle = "#141214";
+    g.moveTo(0, -68);
+    g.lineTo(0.6, -57);
+    g.lineWidth = 1.6;
+    g.strokeStyle = "#2a0508";
     g.stroke();
   } else {
+    // the Colossus: stitched out of many, and the parts still move on their own
     for (const s of [-1, 1]) {
-      line(g, [[s * 12, -26], [s * 15, -10 + s * a * 2], [s * 12, -2]], 10, FLESH_D);
-      ell(g, s * 12, -1, 7, 3);
+      line(g, [[s * 16, -34], [s * 20, -14 + s * a * 2], [s * 16, -2]], 13, s < 0 ? FLESH_D : SKIN3);
+      ell(g, s * 16, -1, 9, 3.5);
       paint(g, FLESH_S, 1);
     }
     // the great dragging arm
-    line(g, [[-28, -76], [-42, -48], [-44, -14 + a * 2]], 12, FLESH);
-    ell(g, -44, -8 + a * 2, 10, 7);
-    paint(g, FLESH_D, 1.2);
-    for (const d of [-6, -2, 2, 6]) {
-      g.beginPath();
-      g.moveTo(-44 + d, -4 + a * 2);
-      g.lineTo(-44 + d * 1.2, 0 + a * 2);
-      g.lineWidth = 2;
-      g.strokeStyle = FLESH_S;
-      g.stroke();
+    line(g, [[-34, -86], [-54, -56], [-56, -16 + a * 2]], 13, FLESH);
+    hand(g, -56, -12 + a * 2, Math.PI / 2, 1.8, FLESH_D, 0.3);
+    // limbs that belong to other people, stuck out at every angle
+    line(g, [[30, -92], [46, -108 + b * 3], [56, -104]], 4, PALE);
+    hand(g, 58, -104, 0.2, 1, PALE, 0.5 + (f % 2) * 0.3, true);
+    line(g, [[36, -62], [54, -60 + a * 4], [60, -46]], 5, SKIN2);
+    limb(g, [[60, -46], [62, -40]], 4, SKIN2);
+    line(g, [[-24, -100], [-30, -118 + a * 2], [-22, -126]], 3.6, SKIN3);
+    hand(g, -21, -127, -1.2, 0.9, SKIN3, 0.6);
+    line(g, [[24, -40], [40, -26], [38, -10]], 6, PALE);
+    ell(g, 38, -8, 6, 3);
+    paint(g, PALE, 1);
+    ell(g, 0, -66, 40, 42);
+    paint(g, FLESH, 1.5);
+    // patches of other skins
+    for (const [x, y, rx, ry, c] of [[-18, -80, 16, 14, SKIN2], [16, -52, 18, 20, SKIN3], [-14, -46, 12, 12, PALE]] as [number, number, number, number, string][]) {
+      ell(g, x, y, rx, ry, 0.3);
+      paint(g, c, 1);
     }
-    limb(g, [[26, -64], [36, -50], [32, -36]], 4);
-    ell(g, 0, -56, 34, 34);
-    paint(g, FLESH, 1.4);
-    ell(g, 10, -46, 20, 22);
-    g.fillStyle = alpha(FLESH_D, 0.55);
-    g.fill();
-    ell(g, -12, -70, 12, 9);
-    g.fillStyle = "rgba(255,240,220,0.25)";
-    g.fill();
-    // stitches
-    g.strokeStyle = FLESH_S;
-    g.lineWidth = 1.2;
-    g.beginPath();
-    g.moveTo(-10, -84);
-    g.bezierCurveTo(-4, -64, -8, -44, -2, -26);
-    g.stroke();
-    for (let i = 0; i < 9; i++) {
-      const t = i / 8;
-      const x = -10 + 8 * t + Math.sin(t * 3) * 2;
-      const y = -84 + 58 * t;
-      g.beginPath();
-      g.moveTo(x - 3, y);
-      g.lineTo(x + 3, y + 1);
-      g.stroke();
-    }
-    for (const [x, y, r] of [[10, -60, 4], [18, -46, 3.2], [6, -38, 3.6]]) {
-      ell(g, x, y, r + 1, r);
-      paint(g, "#2a0608", 1);
-      ell(g, x, y, r * 0.55, r * 0.55);
-      paint(g, GLOW, 0);
-    }
-    ell(g, 0, -92, 8, 8);
-    paint(g, FLESH, 1.2);
-    for (const s of [-1, 1]) {
-      g.beginPath();
-      g.moveTo(s * 1.5, -93);
-      g.lineTo(s * 5, -93);
-      g.lineWidth = 1;
-      g.strokeStyle = FLESH_S;
-      g.stroke();
-    }
+    stitches(g, [[-34, -74], [-18, -66], [-4, -84], [12, -76], [30, -82]]);
+    stitches(g, [[-6, -104], [-2, -82], [4, -60], [-2, -36]]);
+    stitches(g, [[-28, -50], [-12, -58], [4, -46]]);
+    // two faces sewn in, and eyes where they should not be
+    ell(g, -16, -78, 6, 7);
+    paint(g, PALE, 0.8);
+    eyes(g, [[-18, -80, 1.2], [-13, -80, 1.2]]);
+    mouth(g, -15, -73, 3.5, 2);
+    mouth(g, 14, -56, 9, 6 + (f % 2));
+    eyes(g, [[8, -76, 2.6], [20, -72, 1.8], [-24, -56, 1.6], [2, -38, 1.4], [26, -88, 1.2]]);
+    // the head, small, on top
+    ell(g, 2, -110, 9, 9);
+    paint(g, SKIN2, 1.2);
+    eyes(g, [[-1, -112, 1.1], [5, -112, 1.1]]);
     g.fillStyle = "#2a0608";
-    g.fillRect(-2.5, -88, 5, 1.4);
+    g.fillRect(-1, -106, 6, 1.4);
   }
 }
 
@@ -1767,7 +1873,7 @@ export function allLands(S: number): Land[] {
  * Things to pick up, companions, small things
  * ==================================================================== */
 
-export type Picks = Record<"seed" | "bow" | "sword" | "trap" | "bark" | "heart" | "hound" | "raven" | "doe", Spr>;
+export type Picks = Record<"soul" | "bow" | "sword" | "trap" | "rune" | "heart" | "hound" | "raven" | "doe", Spr>;
 
 /** icons for the HUD are drawn without the soft light around them */
 let glowOn = true;
@@ -1868,19 +1974,27 @@ export function pickSprites(S: number, big = true): Picks {
     });
   const small = big ? 1.4 : 1;
   return {
-    seed: box((g) => {
-      glow(g, 10);
-      ell(g, 0, -6, 3.4, 4.6);
-      const gr = g.createLinearGradient(-3, -10, 3, -2);
-      gr.addColorStop(0, "#fff4b0");
-      gr.addColorStop(1, "#d89a2a");
+    soul: box((g) => {
+      // a soul-light: a small pale flame cupping a heart
+      glow(g, 12, "rgba(184,255,224,0.45)");
+      g.beginPath();
+      g.moveTo(0, -18);
+      g.bezierCurveTo(6, -11, 6, -4, 0, -2);
+      g.bezierCurveTo(-6, -4, -6, -11, 0, -18);
+      const gr = g.createLinearGradient(0, -18, 0, -2);
+      gr.addColorStop(0, "#ffffff");
+      gr.addColorStop(1, "#8ae8c8");
       g.fillStyle = gr;
       g.fill();
-      g.lineWidth = 0.9;
-      g.strokeStyle = OL;
+      g.lineWidth = 0.8;
+      g.strokeStyle = "rgba(40,90,80,0.9)";
       g.stroke();
-      line(g, [[0, -10], [0.5, -13], [2.5, -14]], 1, "#6ac04a");
-    }, 20, 22, small),
+      g.save();
+      g.translate(0, 1.5);
+      g.scale(0.38, 0.38);
+      heartShape(g, "#e8607a", "#ffd0da", "rgba(0,0,0,0)");
+      g.restore();
+    }, 20, 24, small),
     bow: box((g) => {
       glow(g, 14);
       g.beginPath();
@@ -1940,26 +2054,20 @@ export function pickSprites(S: number, big = true): Picks {
         g.fill();
       }
     }, 30, 22),
-    bark: box((g) => {
-      glow(g, 13);
+    rune: box((g) => {
+      // a standing rune-stone, its ogham strokes glowing
+      glow(g, 14, "rgba(160,230,255,0.35)");
       g.beginPath();
-      g.moveTo(-8, -22);
-      g.lineTo(8, -22);
-      g.lineTo(8, -10);
-      g.quadraticCurveTo(7, -3, 0, -1);
-      g.quadraticCurveTo(-7, -3, -8, -10);
+      g.moveTo(-6, -2);
+      g.lineTo(-7, -18);
+      g.quadraticCurveTo(0, -27, 7, -18);
+      g.lineTo(6, -2);
       g.closePath();
-      paint(g, "#8a6440", 1.2);
-      g.strokeStyle = "#5a3e26";
-      g.lineWidth = 1;
-      for (const x of [-4, 0, 4]) {
-        g.beginPath();
-        g.moveTo(x, -20);
-        g.lineTo(x + 0.6, -5);
-        g.stroke();
-      }
-      ell(g, 2, -13, 2, 1.4, 0.4);
-      paint(g, "#8ae05a", 0.6);
+      paint(g, "#8a8478", 1.2);
+      line(g, [[0, -22], [0, -4]], 1.2, "#a8e8ff", false);
+      for (const [y, d] of [[-19, -1], [-16, 1], [-12, -1], [-8, 1]] as [number, number][]) line(g, [[0, y], [d * 4, y + 1]], 1.1, "#a8e8ff", false);
+      ell(g, -3, -6, 2.4, 1.2);
+      paint(g, "#5a7a3a", 0);
     }),
     heart: box((g) => {
       glow(g, 12, "rgba(255,120,140,0.3)");
@@ -1990,7 +2098,7 @@ function heartShape(g: G, fill: string, shine: string, edge = OL) {
   paint(g, shine, 0);
 }
 
-export type IconId = Exclude<keyof Picks, "seed"> | "heartEmpty";
+export type IconId = keyof Picks | "heartEmpty";
 
 /** the same pictures as on the ground, as image URLs for the HUD and the touch buttons */
 export function iconUrls(): Record<IconId, string> {
@@ -1998,7 +2106,7 @@ export function iconUrls(): Record<IconId, string> {
   try {
     const p = pickSprites(3, false);
     const out = {} as Record<IconId, string>;
-    for (const k of Object.keys(p) as (keyof Picks)[]) if (k !== "seed") out[k] = p[k].c.toDataURL();
+    for (const k of Object.keys(p) as (keyof Picks)[]) out[k] = p[k].c.toDataURL();
     out.heartEmpty = bake(3, 26, 24, 13, 21, (g) => heartShape(g, "#2a2022", "#2a2022", "#9a8a8c")).c.toDataURL();
     return out;
   } finally {
@@ -2044,3 +2152,140 @@ export function trapSet(S: number): Spr {
     }
   });
 }
+
+/* ---------------- what the rot left: burnt-out houses, and bones ---------------- */
+
+const CHAR = "#2a2420";
+const CHAR_L = "#4a3e34";
+const ASH = "#6a645c";
+
+/** burnt-out ruins, solid: a corner of wall with its chimney, a fallen roof of beams, a cart on its side */
+export function ruinSprites(S: number): Spr[] {
+  return [0, 1, 2].map((v) =>
+    bake(S, 96, 86, 48, 80, (g) => {
+      const r = rnd(v * 31 + 7);
+      ell(g, 0, 0, 44, 9);
+      g.fillStyle = "rgba(20,16,14,0.45)";
+      g.fill();
+      for (let k = 0; k < 10; k++) {
+        ell(g, (r() - 0.5) * 80, (r() - 0.6) * 10, 4 + r() * 6, 2 + r() * 2);
+        paint(g, r() < 0.5 ? ASH : CHAR, 0);
+      }
+      if (v === 0) {
+        // a corner of stone wall, and the chimney still standing
+        g.beginPath();
+        g.moveTo(-40, 0);
+        g.lineTo(-40, -30);
+        g.lineTo(-30, -38);
+        g.lineTo(-18, -30);
+        g.lineTo(-8, -40);
+        g.lineTo(-2, -26);
+        g.lineTo(6, -18);
+        g.lineTo(6, 0);
+        g.closePath();
+        paint(g, "#5a5248", 1.3);
+        g.strokeStyle = "rgba(20,16,14,0.6)";
+        g.lineWidth = 0.8;
+        for (let y = -6; y > -36; y -= 7)
+          for (let x = -38 + ((y / 7) % 2) * 5; x < 4; x += 10) g.strokeRect(x, y - 6, 10, 7);
+        g.fillStyle = "rgba(10,8,6,0.55)";
+        g.fillRect(-40, -30, 46, 14);
+        g.beginPath();
+        g.rect(20, -74, 14, 74);
+        paint(g, "#4e463e", 1.3);
+        g.fillStyle = "rgba(10,8,6,0.6)";
+        g.fillRect(20, -74, 14, 30);
+        line(g, [[6, -8], [40, -2]], 3.4, CHAR);
+        line(g, [[-14, -4], [14, -14]], 3, CHAR_L);
+      } else if (v === 1) {
+        // the roof came down: charred beams, crossed, and a door frame
+        g.beginPath();
+        g.moveTo(-34, 0);
+        g.lineTo(-34, -46);
+        g.lineTo(-18, -46);
+        g.lineTo(-18, 0);
+        g.lineWidth = 5;
+        g.strokeStyle = OL;
+        g.stroke();
+        g.lineWidth = 3;
+        g.strokeStyle = CHAR_L;
+        g.stroke();
+        for (const [x0, y0, x1, y1] of [[-40, -6, 38, -40], [-30, -38, 40, -4], [-10, 0, 30, -30], [0, -2, -24, -24]]) line(g, [[x0, y0], [x1, y1]], 4.2, CHAR);
+        for (let k = 0; k < 5; k++) {
+          const x = -20 + k * 12;
+          g.fillStyle = "rgba(255,120,40,0.35)";
+          g.fillRect(x, -12 - (k % 2) * 8, 2, 2);
+        }
+      } else {
+        // a cart on its side, one wheel in the air
+        g.beginPath();
+        g.moveTo(-36, -4);
+        g.lineTo(-30, -30);
+        g.lineTo(24, -30);
+        g.lineTo(30, -4);
+        g.closePath();
+        paint(g, CHAR_L, 1.3);
+        for (let x = -26; x < 26; x += 9) line(g, [[x, -28], [x + 4, -6]], 1.2, CHAR, false);
+        ell(g, 22, -44, 14, 14);
+        paint(g, "rgba(0,0,0,0)", 3);
+        ell(g, 22, -44, 14, 14);
+        g.lineWidth = 2;
+        g.strokeStyle = CHAR_L;
+        g.stroke();
+        for (let k = 0; k < 6; k++) {
+          const an = (k / 6) * TAU;
+          line(g, [[22, -44], [22 + Math.cos(an) * 13, -44 + Math.sin(an) * 13]], 1.2, CHAR_L, false);
+        }
+        line(g, [[-36, -6], [-56, 2]], 3, CHAR);
+      }
+    }),
+  );
+}
+
+/** bones and ash on the ground, flat; you ride over them */
+export function boneSprites(S: number): Spr[] {
+  return [0, 1, 2, 3].map((v) =>
+    bake(S, 60, 30, 30, 22, (g) => {
+      const r = rnd(v * 17 + 3);
+      ell(g, 0, 0, 24, 7);
+      g.fillStyle = v === 3 ? "rgba(70,64,56,0.55)" : "rgba(40,34,30,0.35)";
+      g.fill();
+      const n = v === 3 ? 2 : 5 + v * 2;
+      for (let k = 0; k < n; k++) {
+        const x = (r() - 0.5) * 36;
+        const y = (r() - 0.5) * 8;
+        const an = r() * TAU;
+        const len = 6 + r() * 7;
+        line(g, [[x - Math.cos(an) * len / 2, y - Math.sin(an) * len / 2], [x + Math.cos(an) * len / 2, y + Math.sin(an) * len / 2]], 1.8, BONE_C);
+        for (const e of [-1, 1]) {
+          ell(g, x + (Math.cos(an) * len / 2) * e, y + (Math.sin(an) * len / 2) * e, 1.5, 1.5);
+          paint(g, BONE_C, 0.5);
+        }
+      }
+      if (v === 0 || v === 2) {
+        // a skull
+        ell(g, 4, -4, 5.5, 4.8);
+        paint(g, BONE_C, 0.9);
+        ell(g, 2.4, -4.5, 1.3, 1.4);
+        paint(g, "#1a1410", 0);
+        ell(g, 5.8, -4.5, 1.3, 1.4);
+        paint(g, "#1a1410", 0);
+        g.fillStyle = "#1a1410";
+        g.fillRect(3.2, -1.6, 2, 1.2);
+      }
+      if (v === 2) {
+        // a ribcage
+        for (let k = 0; k < 4; k++) {
+          g.beginPath();
+          g.moveTo(-14, -6 + k * 3);
+          g.quadraticCurveTo(-8, -10 + k * 3, -2, -6 + k * 3);
+          g.lineWidth = 1.2;
+          g.strokeStyle = BONE_C;
+          g.stroke();
+        }
+      }
+      if (v === 3) line(g, [[-18, 2], [16, -3]], 3.2, CHAR);
+    }),
+  );
+}
+const BONE_C = "#d8cfba";

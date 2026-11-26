@@ -7,12 +7,12 @@
  * and leap at you when they are close. You can't outrun them: lead them into things.
  */
 import {
-  BIOMES, GOAL_M, LETTER_GAP_M, LIFE, MISSION, MONSTERS, OBSTACLES, TUNE, huntersAt,
-  type Kind, type Look, type MonsterId, type Mount, type PickKind, type Rider,
+  BIOMES, ENDLESS, FORD, GOAL_M, LETTER_GAP_M, LIFE, MISSION, MISSION_ROSTER, MONSTERS, OBSTACLES, RUIN, RUNE, SPELLS, TUNE, huntersAt,
+  type Kind, type Look, type MonsterId, type Mount, type PickKind, type Rider, type SpellId,
 } from "./config";
 import { emptyStats, type Mission, type Settings, type Stats } from "./meta";
 import {
-  FALLEN, GROUND_TILE, HERO, HERO_FRAMES, MONSTER_BOX, allLands, companionRun, fallenFrame, heroFrame, heroFrames, letterStone, mix, monsterFrames, pickSprites, trapSet,
+  FALLEN, GROUND_TILE, HERO, HERO_FRAMES, MONSTER_BOX, allLands, boneSprites, ruinSprites, companionRun, fallenFrame, heroFrame, heroFrames, letterStone, mix, monsterFrames, pickSprites, trapSet,
   type Land, type Picks, type Spr,
 } from "./sprites";
 import { sfx } from "./sound";
@@ -30,9 +30,9 @@ const CELL = 160;
 type Obstacle = { id: number; kind: Kind; x: number; y: number; w: number; h: number; v: number; dead?: boolean; cleared?: boolean; vid?: number; scar?: boolean };
 type Pick = { id: number; kind: PickKind; x: number; y: number; taken?: boolean; letter?: string };
 /** life in the woods: crows and flies in the rot, butterflies and small birds where it is green */
-type Critter = { kind: "crow" | "flies" | "butterfly" | "finch"; x: number; y: number; ph: number; c: string; flown?: number };
-type Cell = { obs: Obstacle[]; picks: Pick[]; scar?: boolean; life?: Critter[] };
-type MState = "emerge" | "run" | "windup" | "lunge" | "recover" | "stunned" | "rooted" | "dying" | "gone";
+type Critter = { kind: "crow" | "flies" | "butterfly" | "finch" | "fairy"; x: number; y: number; ph: number; c: string; flown?: number; ring?: { cx: number; cy: number; i: number; n: number } };
+type Cell = { obs: Obstacle[]; picks: Pick[]; scar?: boolean; life?: Critter[]; decor?: { x: number; y: number; v: number }[] };
+type MState = "emerge" | "run" | "windup" | "lunge" | "recover" | "stunned" | "rooted" | "flee" | "dying" | "gone" | "under" | "burst" | "swell" | "reach";
 /** something alive the monsters would eat: an animal crossing, or someone from a village */
 type Prey = {
   id: number; kind: AnimalId | "villager"; v: number; x: number; y: number; vx: number; vy: number;
@@ -62,19 +62,61 @@ type Monster = {
   fed?: number;
   /** made from the people of a lost village */
   turned?: boolean;
+  /** what is left of it (arrows), and a flash when hit */
+  hp: number; hitT: number;
+  /** which side it flees to, the Collector's stolen soul */
+  side: number; stolen?: boolean;
+  /** the Hands: where the arm is thrown */
+  reachX?: number;
 };
-type Companion = { kind: "hound" | "raven" | "doe"; x: number; y: number; state: "follow" | "act" | "gone"; t: number; target?: Monster; vx: number; kills?: number };
+type Spit = { x: number; y: number; tx: number; ty: number; t: number; dur: number };
+type Puddle = { x: number; y: number; t: number; hit?: boolean };
+type Companion = { kind: "hound" | "raven" | "doe"; x: number; y: number; state: "follow" | "fight" | "rest" | "gone"; t: number; target?: Monster; vx: number; kills?: number };
+type Dir4 = "up" | "down" | "left" | "right";
+type Ford = { id: number; y0: number; y1: number; cx: number; land: number; rows: { y: number; xs: number[]; ok: number; passed?: boolean }[]; lit: number; bridged?: boolean; slipped?: boolean; told?: boolean; counted?: boolean };
+type Wisp = { id: number; x: number; y: number; vx: number; ph: number; memory: number; clarify: boolean; hit?: number };
+type Cast = { seq: Dir4[]; got: number; t: number; limit: number; spell: SpellId; end?: number; ok?: boolean };
 type Particle = { x: number; y: number; vx: number; vy: number; life: number; c: string; r: number; ground?: boolean };
 
 export type Choice = { rider: Rider; mount: Mount; look: Look };
 
 export type Hud = {
   metres: number; kmh: number; score: number; multiplier: number; hearts: number; maxHearts: number;
-  arrows: number; swords: number; maxSwords: number; traps: number; bark: boolean;
-  ability: string; abilityReady: number; companion: string | null; danger: number;
+  arrows: number; swords: number; maxSwords: number; traps: number;
+  rune: SpellId | null; casting: boolean; focus: number; homing: number;
+  ability: string; abilityReady: number; companion: string | null; companionRest: boolean; danger: number;
   biome: string; wordGot: number; aiming: boolean;
   mode: Mode; souls: number; need: number; land: number; finale: boolean; finaleT: number;
 };
+
+/** soft round glows, painted once per colour and stamped wherever they are needed */
+const GLOWS = new Map<string, HTMLCanvasElement>();
+function glowCanvas(rgb: string) {
+  let c = GLOWS.get(rgb);
+  if (!c) {
+    c = document.createElement("canvas");
+    c.width = c.height = 64;
+    const g = c.getContext("2d")!;
+    const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, `rgba(${rgb},1)`);
+    gr.addColorStop(1, `rgba(${rgb},0)`);
+    g.fillStyle = gr;
+    g.fillRect(0, 0, 64, 64);
+    GLOWS.set(rgb, c);
+  }
+  return c;
+}
+
+/** a copy of a sprite with a canvas filter baked in (filters are slow when drawn every frame) */
+function tinted(s: Spr, filter: string): Spr {
+  const c = document.createElement("canvas");
+  c.width = s.c.width;
+  c.height = s.c.height;
+  const g = c.getContext("2d")!;
+  g.filter = filter;
+  g.drawImage(s.c, 0, 0);
+  return { ...s, c };
+}
 
 export type GameEvent =
   | { type: "say"; text: string; important?: boolean }
@@ -82,6 +124,9 @@ export type GameEvent =
   | { type: "letter"; got: number; done: boolean }
   | { type: "biome"; index: number }
   | { type: "seen"; monster: MonsterId }
+  | { type: "killed"; monster: MonsterId }
+  | { type: "wisp"; memory: number; clear: boolean }
+  | { type: "spell"; spell: SpellId; ok: boolean }
   | { type: "seenKind"; kind: Kind | "prey" | "village" }
   | { type: "swordFirst" }
   | { type: "saved"; village: string; kind: VillageKind; size: VillageSize; names: string[]; memory: number; clear: boolean; line?: string; gift?: string }
@@ -141,10 +186,10 @@ const hash2 = (x: number, y: number) => {
 /** hit boxes, in world units */
 const SIZE: Record<Kind, [number, number]> = {
   tree: [16, 10], boulder: [46, 16], menhir: [20, 10], stone: [18, 8], pit: [50, 20], log: [88, 12], thorns: [84, 12], arch: [104, 12],
-  cottage: [104, 46], well: [28, 12],
+  cottage: [104, 46], well: [28, 12], ruin: [70, 16],
 };
 const SEES_AS: Partial<Record<Kind, "tree" | "pit">> = {
-  tree: "tree", boulder: "tree", menhir: "tree", stone: "tree", arch: "tree", pit: "pit", cottage: "tree", well: "tree",
+  tree: "tree", boulder: "tree", menhir: "tree", stone: "tree", arch: "tree", pit: "pit", cottage: "tree", well: "tree", ruin: "tree",
 };
 const fmtN = (n: number) => Math.round(n).toLocaleString("en-GB");
 /** world x of the gate arches nearest to x (one every 260 px) */
@@ -169,11 +214,13 @@ export class Game {
   private deathDir = 1;
   private lands: Land[] = [];
   private mons = {} as Record<MonsterId, Spr[]>;
+  private ruinArt: Spr[] = [];
+  private boneArt: Spr[] = [];
   private picksArt!: Picks;
   private runArt = {} as Record<"hound" | "raven" | "doe", Spr[]>;
   private trapArt!: Spr;
   private letters = new Map<string, Spr>();
-  private life!: { cottage: Spr[]; well: Spr; folk: Spr[][]; animals: Record<AnimalId, Spr[]>; gates: Spr[]; gold: Spr; trees: Spr[] };
+  private life!: { cottage: Spr[]; cottageGrey: Spr[]; cottageLost: Spr[]; well: Spr; folk: Spr[][]; animals: Record<AnimalId, Spr[]>; gates: Spr[]; gold: Spr; trees: Spr[] };
 
   // world
   private seed = (Math.random() * 1e9) | 0;
@@ -206,9 +253,25 @@ export class Game {
   private arrows = 0;
   private swords = 0;
   private traps = 0;
-  private bark = false;
-  private shieldReady = true;
-  private shieldAt = 0;
+  /** the rune you carry, and the one being cast */
+  private rune: SpellId | null = null;
+  private casting: Cast | null = null;
+  /** the Hands have hold of you */
+  private grab: { q: Monster; t: number } | null = null;
+  private spits: Spit[] = [];
+  private puddles: Puddle[] = [];
+  /** the Colossus comes rarely, and only to someone armed */
+  private nextBoss = 0;
+  private bossDone = false;
+  private lastCast: { ok: boolean; t: number } | undefined;
+  private homing = 0;
+  private bridge = false;
+  private lastSpell: SpellId | undefined;
+  /** the bow: where the mouse or the right stick points (screen units), and the calm of a drawn string */
+  private pointer: { x: number; y: number; t: number } | null = null;
+  private stick: number | null = null;
+  private focus = 1;
+  private slow = 1;
   private cool = 0;
   private comp: Companion | null = null;
   private mult: number;
@@ -221,7 +284,14 @@ export class Game {
   private respawn = 1.5;
   private pending: { t: number; n: number }[] = [];
   private placed: { x: number; y: number; alive: boolean; id: number }[] = [];
-  private shots: { x: number; y: number; vx: number; vy: number; life: number; spear?: boolean; to?: Obstacle }[] = [];
+  private shots: { x: number; y: number; vx: number; vy: number; life: number; spear?: boolean; to?: Obstacle; home?: boolean; skip?: number[] }[] = [];
+  private fords: Ford[] = [];
+  private fordDone = -1;
+  private fordAtM = 0;
+  private wisps: Wisp[] = [];
+  private nextWisp = 0;
+  private soulRun = 0;
+  private drops: { x: number; y: number; l: number; s: number }[] = [];
   private fx: Particle[] = [];
   private swing = 0;
 
@@ -285,7 +355,8 @@ export class Game {
     this.startLand = Math.max(0, Math.min(BIOMES.length - 1, opts.startLand ?? 0));
     this.land = this.biome = this.startLand;
     this.trans = { from: this.startLand, t: 1 };
-    this.mOff = BIOMES[this.startLand].from;
+    // the endless ride always starts from nothing, whatever land it is painted in
+    this.mOff = this.mode === "endless" ? 0 : BIOMES[this.startLand].from;
     this.memories = [...(opts.memories ?? [])];
     this.clear = [...(opts.clear ?? [])];
     this.needBase = this.need = MISSION.need[this.land];
@@ -293,6 +364,11 @@ export class Game {
     this.mult = opts.multiplier;
     this.wordGot = opts.wordGot;
     this.speed = this.targetSpeed();
+    if (this.mode === "mission") this.arrows = MISSION.arrows;
+    const [wa, wb] = this.mode === "mission" ? MISSION.wispGap : ENDLESS.wispGap;
+    this.nextWisp = 120 + Math.random() * (wb - wa) * 0.5 + wa * 0.4;
+    this.fordAtM = this.mode === "endless" ? FORD.endlessGap[0] * 0.6 : MISSION.fordAt[0] + Math.random() * (MISSION.fordAt[1] - MISSION.fordAt[0]);
+    for (let i = 0; i < 110; i++) this.drops.push({ x: Math.random() * 1600, y: Math.random() * VIEW_H, l: 7 + Math.random() * 7, s: 0.8 + Math.random() * 0.5 });
     if (opts.showcase) this.y = 400;
     this.resize();
     if (this.mode === "tutorial") this.tutorialNext();
@@ -308,11 +384,15 @@ export class Game {
     this.trapArt = trapSet(S);
     this.letters.clear();
     for (const id of Object.keys(MONSTERS) as MonsterId[]) this.mons[id] = monsterFrames(S, id);
+    this.ruinArt = ruinSprites(S);
+    this.boneArt = boneSprites(S);
     for (const id of ["hound", "raven", "doe"] as const) this.runArt[id] = companionRun(S, id);
     this.hero = heroFrames(S, this.o.choice.rider.id, this.o.choice.mount.id, this.o.choice.look);
     this.fallen = null;
     this.life = {
       cottage: cottageSprites(S),
+      cottageGrey: [],
+      cottageLost: [],
       well: wellSprite(S),
       folk: villagerSprites(S),
       animals: animalSprites(S),
@@ -342,7 +422,8 @@ export class Game {
 
   resize() {
     const r = this.canvas.getBoundingClientRect();
-    const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    // never more than twice the CSS pixels, and less when the machine can't keep up
+    const dpr = Math.min(window.devicePixelRatio || 1, 2) * this.quality;
     const cw = Math.max(1, Math.round(r.width * dpr));
     const ch = Math.max(1, Math.round(r.height * dpr));
     this.canvas.width = cw;
@@ -363,13 +444,36 @@ export class Game {
     const loop = (now: number) => {
       if (!this.running) return;
       // the first frame's time can be a hair earlier than start(): never step backwards
-      const dt = Math.max(0, Math.min(1 / 30, (now - this.last) / 1000));
+      const raw = (now - this.last) / 1000;
+      const dt = Math.max(0, Math.min(1 / 30, raw));
       this.last = now;
+      this.watchFrames(raw);
       this.step(dt);
       this.draw();
       this.raf = requestAnimationFrame(loop);
     };
     this.raf = requestAnimationFrame(loop);
+  }
+  private quality = 1;
+  private frameSum = 0;
+  private frameN = 0;
+  private slowRuns = 0;
+  /** if frames keep coming late, draw the canvas at a lower resolution (twice at most) */
+  private watchFrames(raw: number) {
+    if (raw <= 0 || raw > 0.25) return;
+    this.frameSum += raw;
+    this.frameN++;
+    if (this.frameN < 120) return;
+    const avg = this.frameSum / this.frameN;
+    this.frameSum = 0;
+    this.frameN = 0;
+    if (avg > 1 / 48) this.slowRuns++;
+    else this.slowRuns = 0;
+    if (this.slowRuns >= 2 && this.quality > 0.6) {
+      this.slowRuns = 0;
+      this.quality = Math.max(0.6, this.quality - 0.2);
+      this.resize();
+    }
   }
   /** ride on after a saved village's moment (the world still waits out its shortest hold) */
   release() {
@@ -396,8 +500,17 @@ export class Game {
   }
 
   /** keyboard and touch both land here */
-  key(k: "left" | "right" | "up" | "down" | "aim" | "sword" | "trap" | "ability", down: boolean) {
+  key(k: "left" | "right" | "up" | "down" | "aim" | "sword" | "trap" | "ability" | "rune", down: boolean) {
     if (!this.running || this.dead || this.won || this.finaleT) return;
+    // while a rune is being cast the arrows draw its strokes, and the mount runs straight on
+    if (this.casting && !this.casting.end && (k === "left" || k === "right" || k === "up" || k === "down")) {
+      if (down) this.runeStroke(k);
+      return;
+    }
+    if (k === "rune") {
+      if (down) this.startCast();
+      return;
+    }
     if (k === "left" || k === "right") this.keys[k] = down;
     else if (k === "aim") {
       if (down && this.arrows > 0 && this.aimT < 0) this.aimT = 0;
@@ -462,7 +575,7 @@ export class Game {
     const m = y0 * TUNE.metresPerPx + this.mOff;
     const landHere = this.landAtY(y0);
     // patches of the rot stay behind in the healing lands: half of First Green, a fifth of Deep Green, here and there in Bloom
-    const scarP = [0, 0.5, 0.2, 0.1][landHere] ?? 0;
+    const scarP = landHere === 0 ? 0 : RUIN[landHere] ?? 0;
     const scar = scarP > 0 && rng(hash2(Math.floor(i / 2) * 31 + this.seed, Math.floor(j / 2) * 17 + 5))() < scarP;
     c.scar = scar;
     const b = BIOMES[scar ? 0 : landHere];
@@ -470,7 +583,11 @@ export class Game {
     const n = Math.round(TUNE.density * b.busy * ramp * (0.7 + r() * 0.6));
     const ok = (k: Kind) => m >= OBSTACLES[k].from;
     const weights: [Kind, number][] = (
-      [["tree", 30], ["boulder", 12], ["menhir", 5], ["stone", 7], ["pit", 9 * b.pits], ["log", 11], ["arch", 3.5], ["thorns", 6]] as [Kind, number][]
+      [
+        ["tree", 30], ["boulder", 12], ["menhir", 5], ["stone", 7], ["pit", 9 * b.pits], ["log", 11], ["arch", 3.5], ["thorns", 6],
+        // what the rot left: burnt-out houses in the dark lands
+        ["ruin", landHere === 0 ? 5 : landHere === 1 ? 2.5 : scar ? 1.5 : 0],
+      ] as [Kind, number][]
     ).filter(([k]) => ok(k));
     const total = weights.reduce((s, [, w]) => s + w, 0);
     // the gates stand in a clearing: nothing tall may stand in front of the arches or behind them
@@ -515,6 +632,19 @@ export class Game {
       }
     }
     const okPick = (x: number, y: number) => free(x, y, 12, 12, 6);
+    // bones and ash where the rot has been
+    {
+      const pBones = landHere === 0 ? 0.55 : landHere === 1 ? 0.3 : scar ? 0.25 : 0;
+      if (r() < pBones) {
+        const k = 1 + Math.floor(r() * 2);
+        c.decor = [];
+        for (let q = 0; q < k; q++) {
+          const x = i * CELL + 20 + r() * (CELL - 40);
+          const y = y0 + 16 + r() * (CELL - 32);
+          if (free(x, y, 40, 10, 2)) c.decor.push({ x, y, v: Math.floor(r() * 4) });
+        }
+      }
+    }
     {
       const dark = scar || landHere === 0;
       const life: Critter[] = [];
@@ -526,11 +656,21 @@ export class Game {
         const c2 = kind === "butterfly" ? ["#ffe46a", "#ff8ab0", "#8ad8ff", "#ffffff", "#ffb35a"][Math.floor(r() * 5)] : kind === "finch" ? ["#e8743a", "#e8c84a", "#5a8ad0"][Math.floor(r() * 3)] : "#151217";
         life.push({ kind, x, y, ph: r() * 10, c: c2 });
       }
+      // in Bloom, now and then, fairies dance in a ring in a clearing; they scatter when you come
+      if (landHere === 3 && !scar && r() < 0.09) {
+        const cx = i * CELL + 40 + r() * (CELL - 80);
+        const cy = y0 + 40 + r() * (CELL - 80);
+        if (free(cx, cy, 46, 30, 4)) {
+          const n = 6 + Math.floor(r() * 2);
+          for (let q = 0; q < n; q++)
+            life.push({ kind: "fairy", x: cx, y: cy, ph: r() * 10, c: ["#fff4c0", "#c8f0ff", "#ffd0e8", "#d8ffc8"][q % 4], ring: { cx, cy, i: q, n } });
+        }
+      }
       c.life = life;
     }
     // in the mission hearts are laid out ahead of you; weapons lie here and there in the land
     if (this.mode === "mission") {
-      for (const [kind, p] of [["trap", 0.01], ["bow", 0.005], ["sword", 0.004], ["bark", 0.003]] as [PickKind, number][])
+      for (const [kind, p] of [["trap", 0.01], ["bow", 0.006], ["sword", 0.004], ["rune", 0.006]] as [PickKind, number][])
         if (r() < p) {
           const x = i * CELL + 18 + r() * (CELL - 36);
           const y = y0 + 18 + r() * (CELL - 36);
@@ -539,19 +679,15 @@ export class Game {
       return c;
     }
     if (this.mode !== "endless") return c;
-    if (r() < 0.4) {
-      const x0 = i * CELL + 24 + r() * (CELL - 48);
-      const yy = y0 + 10 + r() * (CELL - 90);
-      const bend = (r() - 0.5) * 3;
-      for (let s = 0; s < 5; s++) {
-        const x = x0 + Math.sin(s * 0.8) * bend * 7;
-        const y = yy + s * 17;
-        if (okPick(x, y)) c.picks.push({ id: this.nextId++, kind: "seed", x, y });
-      }
+    // the endless road: souls are the one thing to gather
+    if (r() < 0.22) {
+      const x = i * CELL + 20 + r() * (CELL - 40);
+      const y = y0 + 20 + r() * (CELL - 40);
+      if (okPick(x, y)) c.picks.push({ id: this.nextId++, kind: "soul", x, y });
     }
     const trapRate = this.o.choice.rider.id === "dryad" ? 0.08 : 0.04;
     const table: [PickKind, number][] = [
-      ["trap", trapRate], ["sword", 0.028], ["bow", 0.024], ["bark", 0.016], ["heart", 0.016],
+      ["trap", trapRate], ["sword", 0.028], ["bow", 0.026], ["rune", 0.014],
       ...(m > 400 ? ([["hound", 0.004], ["raven", 0.003], ["doe", 0.003]] as [PickKind, number][]) : []),
     ];
     for (const [kind, p] of table) {
@@ -597,30 +733,151 @@ export class Game {
     this.duck = 0.6;
     sfx.duck();
   }
+  /** the mouse or a finger points the bow; null lets the keyboard's swinging line do it */
+  setPointer(x: number | null, y = 0) {
+    this.pointer = x === null ? null : { x, y, t: performance.now() };
+  }
+  /** the right stick: an angle (0 = straight behind you, up the screen), or null when let go */
+  setStick(a: number | null) {
+    this.stick = a;
+  }
+  /** a point on the canvas (CSS pixels) in view units */
+  viewPoint(px: number, py: number) {
+    const r = this.canvas.getBoundingClientRect();
+    return { x: (px / Math.max(1, r.width)) * this.W, y: (py / Math.max(1, r.height)) * VIEW_H };
+  }
+  private aimFree() {
+    return this.stick !== null || (this.pointer !== null && performance.now() - this.pointer.t < 4000);
+  }
   private aimAngle() {
+    if (this.stick !== null) return this.stick;
+    if (this.pointer && this.aimFree()) {
+      const dx = this.pointer.x - this.sx(this.x);
+      const dy = this.pointer.y - (this.PY - 14);
+      return Math.atan2(dx, -dy);
+    }
     const period = this.o.choice.rider.id === "amazon" ? 2.6 : 1.6;
     return Math.sin((this.aimT * Math.PI * 2) / period) * ((65 * Math.PI) / 180);
   }
   private fire() {
-    const a = this.aimAngle();
+    let a = this.aimAngle();
+    const free = this.aimFree();
+    const held = this.aimT;
     this.aimT = -1;
     if (this.arrows <= 0) return;
     this.arrows--;
-    const s = 420;
-    this.shots.push({ x: this.x, y: this.y - 6, vx: Math.sin(a) * s, vy: this.speed - Math.cos(a) * s, life: 0.9 });
+    // aimed freely, a bow drawn too briefly is loose, and one held too long trembles
+    if (free) {
+      const spread = 0.34 * Math.max(0, 1 - held / 0.45) + Math.max(0, held - 1.8) * 0.22;
+      a += (Math.random() - 0.5) * spread;
+    }
+    const s = 440;
+    const home = this.homing > 0;
+    if (home) this.homing--;
+    this.shots.push({ x: this.x, y: this.y - 6, vx: Math.sin(a) * s, vy: this.speed - Math.cos(a) * s, life: home ? 1.4 : 0.95, home });
     sfx.arrow();
   }
+
+  /* ---------------- runes ---------------- */
+
+  private startCast() {
+    if (this.casting && !this.casting.end) return;
+    if (!this.rune) return this.say("No rune. Rune-stones stand here and there in the land: ride through one.");
+    const m = this.metres;
+    const len = RUNE.len[Math.min(3, this.mode === "endless" ? (m < 1500 ? 0 : m < 4000 ? 1 : m < 7000 ? 2 : 3) : this.land)];
+    const dirs: Dir4[] = ["up", "down", "left", "right"];
+    const seq: Dir4[] = [];
+    for (let i = 0; i < len; i++) {
+      let d = dirs[Math.floor(Math.random() * 4)];
+      while (i >= 2 && d === seq[i - 1] && d === seq[i - 2]) d = dirs[Math.floor(Math.random() * 4)];
+      seq.push(d);
+    }
+    this.casting = { seq, got: 0, t: 0, limit: RUNE.base + len * RUNE.perStroke, spell: this.rune };
+    this.keys.left = this.keys.right = false;
+    this.aimT = -1;
+    sfx.chime();
+  }
+  private runeStroke(d: Dir4) {
+    const c = this.casting!;
+    if (d !== c.seq[c.got]) return this.endCast(false);
+    c.got++;
+    sfx.pick();
+    if (c.got >= c.seq.length) this.endCast(true);
+  }
+  private endCast(ok: boolean) {
+    const c = this.casting!;
+    c.end = this.t;
+    c.ok = ok;
+    this.lastCast = { ok, t: this.t };
+    this.rune = null;
+    this.o.onEvent({ type: "spell", spell: c.spell, ok });
+    if (!ok) {
+      sfx.hit();
+      this.say("The rune breaks, and the spell is gone.");
+      return;
+    }
+    this.lastSpell = c.spell;
+    this.stats.spells = (this.stats.spells ?? 0) + 1;
+    sfx.fanfare();
+    const sp = SPELLS[c.spell];
+    if (c.spell === "thorn") {
+      let n = 0;
+      for (const q of this.monsters)
+        if (this.hunting(q) && q.state !== "flee" && this.y - q.y > -20 && this.y - q.y < 360) {
+          q.state = "rooted";
+          q.timer = 3;
+          n++;
+        }
+      for (let k = -8; k <= 8; k++) this.burst(this.x + k * 22, this.y - 70, 6, ["#3a5a2a", "#6a8a3a", "#a8202a"], 50, true);
+      this.say(n ? "A hedge of thorns springs up behind you. They are held." : "Thorns spring up behind you, and hold nothing.");
+    } else if (c.spell === "light") {
+      for (const q of this.monsters) {
+        if (!this.hunting(q) || q.state === "flee" || Math.hypot(q.x - this.x, q.y - this.y) > 260) continue;
+        if (q.type === "hollow" || q.type === "hound") this.kill(q, "dawn");
+        else {
+          q.state = "stunned";
+          q.timer = 2;
+        }
+      }
+      this.burst(this.x, this.y - 20, this.o.settings.calm ? 24 : 70, ["#ffffff", "#fff4a0", "#b8ffe0"], 220);
+      this.say("Light! The rot falls back from it.");
+    } else if (c.spell === "wind") {
+      this.homing = 3;
+      this.say("The wind is in your arrows: the next three find their own way.");
+    } else {
+      this.bridge = true;
+      const f = this.fords.find((q) => this.y < q.y1 + 10);
+      if (f) f.bridged = true;
+      this.say(f ? "Roots knit across the ford ahead." : "The roots will knit across the next ford.");
+    }
+    void sp;
+  }
   private hunting(m: Monster) {
-    return m.state === "run" || m.state === "windup" || m.state === "lunge" || m.state === "recover" || m.state === "stunned" || m.state === "rooted";
+    return (
+      m.state === "run" || m.state === "windup" || m.state === "lunge" || m.state === "recover" || m.state === "stunned" || m.state === "rooted" ||
+      m.state === "flee" || m.state === "burst" || m.state === "swell" || m.state === "reach"
+    );
   }
   private strike() {
     if (this.swords <= 0) return this.say("No sword. A sword is a last resort anyway.");
     const target = this.monsters
-      .filter((m) => this.hunting(m) && this.y - m.y < 70 && this.y - m.y > -14 && Math.abs(m.x - this.x) < 42)
+      .filter((m) => this.hunting(m) && this.y - m.y < 70 && this.y - m.y > -40 && Math.abs(m.x - this.x) < 46)
       .sort((a, b) => b.y - a.y)[0];
     this.swing = 0.25;
     if (!target) return this.say("Nothing within reach of the sword.");
     this.swords--;
+    if (target.hp > 3) {
+      target.hp -= 3;
+      target.hitT = 0.4;
+      target.state = "stunned";
+      target.timer = 0.9;
+      target.y -= 30;
+      this.gore(target.x, target.y - 20, 24);
+      sfx.crash();
+      this.say(`${cap(MONSTERS[target.type].name)} staggers. One more blow.`, true);
+      return;
+    }
+    if (target.stolen) this.giveSoulBack(target);
     this.kill(target, "sword");
     this.stats.swordKills++;
     if (this.swordAt < 0) this.swordAt = this.metres;
@@ -638,8 +895,20 @@ export class Game {
   }
   private useAbility() {
     const r = this.o.choice.rider;
-    if (r.id === "knight") return this.say(this.shieldReady ? "Your shield is ready." : "Your shield is still growing back.");
     if (this.cool > 0) return this.say(`${r.ability}: ready in ${Math.ceil(this.cool)} s.`);
+    if (r.id === "knight") {
+      const behind = this.monsters.filter((q) => this.hunting(q) && this.y - q.y > -20 && this.y - q.y < 420).sort((a, b) => b.y - a.y);
+      for (const q of behind) {
+        q.state = "stunned";
+        q.timer = 1.5;
+      }
+      if (behind[0]) behind[0].y -= 90;
+      this.cool = r.cooldown;
+      this.burst(this.x, this.y - 20, 30, ["#f4efe0", "#d8b45a"], 160);
+      sfx.roar();
+      this.say(behind.length ? "The horn! They stop dead." : "The horn sounds over the empty land.");
+      return;
+    }
     if (r.id === "dryad") {
       const m = this.monsters.filter((q) => this.hunting(q) && q.state !== "rooted" && this.y - q.y < 320).sort((a, b) => b.y - a.y)[0];
       if (!m) return this.say("No monster close enough for the roots.");
@@ -661,6 +930,8 @@ export class Game {
 
   private kill(m: Monster, how: NonNullable<Monster["how"]>) {
     this.lastKill = how;
+    if (this.grab?.q === m) this.grab = null;
+    this.o.onEvent({ type: "killed", monster: m.type });
     m.state = "dying";
     m.timer = how === "pit" ? 0.8 : 0.5;
     m.how = how;
@@ -759,6 +1030,19 @@ export class Game {
       if (this.won > 2.5) this.finish(true);
       return;
     }
+    // a rune being cast: its time runs in real seconds
+    if (this.casting) {
+      this.casting.t += dt;
+      if (!this.casting.end && this.casting.t > this.casting.limit) this.endCast(false);
+      if (this.casting.end && this.t - this.casting.end > 0.9) this.casting = null;
+    }
+    // the drawn bow: the world slows while you hold your breath, for as long as your calm lasts
+    const drawing = this.aimT > 0.22 && this.arrows > 0 && this.focus > 0;
+    this.slow += ((drawing ? 0.5 : 1) - this.slow) * Math.min(1, dt * 8);
+    if (drawing) this.focus = Math.max(0, this.focus - dt * 0.5);
+    else this.focus = Math.min(1, this.focus + dt * 0.07);
+    if (this.aimT >= 0) this.aimT += dt;
+    dt *= this.slow;
 
     const mount = this.o.choice.mount;
     const target = this.targetSpeed();
@@ -767,6 +1051,15 @@ export class Game {
     if (this.stun > 0) {
       this.stun -= dt;
       fwd *= 0.45;
+    }
+    if (this.grab) {
+      const q = this.grab.q;
+      this.grab.t -= dt;
+      if (this.grab.t <= 0 || q.state === "dying" || q.state === "gone" || q.state === "stunned") this.grab = null;
+      else {
+        fwd *= 0.3;
+        this.x += (q.x - this.x) * Math.min(1, dt * 1.5);
+      }
     }
     const steer = (this.keys.right ? 1 : 0) - (this.keys.left ? 1 : 0);
     const maxV = TUNE.steer * mount.turn * (this.aimT >= 0 ? 0.5 : 1) * (this.o.settings.slow ? 0.85 : 1);
@@ -783,7 +1076,6 @@ export class Game {
     if (this.shake > 0) this.shake -= dt;
     if (this.swing > 0) this.swing -= dt;
     if (this.cool > 0) this.cool -= dt;
-    if (this.aimT >= 0) this.aimT += dt;
     // your scent: where you have been
     this.trail.push({ t: this.t, x: this.x });
     while (this.trail.length && this.trail[0].t < this.t - 1.5) this.trail.shift();
@@ -793,10 +1085,6 @@ export class Game {
     this.stats.clean = Math.max(this.stats.clean, m - this.lastHit);
     this.stats.afterSword = this.swordAt >= 0 ? m - this.swordAt : 0;
     this.score += dm * this.mult;
-    if (!this.shieldReady && this.o.choice.rider.id === "knight" && m - this.shieldAt >= 400) {
-      this.shieldReady = true;
-      this.say("Your shield has grown back.");
-    }
 
     // a new season of the land
     const bi = this.landAtY(this.y);
@@ -859,6 +1147,10 @@ export class Game {
 
     this.wildlife(dt);
     if (!this.o.showcase) this.missionStep(dt);
+    if (!this.o.showcase) {
+      this.fordStep();
+      this.wispStep(dt);
+    }
     if (this.mode === "tutorial") this.tutorialStep();
     this.hunt(dt);
     this.companion(dt);
@@ -886,11 +1178,12 @@ export class Game {
       this.villages = this.villages.filter((v) => v.y1 > this.y - 700);
       this.trees = this.trees.filter((t) => t.y > this.y - 700);
       this.placed = this.placed.filter((p) => p.alive && p.y > this.y - 500);
+      this.fords = this.fords.filter((f) => f.y1 > this.y - 600);
     }
 
     this.hudT -= dt;
     if (this.hudT <= 0) {
-      this.hudT = 0.1;
+      this.hudT = 0.15;
       this.o.onHud(this.hud());
     }
   }
@@ -927,6 +1220,8 @@ export class Game {
         return this.hurt("You rode into a cottage wall");
       case "well":
         return this.hurt("You hit the well");
+      case "ruin":
+        return this.hurt("You rode into a burnt-out ruin");
       default:
         return this.hurt("You hit a rock");
     }
@@ -941,10 +1236,20 @@ export class Game {
     p.taken = true;
     const r = this.o.choice.rider;
     switch (p.kind) {
-      case "seed":
-        this.stats.seeds++;
+      case "soul":
+        this.souls++;
+        this.stats.souls++;
         this.score += 10 * this.mult;
+        this.soulRun++;
         sfx.seed();
+        if (this.soulRun >= ENDLESS.soulsPerHeart) {
+          this.soulRun = 0;
+          if (this.hearts < this.maxHearts) {
+            this.hearts++;
+            this.float(this.x, this.y - 30, "+♥", "#ff8aa0");
+            this.say(`${ENDLESS.soulsPerHeart} souls: a heart comes back to you.`);
+          }
+        }
         return;
       case "bow":
         this.arrows = Math.min(9, this.arrows + (r.id === "amazon" ? 5 : 3));
@@ -960,11 +1265,14 @@ export class Game {
         this.traps++;
         this.say(`A root trap (${this.traps}). Drop it behind you with Z.`, true);
         break;
-      case "bark":
-        if (this.bark) return void (p.taken = false);
-        this.bark = true;
-        this.say("Bark armour: it stops one monster that catches you.", true);
+      case "rune": {
+        if (this.rune) return void (p.taken = false);
+        const fordAhead = this.fords.some((f) => !f.bridged && f.y0 > this.y) || (this.mode === "mission" && this.fordDone < this.land && this.land <= 2);
+        const pool: SpellId[] = fordAhead ? ["thorn", "light", "wind", "bridge"] : ["thorn", "light", "wind"];
+        this.rune = pool[Math.floor(Math.random() * pool.length)];
+        this.say(`A rune-stone: ${SPELLS[this.rune].name}. ${SPELLS[this.rune].help} Press R to cast it: repeat its strokes before they fade.`, true);
         break;
+      }
       case "heart":
         if (this.hearts >= this.maxHearts) return void (p.taken = false);
         this.hearts++;
@@ -976,12 +1284,12 @@ export class Game {
         break;
       default:
         if (this.comp && this.comp.state !== "gone") return void (p.taken = false);
-        this.comp = { kind: p.kind, x: p.x, y: p.y, state: "follow", t: 0, vx: 0 };
+        this.comp = { kind: p.kind as Companion["kind"], x: p.x, y: p.y, state: "follow", t: 0, vx: 0 };
         this.stats.companions++;
         this.say(
-          p.kind === "hound" ? "A great hound runs with you. It will throw itself at the first monster that comes close."
-            : p.kind === "raven" ? "A raven flies with you. It will blind the monsters when they come."
-              : "A white doe runs with you. She will lead one monster away.",
+          p.kind === "hound" ? "A great hound runs with you. When a monster is on your heels, it will give its life to stop it."
+            : p.kind === "raven" ? "A raven flies with you. When a monster is on your heels, it will give its life to stop it."
+              : "A white doe runs with you. When a monster is on your heels, she will give her life to stop it.",
           true,
         );
     }
@@ -1025,6 +1333,8 @@ export class Game {
     const pendingGate = this.gates.some((g) => !g.passed);
     if (this.mode === "mission") {
       // hearts in the land, a little more often the longer you stay in one land
+      const nearPlace = this.villages.some((v) => v.state === "waiting" && v.y0 < this.y + VIEW_H + 300 && v.y1 > this.y - 200);
+      if (m >= this.nextHeart && nearPlace) this.nextHeart = m + 30;
       if (m >= this.nextHeart) {
         const [a, b] = MISSION.heartGap;
         const kind = Math.max(0.55, 1 - (m - this.landM) / 4000);
@@ -1139,6 +1449,12 @@ export class Game {
     const half = kind === "glade" ? 120 : 110;
     const inside = (x: number, y: number) => x > cx - half && x < cx + half && y > y0 - 70 && y < y1 + 40;
     this.clearArea(inside, cx - half - 20, cx + half + 20, y0 - 80, y1 + 60);
+    // nothing else lies near a place to heal: what it gives is all there is
+    const wide = (x: number, y: number) => Math.abs(x - cx) < 420 && y > y0 - 280 && y < y1 + 220;
+    for (let i = Math.floor((cx - 440) / CELL); i <= Math.floor((cx + 440) / CELL); i++)
+      for (let j = Math.floor((y0 - 300) / CELL); j <= Math.floor((y1 + 240) / CELL); j++)
+        for (const p of this.cell(i, j).picks) if (wide(p.x, p.y) && p.kind !== "letter") p.taken = true;
+    this.extra = this.extra.filter((p) => !wide(p.x, p.y));
     const id = this.nextId++;
     const place = (k: Kind, x: number, y: number, v: number) => {
       const [w, h] = SIZE[k];
@@ -1196,7 +1512,7 @@ export class Game {
     // the way to the glade has a weapon lying on it: one more reason to go there
     if (this.villageRand() < 0.6) {
       const [wx, wy] = this.trailAt(fork, gl, 0.45 + this.villageRand() * 0.25);
-      const weapons: PickKind[] = ["bow", "sword", "trap", "bow", "trap", "bark"];
+      const weapons: PickKind[] = ["bow", "sword", "trap", "bow", "trap", "rune"];
       this.extra.push({ id: this.nextId++, kind: weapons[Math.floor(this.villageRand() * weapons.length)], x: wx, y: wy });
     }
     if (!this.o.seenKinds.includes("fork")) {
@@ -1244,7 +1560,7 @@ export class Game {
     if (glade) {
       // the animals come back; one of them walks with Brigid (or, if one already does, the land arms her)
       const walking = this.comp && this.comp.state !== "gone";
-      const pool = GIFTS.filter((gf) => (walking ? ["sword", "bow", "traps", "bark"] : ["hound", "raven", "doe"]).includes(gf.id));
+      const pool = GIFTS.filter((gf) => (walking ? ["sword", "bow", "traps", "rune"] : ["hound", "raven", "doe"]).includes(gf.id));
       let roll = this.villageRand() * pool.reduce((n, gf) => n + gf.weight, 0);
       const gf = pool.find((x) => (roll -= x.weight) < 0) ?? pool[0];
       giftText = this.applyGift(gf.id, gf.text);
@@ -1335,10 +1651,12 @@ export class Game {
       case "traps":
         this.traps = Math.min(3, this.traps + 2);
         return `${text}: drop them behind you with Z`;
-      case "bark":
-        if (this.bark) return this.applyGift("traps", "two root traps");
-        this.bark = true;
-        return `${text}: it stops one monster that catches you`;
+      case "rune": {
+        if (this.rune) return this.applyGift("bow", "a bow and five arrows");
+        const pool: SpellId[] = this.land <= 2 && this.fordDone < this.land ? ["thorn", "light", "wind", "bridge"] : ["thorn", "light", "wind"];
+        this.rune = pool[Math.floor(Math.random() * pool.length)];
+        return `${text}: ${SPELLS[this.rune].name}. Press R to cast it`;
+      }
       case "heart":
         if (this.hearts >= this.maxHearts) return this.applyGift("traps", "two root traps");
         this.hearts++;
@@ -1506,6 +1824,18 @@ export class Game {
         say("The sword, the last resort. Let the monster come close, and when it is on your neck, strike with X.");
         break;
       case 10:
+        this.lastSpell = undefined;
+        this.rune = "light";
+        this.spawnMonster(this.x, this.y - 220);
+        say("A rune-stone: Light. Press R and the rune shows its strokes for a moment. Then draw them from memory with the arrows (or flick the left stick), before the time runs out.");
+        break;
+      case 11:
+        this.hearts = Math.max(this.hearts, 3);
+        this.buildFord();
+        T.vid = this.fords[this.fords.length - 1].id;
+        say("A ford over black water. One stone in each row lights up, in turn. Remember them, then ride across on them.");
+        break;
+      case 12:
         this.gates.push({ y: this.y + 700, land: 1, gold: false, passed: false });
         say("Enough souls: a gate of spring has opened. Ride through it. Beyond it the land is greener.");
         break;
@@ -1605,7 +1935,35 @@ export class Game {
         }
         break;
       }
-      case 10:
+      case 10: {
+        const c = this.casting;
+        const lc = this.lastCast && this.lastCast.t > T.t ? this.lastCast : undefined;
+        if (lc?.ok && this.t - lc.t > 1) {
+          for (const q of this.monsters) if (this.hunting(q) || q.state === "emerge" || q.state === "stunned") this.kill(q, "dawn");
+          this.tutorialNext();
+        } else if (lc && !lc.ok && this.t - lc.t > 1) {
+          for (const q of this.monsters) this.kill(q, "dawn");
+          again("The rune broke. Another stone: look hard, then draw the strokes.");
+        } else if (!this.monsters.some((q) => this.hunting(q) || q.state === "emerge" || q.state === "stunned") && !c && this.t - T.t > 2) {
+          this.spawnMonster(this.x, this.y - 220);
+        }
+        break;
+      }
+      case 11: {
+        const f = this.fords.find((q) => q.id === T.vid);
+        if (!f) break;
+        if (this.y > f.y1 + 30) {
+          if (f.slipped) {
+            this.hearts = Math.max(this.hearts, 3);
+            again("Into the water. Again: watch the lit stones, then ride them in the same order.");
+          } else {
+            this.say("Dry-shod. Watch, remember, ride.", true);
+            this.tutorialNext();
+          }
+        }
+        break;
+      }
+      case 12:
         if (this.gates.every((g) => g.passed) && this.t - T.t > 1) this.tutorialNext();
         break;
     }
@@ -1720,21 +2078,103 @@ export class Game {
 
   /* ---------------- the monsters ---------------- */
 
-  private spawnMonster(atX?: number, atY?: number, turned = false) {
-    const m = this.metres;
-    const kinds = this.mode === "tutorial" ? (["maw"] as MonsterId[]) : (Object.keys(MONSTERS) as MonsterId[]).filter((k) => MONSTERS[k].from <= m + this.mOff);
-    const pick = kinds[Math.min(kinds.length - 1, Math.floor(Math.pow(Math.random(), 0.7) * kinds.length))];
-    this.monsters.push({
+  /** who may hunt you here: in the mission each land has its own; in the endless ride it grows with the distance */
+  private roster(): MonsterId[] {
+    if (this.mode === "mission") return (MISSION_ROSTER[this.land] ?? MISSION_ROSTER[0]) as MonsterId[];
+    const m = this.metres + this.mOff;
+    return (Object.keys(MONSTERS) as MonsterId[]).filter((k) => MONSTERS[k].weight > 0 && MONSTERS[k].from <= m);
+  }
+
+  private spawnMonster(atX?: number, atY?: number, turned = false, force?: MonsterId) {
+    let pick: MonsterId = "hollow";
+    if (force) pick = force;
+    else if (!(this.mode === "tutorial" || turned)) {
+      const kinds = this.roster();
+      // the newest kind comes a little more often while it is new to you; the oldest stay the most common
+      const total = kinds.reduce((a, k) => a + MONSTERS[k].weight, 0);
+      let r = Math.random() * total;
+      for (const k of kinds) {
+        r -= MONSTERS[k].weight;
+        if (r <= 0) {
+          pick = k;
+          break;
+        }
+      }
+    }
+    const T = MONSTERS[pick];
+    const q: Monster = {
       id: this.nextId++, type: pick, x: atX ?? this.x + (Math.random() - 0.5) * 120, y: atY ?? this.y - this.PY - 90, vx: 0, turned,
       state: "emerge", timer: 0.6, cool: 2, judged: new Set(), dodgeT: 0, dodgeDir: 0, blind: 0, flinch: 0,
-      phase: Math.random() * 6, aimX: this.x,
-    });
-    sfx.roar();
+      phase: Math.random() * 6, aimX: this.x, hp: T.hp, hitT: 0, side: Math.random() < 0.5 ? -1 : 1,
+    };
+    if (T.way === "burrow" && atY === undefined) {
+      // it comes from in front, under the ground
+      q.state = "under";
+      q.y = this.y + 320;
+      q.x = this.x + (Math.random() - 0.5) * 140;
+      q.timer = 0;
+    }
+    this.monsters.push(q);
+    if (q.state !== "under") sfx.roar();
+    if (pick === "colossus") {
+      this.shake = this.o.settings.calm ? 0 : 0.5;
+      this.say("The ground shakes. The Colossus is coming: it breaks trees like straw. Six blows bring it down.", true);
+    }
     if (!this.o.seenMonsters.includes(pick)) {
       this.o.seenMonsters.push(pick);
       this.o.onEvent({ type: "seen", monster: pick });
-      this.say(`Something is coming: ${MONSTERS[pick].name}. ${MONSTERS[pick].tell}`, true);
+      if (pick !== "colossus") this.say(`Something is coming: ${T.name}. ${T.tell}`, true);
     }
+  }
+
+  private giveSoulBack(q: Monster) {
+    if (!q.stolen) return;
+    q.stolen = false;
+    this.souls++;
+    this.stats.souls++;
+    this.float(q.x, q.y - 50, "+1 soul", "#b8ffe0");
+    this.say("Got it: the soul comes back to you.", true);
+  }
+
+  /** a blow from a trap, the sword or a companion: three of an arrow's */
+  private heavyBlow(q: Monster, how: NonNullable<Monster["how"]>, line: string) {
+    if (q.hp > 3) {
+      q.hp -= 3;
+      q.hitT = 0.4;
+      q.state = "stunned";
+      q.timer = 2;
+      q.vx = 0;
+      q.y -= 20;
+      this.burst(q.x, q.y - 14, 18, ["#6a4a2a", "#8ae05a", "#a8202a"], 70);
+      sfx.crash();
+      this.say(`${cap(MONSTERS[q.type].name)} staggers: ${q.hp} ${q.hp === 1 ? "blow" : "blows"} to go.`, true);
+      return false;
+    }
+    this.giveSoulBack(q);
+    this.kill(q, how);
+    if (line) this.say(line);
+    return true;
+  }
+
+  /** the Spitter's rot in the air, and burning on the ground */
+  private spitStep(dt: number) {
+    for (const p of this.spits) {
+      p.t += dt;
+      if (p.t >= p.dur) {
+        this.puddles.push({ x: p.tx, y: p.ty, t: 4 });
+        this.burst(p.tx, p.ty, 12, ["#7a8a2a", "#3a4a12", "#b8c040"], 70);
+        sfx.crash();
+      }
+    }
+    this.spits = this.spits.filter((p) => p.t < p.dur);
+    for (const p of this.puddles) {
+      p.t -= dt;
+      if (!p.hit && p.t > 0 && Math.abs(p.x - this.x) < 26 && Math.abs(p.y - this.y) < 16 && this.air <= 0) {
+        p.hit = true;
+        this.hurt("The Spitter's rot burned you");
+      }
+    }
+    this.puddles = this.puddles.filter((p) => p.t > 0 && p.y > this.y - this.PY - 60);
   }
 
   private hunt(dt: number) {
@@ -1745,9 +2185,25 @@ export class Game {
       this.respawn -= dt;
       if (this.respawn <= 0) {
         this.spawnMonster();
-        this.respawn = 4;
+        // early in the endless ride they come one at a time, with room to breathe
+        this.respawn = this.mode === "endless" ? Math.max(4, 8 - m / 600) : 4;
       }
     }
+    // the Colossus: rare, one at a time, and only when you have something to fight it with
+    const armed = this.arrows >= 3 || this.swords > 0 || this.traps > 0;
+    const bossNow = this.monsters.some((q) => q.type === "colossus" && q.state !== "dying" && q.state !== "gone");
+    if (!bossNow && armed && this.mode !== "tutorial") {
+      const ok =
+        this.mode === "endless"
+          ? m + this.mOff >= MONSTERS.colossus.from && m >= this.nextBoss
+          : this.land === 3 && !this.bossDone && m - (this.landM ?? 0) > 450;
+      if (ok) {
+        this.spawnMonster(undefined, undefined, false, "colossus");
+        this.bossDone = true;
+        this.nextBoss = m + 1400 + Math.random() * 900;
+      }
+    }
+    this.spitStep(dt);
     for (const p of this.pending) {
       p.t -= dt;
       if (p.t <= 0) for (let k = 0; k < p.n && this.monsters.length < 7; k++) this.spawnMonster();
@@ -1763,6 +2219,7 @@ export class Game {
     for (const q of this.monsters) {
       const T = MONSTERS[q.type];
       q.phase += dt;
+      if (q.hitT > 0) q.hitT -= dt;
       if (q.blind > 0) q.blind -= dt;
       if (q.flinch > 0) q.flinch -= dt;
       if (q.cool > 0) q.cool -= dt;
@@ -1786,6 +2243,70 @@ export class Game {
         continue;
       }
       if (q.state === "gone") continue;
+      if (q.state === "under") {
+        // a swelling in the ground ahead, creeping towards your line
+        q.x += Math.max(-75 * dt, Math.min(75 * dt, this.x - q.x));
+        q.phase += dt;
+        if (q.y - this.y < 80) {
+          q.state = "burst";
+          q.timer = 0.4;
+          sfx.roar();
+        } else if (q.y < this.y - 40) q.state = "gone";
+        continue;
+      }
+      if (q.state === "burst") {
+        q.timer -= dt;
+        if (q.timer <= 0) {
+          this.burst(q.x, q.y, 26, ["#4a3a2a", "#6a5a42", "#a8202a"], 140);
+          this.shake = this.o.settings.calm ? 0 : 0.2;
+          if (Math.abs(q.x - this.x) < 30 && Math.abs(q.y - this.y) < 40) this.hurt("The Burrower burst out under you");
+          q.state = "stunned";
+          q.timer = 0.5;
+          q.cool = 2;
+        }
+        continue;
+      }
+      if (q.state === "swell") {
+        // the Spitter holds still behind you and swells
+        q.y += base * dt;
+        q.timer -= dt;
+        if (q.timer <= 0) {
+          const lead = 0.85;
+          const tx = Math.max(this.camX - this.W / 2 + 30, Math.min(this.camX + this.W / 2 - 30, this.x + this.vx * lead));
+          this.spits.push({ x: q.x, y: q.y - 20, tx, ty: this.y + this.speed * lead, t: 0, dur: lead });
+          sfx.eat();
+          q.state = "run";
+          q.cool = 2.6 + Math.random() * 1.6;
+        }
+        continue;
+      }
+      if (q.state === "reach") {
+        // the Hands draw an arm back, then throw it where you are going
+        q.y += base * dt;
+        q.timer -= dt;
+        if (q.timer <= 0) {
+          const gapNow = this.y - q.y;
+          if (Math.abs(this.x - (q.reachX ?? this.x)) < 34 && gapNow < 220 && !this.grab && this.inv <= 0) {
+            this.grab = { q, t: 0.9 };
+            sfx.hit();
+            this.say("The Hands have you! Shoot them, or wait it out.", true);
+          }
+          q.state = "recover";
+          q.timer = this.grab?.q === q ? 1 : 0.5;
+          q.cool = 3 + Math.random();
+        }
+        continue;
+      }
+      if (q.state === "flee") {
+        q.timer -= dt;
+        q.y += base * 0.5 * dt;
+        q.x += q.side * 150 * dt;
+        if (q.timer <= 0) {
+          q.state = "gone";
+          this.say("The Collector got away with a soul.");
+        }
+        continue;
+      }
 
       const gap = this.y - q.y;
       // where it wants to be
@@ -1831,9 +2352,27 @@ export class Game {
       else if (gap > 180) sp *= 1.3;
       if (q.flinch > 0) sp *= 0.55;
       if (q.blind > 0) sp *= 0.92;
+      if (this.fords.some((f) => q.y > f.y0 - 30 && q.y < f.y1 + 30)) sp *= T.smashes ? 0.45 : 0.7;
+      if (this.mode === "endless" && this.metres < 900) sp *= 0.95;
+      // the Spitter keeps its distance and swells; the Hands reach from far off
+      if (T.way === "spit" && q.state === "run") {
+        // it hangs back at the top edge of what you can see
+        if (gap < 130) sp *= 0.85;
+        if (q.cool <= 0 && gap > 100 && gap < 200 && q.blind <= 0) {
+          q.state = "swell";
+          q.timer = 0.7;
+          continue;
+        }
+      }
+      if (T.way === "grab" && q.state === "run" && q.cool <= 0 && gap > 80 && gap < 185 && Math.abs(q.x - this.x) < 90 && q.blind <= 0 && !this.grab) {
+        q.state = "reach";
+        q.timer = 0.6;
+        q.reachX = this.x + this.vx * 0.5;
+        continue;
+      }
 
       // the leap: wind up, then jump at where you are going
-      if (q.state === "run" && !food && this.mode !== "tutorial" && q.cool <= 0 && gap < TUNE.lungeFrom * (1 + fed * 0.08) && gap > 12 && Math.abs(q.x - this.x) < 60 && q.blind <= 0 && q.flinch <= 0) {
+      if (q.state === "run" && !food && this.mode !== "tutorial" && q.cool <= 0 && gap < TUNE.lungeFrom * (1 + fed * 0.08) && gap > 12 && Math.abs(q.x - this.x) < (q.type === "hound" ? 80 : 60) && q.blind <= 0 && q.flinch <= 0 && T.way !== "spit") {
         q.state = "windup";
         q.timer = 0.35;
         sfx.roar();
@@ -1936,7 +2475,7 @@ export class Game {
             break;
           }
           if (o.kind === "log" || o.kind === "thorns") {
-            if (q.type === "crawler") q.y -= sp * dt * 0.5;
+            if (q.type === "hound") q.y -= sp * dt * 0.5;
             continue;
           }
           if (o.kind === "arch" && Math.abs(q.x - o.x) <= 34) continue; // they slip under
@@ -1961,11 +2500,10 @@ export class Game {
       }
       if (hit) continue;
       for (const tr of this.placed) {
-        if (tr.alive && Math.abs(tr.x - q.x) < 12 && Math.abs(tr.y - q.y) < 9) {
+        if (tr.alive && Math.abs(tr.x - q.x) < 14 && Math.abs(tr.y - q.y) < 10) {
           tr.alive = false;
-          this.kill(q, "trap");
           this.stats.trapped++;
-          this.say(`${cap(T.name)} is caught in your trap.`);
+          this.heavyBlow(q, "trap", `${cap(T.name)} is caught in your trap.`);
           hit = true;
           break;
         }
@@ -1974,23 +2512,25 @@ export class Game {
 
       // caught?
       if (Math.abs(q.x - this.x) < T.radius + 6 && gap < T.radius + 4 && gap > -10) {
-        if (this.bark || (this.o.choice.rider.id === "knight" && this.shieldReady)) {
-          if (this.bark) this.bark = false;
-          else {
-            this.shieldReady = false;
-            this.shieldAt = this.metres;
-          }
-          q.state = "stunned";
-          q.timer = 1.2;
-          q.y -= 110;
+        if (T.way === "thief") {
+          // the Collector takes a soul and runs
+          q.state = "flee";
+          q.timer = 3.2;
+          q.side = q.x < this.x ? -1 : 1;
           this.inv = Math.max(this.inv, 0.6);
-          this.burst(this.x, this.y - 10, 14, ["#c8a060", "#f4efe0"], 80);
-          sfx.crash();
-          this.say("Your shield held. Ride!");
-        } else {
-          this.die(`${cap(T.name)} caught you`);
-          return;
+          if (this.souls > 0) {
+            this.souls--;
+            this.stats.souls = Math.max(0, this.stats.souls - 1);
+            q.stolen = true;
+            this.float(this.x, this.y - 30, "−1 soul", "#b8ffe0");
+            sfx.eat();
+            this.say("The Collector took a soul! Shoot him before he is gone.", true);
+          } else this.say("The Collector found nothing to take, and runs.");
+          continue;
         }
+        if (this.inv > 0 && this.mode === "tutorial") continue;
+        this.die(`${cap(T.name)} caught you`);
+        return;
       }
     }
     for (let i = 0; i < this.monsters.length; i++)
@@ -2012,80 +2552,91 @@ export class Game {
     const c = this.comp;
     if (!c || c.state === "gone") return;
     c.t += dt;
-    const threats = this.monsters.filter((q) => this.hunting(q) && q.state !== "stunned" && q.state !== "rooted").sort((a, b) => b.y - a.y);
-    if (c.state === "follow") {
+    const flyer = c.kind === "raven";
+    const follow = () => {
       c.x += (this.x + 26 - c.x) * Math.min(1, dt * 6);
-      c.y += (this.y - 8 - c.y) * Math.min(1, dt * 6);
+      c.y += (this.y - (flyer ? 26 : 8) + (flyer ? Math.sin(c.t * 5) * 4 : 0) - c.y) * Math.min(1, dt * 6);
+    };
+    if (c.state === "follow") {
+      follow();
       // in the lessons with weapons the friend only watches
       const drill = this.mode === "tutorial" && this.tut.step >= 7 && this.tut.step <= 9;
-      const near = !drill && threats[0] && this.y - threats[0].y < (c.kind === "raven" ? 260 : c.kind === "doe" ? 170 : 120);
-      if (near) {
-        c.state = "act";
+      // only when one is right on your heels
+      const threat = this.monsters
+        .filter((q) => this.hunting(q) && q.state !== "stunned" && q.state !== "rooted" && q.state !== "flee" && !q.lure)
+        .sort((a, b) => b.y - a.y)[0];
+      if (!drill && threat && (threat.state === "windup" || threat.state === "lunge" || this.y - threat.y < 75)) {
+        c.state = "fight";
         c.t = 0;
-        c.target = threats[0];
-        if (c.kind === "raven") {
-          for (const q of this.monsters) q.blind = 8;
-          this.say("The raven blinds them. Lead them into something!");
-        } else if (c.kind === "doe") {
-          c.vx = c.x < this.x ? -200 : 200;
-          threats[0].lure = c;
-          this.say(`The doe leads ${MONSTERS[threats[0].type].name} away.`);
-        }
+        c.target = threat;
+        threat.lure = c;
       }
-    } else if (c.kind === "hound") {
-      const q = c.target!;
-      if (!q || q.state === "gone" || q.state === "dying") {
-        c.state = "follow";
-        return;
-      }
-      c.x += (q.x - c.x) * Math.min(1, dt * 9);
-      c.y += (q.y - c.y) * Math.min(1, dt * 9);
-      if (Math.abs(q.x - c.x) < 10 && Math.abs(q.y - c.y) < 10) {
-        this.kill(q, "hound");
-        this.gore(q.x, q.y - 10, 40);
-        this.shake = this.o.settings.calm ? 0 : 0.25;
-        this.float(q.x, q.y - 40, "the hound tears it down", "#ffe0a0");
-        c.kills = (c.kills ?? 0) + 1;
-        if (c.kills >= 2) {
-          c.state = "gone";
-          this.say("The hound tore down two of them, and then it was torn too. It gave its life for you.", true);
-        } else {
-          c.state = "follow";
-          this.say("The hound tore it down! It runs back to you, bloody.", true);
-        }
-      }
-    } else if (c.kind === "raven") {
-      const q = this.monsters.filter((z) => this.hunting(z)).sort((a, b) => b.y - a.y)[0];
-      c.x += ((q?.x ?? this.x) - c.x) * dt * 3;
-      c.y = (q?.y ?? this.y) - 30 + Math.sin(c.t * 4) * 8;
-      // after the blinding, it goes for the eyes of the nearest one
-      if (q && c.t > 1.6 && !c.kills) {
-        c.kills = 1;
-        this.kill(q, "hound");
-        this.burst(q.x, q.y - 20, 24, ["#1a1a22", "#3a3a48", "#7a1018"], 90);
-        this.float(q.x, q.y - 44, "the raven takes its eyes", "#d8d8ff");
-        this.say("The raven took its eyes. The others are still blind: lead them into something!", true);
-      }
-      if (c.t > 8) c.state = "gone";
-    } else {
-      c.x += c.vx * dt;
-      c.y += this.speed * 1.15 * dt;
-      if (c.t > 3) {
-        const q = c.target;
-        if (q && this.hunting(q) && q.lure === c) {
-          // the doe leads it off the road and the woods close over it
-          this.kill(q, "dawn");
-          this.float(q.x, q.y - 40, "lost in the woods", "#ffffff");
-          this.respawn = Math.max(this.respawn, 6);
-          this.say("The doe led it into the deep woods, and it never came out.", true);
-        }
-        c.state = "gone";
-      }
+      return;
     }
+    // the fight: it runs at the monster, the two of them roll in the dirt, and it is over
+    const q = c.target;
+    if (!q || q.state === "gone" || q.state === "dying") {
+      c.state = "follow";
+      if (q) q.lure = undefined;
+      return;
+    }
+    const close = Math.abs(q.x - c.x) < 12 && Math.abs(q.y - c.y) < 14;
+    if (!close && c.t < 1.4) {
+      c.x += (q.x - c.x) * Math.min(1, dt * 10);
+      c.y += (q.y - (flyer ? 20 : 0) - c.y) * Math.min(1, dt * 10);
+      return;
+    }
+    if (q.state !== "stunned") {
+      q.state = "stunned";
+      q.timer = 1.1;
+      c.t = Math.min(c.t, 0.2);
+    }
+    // the struggle
+    c.x = q.x + Math.sin(c.t * 40) * 4;
+    c.y = q.y - (flyer ? 22 : 2) + Math.cos(c.t * 33) * 3;
+    if (Math.random() < dt * 14) this.gore(q.x + (Math.random() - 0.5) * 16, q.y - 12, 3);
+    if (c.t < 0.9) return;
+    q.lure = undefined;
+    c.kills = (c.kills ?? 0) + 1;
+    // one fight, and it is the last: the friend dies with the monster
+    const name = c.kind === "raven" ? "raven" : c.kind;
+    const fell = this.heavyBlow(q, "hound", "");
+    this.gore(c.x, c.y - 6, 34);
+    this.shake = this.o.settings.calm ? 0 : 0.25;
+    this.float(c.x, c.y - 40, `the ${name} gave its life`, "#ffe0a0");
+    this.say(fell ? `The ${name} brought it down, and did not get up again.` : `The ${name} tore into the Colossus and fell. It staggers.`, true);
+    c.state = "gone";
+    this.comp = null;
   }
 
   private projectiles(dt: number) {
     for (const s of this.shots) {
+      if (s.home && !s.spear) {
+        // the wind arrow bends towards the nearest memory or monster
+        let best: { x: number; y: number } | null = null;
+        let bd = 340;
+        for (const w of this.wisps) if (w.hit === undefined) {
+          const d = Math.hypot(w.x - s.x, w.y - 30 - s.y);
+          if (d < bd) { bd = d; best = { x: w.x, y: w.y - 30 }; }
+        }
+        for (const q of this.monsters) if (this.hunting(q) && q.state !== "dying") {
+          const d = Math.hypot(q.x - s.x, q.y - 12 - s.y);
+          if (d < bd) { bd = d; best = { x: q.x, y: q.y - 12 }; }
+        }
+        if (best) {
+          const vy = s.vy - this.speed;
+          const a0 = Math.atan2(vy, s.vx);
+          const a1 = Math.atan2(best.y - s.y, best.x - s.x);
+          let da = a1 - a0;
+          while (da > Math.PI) da -= Math.PI * 2;
+          while (da < -Math.PI) da += Math.PI * 2;
+          const a = a0 + Math.max(-7 * dt, Math.min(7 * dt, da));
+          const sp = Math.hypot(s.vx, vy);
+          s.vx = Math.cos(a) * sp;
+          s.vy = this.speed + Math.sin(a) * sp;
+        }
+        if (Math.random() < dt * 30) this.fx.push({ x: s.x, y: s.y, vx: 0, vy: this.speed, life: 0.3, c: "#a8e8ff", r: 1.2 });
+      }
       s.x += s.vx * dt;
       s.y += s.vy * dt;
       s.life -= dt;
@@ -2098,14 +2649,42 @@ export class Game {
         }
         continue;
       }
+      // a drifting memory, or a soul-light
+      for (const w of this.wisps) {
+        if (w.hit !== undefined) continue;
+        if (Math.hypot(w.x - s.x, w.y - 30 - s.y) < 15) {
+          s.life = 0;
+          this.hitWisp(w);
+          break;
+        }
+      }
+      if (s.life <= 0) continue;
       for (const q of this.monsters) {
-        if (!this.hunting(q)) continue;
-        const R = MONSTERS[q.type].radius;
+        if (!this.hunting(q) || s.skip?.includes(q.id)) continue;
+        const T = MONSTERS[q.type];
+        const R = T.radius;
         if (Math.abs(q.x - s.x) < R + 3 && s.y < q.y + 6 && s.y > q.y - R * 2.4) {
           s.life = 0;
+          this.focus = Math.min(1, this.focus + 0.3);
+          q.hp--;
+          if (q.hp > 0) {
+            q.hitT = 0.3;
+            if (q.state !== "flee") {
+              q.state = "stunned";
+              q.timer = 0.35;
+              if (this.grab?.q === q) this.grab = null;
+            }
+            q.y -= 16;
+            this.burst(q.x, q.y - 16, 10, ["#cdb39a", "#93725f", "#b8ff5a"], 60);
+            sfx.crash();
+            this.say(`${cap(T.name)} is hit${q.hp === 1 ? ": once more" : ` (${q.hp} to go)`}.`);
+            break;
+          }
+          const had = q.stolen;
+          this.giveSoulBack(q);
           this.kill(q, "arrow");
           this.stats.arrowKills++;
-          this.say(`Your arrow found ${MONSTERS[q.type].name}.`);
+          if (!had) this.say(`Your arrow found ${T.name}.`);
           break;
         }
       }
@@ -2115,6 +2694,135 @@ export class Game {
             if (!o.dead && o.kind !== "pit" && o.kind !== "log" && o.kind !== "thorns" && Math.abs(o.x - s.x) < o.w / 2 && Math.abs(o.y - s.y) < o.h / 2 + 3) s.life = 0;
     }
     this.shots = this.shots.filter((s) => s.life > 0);
+  }
+
+  /* ---------------- memories in the air ---------------- */
+
+  private wispStep(dt: number) {
+    const m = this.metres;
+    const placeNear = this.villages.some((v) => v.state === "waiting" && v.y0 < this.y + VIEW_H + 200 && v.y1 > this.y - 150);
+    if (this.mode !== "tutorial" && m >= this.nextWisp && !placeNear && !this.fords.some((f) => this.y > f.y0 - 500 && this.y < f.y1)) {
+      const [a, b] = this.mode === "mission" ? MISSION.wispGap : ENDLESS.wispGap;
+      this.nextWisp = m + a + Math.random() * (b - a);
+      const nm = this.mode === "mission" ? this.nextMemory() : { memory: -1, clarify: false };
+      if (this.mode === "endless" || nm.memory >= 0) {
+        const side = Math.random() < 0.5 ? -1 : 1;
+        this.wisps.push({ id: this.nextId++, x: this.x + side * (70 + Math.random() * 110), y: this.y + VIEW_H * 0.72, vx: -side * (10 + Math.random() * 18), ph: Math.random() * 6, memory: nm.memory, clarify: nm.clarify });
+        if (!this.o.seenKinds.includes("wisp")) {
+          this.o.seenKinds.push("wisp");
+          this.say(
+            this.mode === "mission"
+              ? "A light drifts over the land: one of Brigid's lost memories. Shoot it with an arrow and it comes back to her."
+              : `A soul-light drifts over the land. Shoot it with an arrow: ${ENDLESS.wispSouls} souls.`,
+            true,
+          );
+        }
+      }
+    }
+    for (const w of this.wisps) {
+      w.ph += dt;
+      if (w.hit !== undefined) continue;
+      w.x += (w.vx + Math.sin(w.ph * 1.3) * 26) * dt;
+      w.y += this.speed * 0.3 * dt;
+    }
+    this.wisps = this.wisps.filter((w) => (w.hit === undefined ? w.y > this.y - this.PY - 40 : this.t - w.hit < 1));
+  }
+  private hitWisp(w: Wisp) {
+    w.hit = this.t;
+    this.stats.wisps++;
+    this.focus = Math.min(1, this.focus + 0.4);
+    this.burst(w.x, w.y - 30, this.o.settings.calm ? 14 : 36, ["#fff4c0", "#a8e8ff", "#ffffff"], 120);
+    sfx.chime();
+    if (this.mode === "endless" || w.memory < 0) {
+      this.souls += ENDLESS.wispSouls;
+      this.stats.souls += ENDLESS.wispSouls;
+      this.float(w.x, w.y - 40, `+${ENDLESS.wispSouls} souls`, "#b8ffe0");
+      return;
+    }
+    // the memory may have come back some other way meanwhile: take the next one
+    let { memory, clarify } = w;
+    if ((!clarify && this.memories.includes(memory)) || (clarify && this.clear.includes(memory))) ({ memory, clarify } = this.nextMemory());
+    if (memory < 0) return;
+    if (clarify) {
+      if (!this.clear.includes(memory)) this.clear.push(memory);
+    } else {
+      this.memories.push(memory);
+      this.stats.memoriesFound++;
+    }
+    this.keys.left = this.keys.right = false;
+    this.aimT = -1;
+    this.o.onEvent({ type: "wisp", memory, clear: clarify });
+  }
+
+  /* ---------------- fords ---------------- */
+
+  private buildFord() {
+    const y0 = this.y + FORD.ahead;
+    const cx = this.x;
+    const rows: Ford["rows"] = [];
+    let ok = Math.floor(Math.random() * FORD.stones);
+    for (let r = 0; r < FORD.rows; r++) {
+      if (r > 0) ok = Math.max(0, Math.min(FORD.stones - 1, ok + [-1, 0, 1][Math.floor(Math.random() * 3)]));
+      const xs = Array.from({ length: FORD.stones }, (_, k) => cx + (k - (FORD.stones - 1) / 2) * FORD.spread + (Math.random() - 0.5) * 8);
+      rows.push({ y: y0 + 40 + r * FORD.gap, xs, ok });
+    }
+    const y1 = y0 + 80 + (FORD.rows - 1) * FORD.gap;
+    this.clearArea(() => true, cx - 900, cx + 900, y0 - 60, y1 + 60);
+    for (const c of this.near(cx, (y0 + y1) / 2, 6, 2)) for (const p of c.picks) if (p.y > y0 - 40 && p.y < y1 + 40) p.taken = true;
+    this.extra = this.extra.filter((p) => p.y < y0 - 40 || p.y > y1 + 40);
+    const f: Ford = { id: this.nextId++, y0, y1, cx, land: this.land, rows, lit: -1, bridged: this.bridge };
+    if (this.bridge) this.bridge = false;
+    this.fords.push(f);
+    return f;
+  }
+  private fordStep() {
+    const m = this.metres;
+    const pendingGate = this.gates.some((g) => !g.passed && g.y > this.y - 100 && g.y < this.y + 1600);
+    if (this.mode === "mission" && this.land <= 2 && this.fordDone < this.land && m - (this.landM ?? 0) >= this.fordAtM && !this.fords.some((f) => f.y1 > this.y)) {
+      const busy = pendingGate || this.villages.some((v) => v.state === "waiting" && v.y1 > this.y - 100 && v.y0 < this.y + FORD.ahead + 600);
+      if (busy) this.fordAtM += 40;
+      else {
+        this.buildFord();
+        this.fordDone = this.land;
+        this.fordAtM = MISSION.fordAt[0] + Math.random() * (MISSION.fordAt[1] - MISSION.fordAt[0]);
+      }
+    } else if (this.mode === "endless" && this.biome <= 2 && m >= this.fordAtM && !this.fords.some((f) => f.y1 > this.y)) {
+      if (this.villages.some((v) => v.state === "waiting" && v.y1 > this.y - 100 && v.y0 < this.y + FORD.ahead + 600)) this.fordAtM += 40;
+      else {
+        this.buildFord();
+        this.fordAtM = m + FORD.endlessGap[0] + Math.random() * (FORD.endlessGap[1] - FORD.endlessGap[0]);
+      }
+    }
+    for (const f of this.fords) {
+      // the right stones light up one after another as the ford comes into view
+      if (f.lit < 0 && this.sy(f.rows[0].y) < VIEW_H * 0.8) {
+        f.lit = this.t;
+        if (!f.told) {
+          f.told = true;
+          if (!this.o.seenKinds.includes("ford")) {
+            this.o.seenKinds.push("ford");
+            this.say(f.bridged ? "A ford, and your roots knit across it." : "A ford. A will-o'-the-wisp hops across it on the safe stones: watch where it treads, then ride the same stones from memory.", true);
+          }
+        }
+      }
+      for (const r of f.rows) {
+        if (r.passed || this.y < r.y) continue;
+        r.passed = true;
+        if (f.bridged) continue;
+        if (Math.abs(this.x - r.xs[r.ok]) <= 17) {
+          this.burst(this.x, this.y + 2, 8, ["#cfe0e8", "#8ea2b0", "#ffffff"], 50, true);
+        } else {
+          f.slipped = true;
+          this.burst(this.x, this.y, 18, ["#2a3a30", "#7a9a8a", "#cfe0e8"], 90);
+          this.hurt("You slipped into the black water");
+        }
+      }
+      if (!f.slipped && !f.counted && f.rows.every((r) => r.passed) && !f.bridged) {
+        f.counted = true;
+        this.stats.fords++;
+        this.say("Across, dry-shod.");
+      }
+    }
   }
 
   private particles(dt: number) {
@@ -2158,11 +2866,14 @@ export class Game {
       swords: this.swords,
       maxSwords: this.maxSwords(),
       traps: this.traps,
-      bark: this.bark,
+      rune: this.rune,
+      casting: !!this.casting && !this.casting.end,
+      focus: this.focus,
+      homing: this.homing,
       ability: r.ability,
-      abilityReady:
-        r.id === "knight" ? (this.shieldReady ? 1 : Math.min(0.99, (this.metres - this.shieldAt) / 400)) : this.cool > 0 ? 1 - this.cool / r.cooldown : 1,
+      abilityReady: this.cool > 0 ? 1 - this.cool / r.cooldown : 1,
       companion: this.comp && this.comp.state !== "gone" ? this.comp.kind : null,
+      companionRest: !!this.comp && this.comp.state === "rest",
       danger: this.danger(),
       biome: BIOMES[this.biome].name,
       wordGot: this.wordGot,
@@ -2178,7 +2889,7 @@ export class Game {
 
   private danger() {
     let d = 0;
-    for (const q of this.monsters) if (this.hunting(q) && q.state !== "stunned" && q.state !== "rooted") d = Math.max(d, 1 - Math.max(0, this.y - q.y - 20) / 260);
+    for (const q of this.monsters) if (this.hunting(q) && q.state !== "stunned" && q.state !== "rooted" && q.state !== "flee") d = Math.max(d, 1 - Math.max(0, this.y - q.y - 20) / 260);
     return Math.max(0, Math.min(1, d));
   }
 
@@ -2189,6 +2900,14 @@ export class Game {
   }
   private sy(y: number) {
     return this.PY + (y - this.y);
+  }
+  private glow(x: number, y: number, r: number, rgb: string, a: number) {
+    if (a <= 0.004 || r <= 0) return;
+    const g = this.ctx;
+    const was = g.globalAlpha;
+    g.globalAlpha = was * Math.min(1, a);
+    g.drawImage(glowCanvas(rgb), x - r, y - r, r * 2, r * 2);
+    g.globalAlpha = was;
   }
   private put(s: Spr | undefined, x: number, y: number, a = 1) {
     if (!s) return;
@@ -2305,6 +3024,8 @@ export class Game {
     }
     for (const { gt, Y } of gatesOn) if (Y > -30 && Y < H + 30) this.drawBrook(Y, gt.gold);
     for (const v of this.villages) this.drawVillageGround(v);
+    for (const f of this.fords) this.drawFord(f);
+    this.drawRot();
 
     // blood on the ground
     for (const p of this.fx)
@@ -2345,6 +3066,7 @@ export class Game {
               else if (o.kind === "well") this.put(this.life.well, x, y + 2);
               else if (o.kind === "tree") twoWay((l) => l.tree[o.v], x, y + 2);
               else if (o.kind === "boulder") twoWay((l) => l.boulder[o.v % 2], x, y + 2);
+              else if (o.kind === "ruin") this.put(this.ruinArt[o.v % 3], x, y + 4);
               else if (o.kind === "pit") twoWay((l) => l.pit[wrap(Math.floor(this.t * 10 + o.v * 2), 6)], x, y + 4);
               else if (o.kind === "arch") twoWay((l) => l.arch, x, y + 2);
               else twoWay((l) => l[o.kind as "menhir" | "stone" | "log" | "thorns"], x, y + 1);
@@ -2352,10 +3074,12 @@ export class Game {
             },
           });
         }
+        if (c.decor) for (const d of c.decor) list.push({ y: d.y - 40, fn: () => this.put(this.boneArt[d.v % 4], this.sx(d.x), this.sy(d.y)) });
         for (const p of c.picks) if (!p.taken) list.push({ y: p.y, fn: () => this.drawPick(p) });
         if (c.life && !this.o.showcase) for (const cr of c.life) list.push({ y: cr.kind === "butterfly" ? cr.y + 40 : cr.y, fn: () => this.drawCritter(cr) });
       }
     for (const p of this.extra) if (!p.taken) list.push({ y: p.y, fn: () => this.drawPick(p) });
+    for (const w of this.wisps) list.push({ y: w.y + 40, fn: () => this.drawWisp(w) });
     for (const t of this.placed) if (t.alive) list.push({ y: t.y - 40, fn: () => this.put(this.trapArt, this.sx(t.x), this.sy(t.y) + 4) });
     for (const { gt, Y } of gatesOn)
       for (let ax = archX(ox - 70); ax <= ox + W + 70; ax += 260) list.push({ y: gt.y, fn: () => this.drawGate(gt, ax, Y) });
@@ -2406,15 +3130,38 @@ export class Game {
       g.lineWidth = 1.4;
       g.stroke();
     }
-    // the aim: a dotted line swinging behind you
-    if (this.aimT >= 0) {
+    // the aim: a dotted line swinging behind you, or following the mouse or the stick
+    if (this.aimT >= 0 && !this.o.showcase) {
       const a = this.aimAngle();
-      g.fillStyle = "#fff4a0";
-      for (let d = 18; d < 150; d += 9) {
+      const free = this.aimFree();
+      // aimed freely, the line steadies as the string is drawn, and shakes if it is held too long
+      const loose = free ? 0.34 * Math.max(0, 1 - this.aimT / 0.45) + Math.max(0, this.aimT - 1.8) * 0.22 : 0;
+      const shake = free && this.aimT > 1.8 && !this.o.settings.calm ? Math.sin(this.t * 40) * loose * 0.5 : 0;
+      const len = free ? 230 : 150;
+      g.fillStyle = this.homing > 0 ? "#a8e8ff" : "#fff4a0";
+      for (let d = 18; d < len; d += 9) {
         g.beginPath();
-        g.arc(this.sx(this.x + Math.sin(a) * d), this.PY - 20 - Math.cos(a) * d, 1.6, 0, Math.PI * 2);
+        g.arc(this.sx(this.x) + Math.sin(a + shake) * d, this.PY - 14 - Math.cos(a + shake) * d, 1.6, 0, Math.PI * 2);
         g.fill();
       }
+      if (loose > 0.02) {
+        g.strokeStyle = "rgba(255,244,160,0.35)";
+        g.lineWidth = 1;
+        for (const sd of [-1, 1]) {
+          g.beginPath();
+          g.moveTo(this.sx(this.x), this.PY - 14);
+          g.lineTo(this.sx(this.x) + Math.sin(a + sd * loose / 2) * len * 0.7, this.PY - 14 - Math.cos(a + sd * loose / 2) * len * 0.7);
+          g.stroke();
+        }
+      }
+    }
+    // calm, while the bow is drawn: a ring that empties
+    if (this.aimT > 0.22 && !this.o.showcase) {
+      g.strokeStyle = this.focus > 0 ? "rgba(168,232,255,0.8)" : "rgba(255,120,120,0.6)";
+      g.lineWidth = 2.4;
+      g.beginPath();
+      g.arc(this.sx(this.x), this.PY - 50, 9, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * this.focus);
+      g.stroke();
     }
     for (const p of this.fx) {
       if (p.life <= 0) continue;
@@ -2444,6 +3191,32 @@ export class Game {
       g.fill();
       g.globalAlpha = 1;
     }
+    // in The Rot a dirty rain is always falling
+    const rainLand = this.landAtY(this.y);
+    const rain = [1, 0.7, 0.3, 0][rainLand] ?? 0;
+    if (rain > 0 && !this.finaleT) {
+      g.strokeStyle = rainLand === 0 ? "rgba(150,140,110,0.38)" : rainLand === 1 ? "rgba(160,170,160,0.32)" : "rgba(190,200,200,0.22)";
+      g.lineWidth = rainLand === 2 ? 0.8 : 1.1;
+      g.beginPath();
+      const ph = this.t;
+      const n = Math.round(this.drops.length * rain);
+      for (let di = 0; di < n; di++) {
+        const d = this.drops[di];
+        const dy = (d.y + ph * 520 * d.s) % (H + 30) - 15;
+        const dx = ((d.x - ph * 130 * d.s - (this.camX % 1600)) % (W + 40) + W + 40) % (W + 40) - 20;
+        g.moveTo(dx, dy);
+        g.lineTo(dx - d.l * 0.28, dy + d.l);
+      }
+      g.stroke();
+      if (rainLand <= 1) {
+        const mist = g.createLinearGradient(0, H * 0.4, 0, H);
+        mist.addColorStop(0, "rgba(60,58,50,0)");
+        mist.addColorStop(1, `rgba(60,58,50,${rainLand === 0 ? 0.22 : 0.12})`);
+        g.fillStyle = mist;
+        g.fillRect(0, H * 0.4, W, H * 0.6);
+      }
+    }
+    if (this.casting) this.drawCast();
     if (this.wave >= 0 && !this.o.settings.calm) {
       const wy = (this.wave / 1.4) * (H + 120) - 60;
       const grd = g.createLinearGradient(0, wy - 50, 0, wy + 50);
@@ -2501,7 +3274,7 @@ export class Game {
     const calm = this.o.settings.calm;
     const bob = calm ? 0 : Math.sin(this.t * 4 + p.id) * 2.5;
     // a ring of light on the ground, so it stands out from the leaves and stones
-    if (p.kind !== "seed") {
+    if (p.kind !== "soul") {
       const g = this.ctx;
       const x = this.sx(p.x);
       const y = this.sy(p.y) + 4;
@@ -2667,10 +3440,14 @@ export class Game {
   private drawCottage(o: Obstacle, x: number, y: number) {
     const v = o.vid !== undefined ? this.villages.find((vv) => vv.id === o.vid) : undefined;
     const g = this.ctx;
-    const f = !v ? "" : v.state === "lost" ? "grayscale(1) brightness(0.42)" : v.state === "waiting" && this.land === 0 ? "grayscale(0.65) brightness(0.78)" : "";
-    if (f) g.filter = f;
-    this.put(this.life.cottage[o.v % 2], x, y);
-    if (f) g.filter = "none";
+    void g;
+    const kind = !v ? 0 : v.state === "lost" ? 2 : v.state === "waiting" && this.land === 0 ? 1 : 0;
+    const i = o.v % 2;
+    if (!kind) return this.put(this.life.cottage[i], x, y);
+    // the grey and the burnt-out cottage are painted once, not filtered every frame
+    const list = kind === 2 ? this.life.cottageLost : this.life.cottageGrey;
+    if (!list[i]) list[i] = tinted(this.life.cottage[i], kind === 2 ? "grayscale(1) brightness(0.42)" : "grayscale(0.65) brightness(0.78)");
+    this.put(list[i], x, y);
   }
 
   /** under a village: the ring that asks for a heart, the green of a saved one, the scorch of a lost one */
@@ -2685,6 +3462,45 @@ export class Game {
     let x = this.sx(cr.x);
     let y = this.sy(cr.y);
     if (y < -40 || y > VIEW_H + 40 || x < -40 || x > this.W + 40) return;
+    if (cr.kind === "fairy" && cr.ring) {
+      const rg = cr.ring;
+      if (cr.flown === undefined && Math.hypot(rg.cx - this.x, rg.cy - this.y) < 110) cr.flown = this.t;
+      const an = (calm ? 0 : this.t * 1.7) + (rg.i / rg.n) * Math.PI * 2;
+      let fx = this.sx(rg.cx) + Math.cos(an) * 17;
+      let fy = this.sy(rg.cy) + Math.sin(an) * 8 - 10 - (calm ? 0 : Math.abs(Math.sin(this.t * 5 + rg.i)) * 4);
+      if (away > 0) {
+        // scattered: each flies off its own way and fades
+        const out = an + 0.3;
+        fx += Math.cos(out) * away * 120;
+        fy += Math.sin(out) * away * 60 - away * 50;
+        g.globalAlpha = Math.max(0, 1 - away / 2.2);
+      }
+      this.glow(fx, fy, 8, "255,250,220", 0.75);
+      const flap = calm ? 0.8 : 0.4 + Math.abs(Math.sin(this.t * 20 + rg.i)) * 0.6;
+      g.fillStyle = "rgba(220,240,255,0.7)";
+      for (const sd of [-1, 1]) {
+        g.beginPath();
+        g.ellipse(fx + sd * 2.6 * flap, fy - 1.5, 2.6 * flap, 1.6, sd * 0.5, 0, Math.PI * 2);
+        g.fill();
+      }
+      g.fillStyle = cr.c;
+      g.beginPath();
+      g.arc(fx, fy, 1.6, 0, Math.PI * 2);
+      g.fill();
+      g.fillRect(fx - 0.6, fy, 1.2, 3);
+      // a faint ring of mushrooms where they dance
+      if (rg.i === 0 && away === 0) {
+        g.fillStyle = "rgba(240,230,210,0.85)";
+        for (let k = 0; k < 9; k++) {
+          const a2 = (k / 9) * Math.PI * 2;
+          g.beginPath();
+          g.ellipse(this.sx(rg.cx) + Math.cos(a2) * 24, this.sy(rg.cy) + Math.sin(a2) * 11, 2, 1.2, 0, 0, Math.PI * 2);
+          g.fill();
+        }
+      }
+      g.globalAlpha = 1;
+      return;
+    }
     if (cr.kind === "flies") {
       g.fillStyle = "rgba(20,20,20,0.85)";
       for (let k = 0; k < 5; k++) {
@@ -3042,11 +3858,7 @@ export class Game {
       const fx = px + Math.cos(a) * (30 + (q % 4) * 16);
       const fy = py - 22 + Math.sin(a * 1.3) * (14 + (q % 3) * 6);
       const tw = calm ? 0.7 : 0.4 + 0.6 * Math.abs(Math.sin(this.t * 2 + q));
-      const gr = g.createRadialGradient(fx, fy, 0, fx, fy, 6);
-      gr.addColorStop(0, `rgba(255,250,170,${(0.9 * tw * k).toFixed(2)})`);
-      gr.addColorStop(1, "rgba(255,250,170,0)");
-      g.fillStyle = gr;
-      g.fillRect(fx - 6, fy - 6, 12, 12);
+      this.glow(fx, fy, 6, "255,250,170", 0.9 * tw * k);
     }
     g.restore();
     g.globalAlpha = 1;
@@ -3354,13 +4166,6 @@ export class Game {
     const fade = this.finaleT ? Math.max(0, 1 - (this.finaleT - 3) / 2.6) : 1;
     if (fade <= 0) return;
     this.put(this.hero[f], x, y + 6 - lift, (this.inv > 0 && this.o.settings.calm ? 0.6 : 1) * Math.min(1, fade));
-    if (this.bark || (this.o.choice.rider.id === "knight" && this.shieldReady)) {
-      g.strokeStyle = this.bark ? "rgba(200,160,96,0.8)" : "rgba(200,210,230,0.8)";
-      g.lineWidth = 1.5;
-      g.beginPath();
-      g.arc(x, y - 40 - lift, 44, Math.PI * 1.15, Math.PI * 1.85);
-      g.stroke();
-    }
     if (this.swing > 0) {
       g.strokeStyle = "rgba(255,255,255,0.9)";
       g.lineWidth = 3;
@@ -3376,6 +4181,7 @@ export class Game {
     let x = this.sx(q.x);
     let y = this.sy(q.y);
     if (y > VIEW_H + 20 || y < -b.h) return;
+    if (q.state === "under" || q.state === "burst") return this.drawMound(q, x, y);
     const moving = q.state === "run" || q.state === "lunge" || q.state === "recover" || q.state === "windup";
     const f = moving ? wrap(Math.floor(q.phase * (q.state === "lunge" ? 14 : 9)), 4) : 0;
     let a = 1;
@@ -3386,11 +4192,7 @@ export class Game {
     }
     if (q.state === "windup" && !this.o.settings.calm) x += Math.sin(this.t * 60) * 1.6;
     // a smoke of the dark it came from, clinging round its feet
-    const smoke = g.createRadialGradient(x, y - b.h * 0.25, 2, x, y - b.h * 0.25, b.w * 0.75);
-    smoke.addColorStop(0, `rgba(12,4,14,${(0.42 * a).toFixed(2)})`);
-    smoke.addColorStop(1, "rgba(12,4,14,0)");
-    g.fillStyle = smoke;
-    g.fillRect(x - b.w, y - b.h, b.w * 2, b.h * 1.3);
+    this.glow(x, y - b.h * 0.25, b.w * 0.75, "12,4,14", 0.42 * a);
     g.fillStyle = "rgba(0,0,0,0.3)";
     g.beginPath();
     g.ellipse(x, y + 2, b.w * 0.3, 5, 0, 0, Math.PI * 2);
@@ -3400,14 +4202,56 @@ export class Game {
       // fed on the living: a red glow that grows with every meal
       const pulse = this.o.settings.calm ? 0.5 : 0.5 + 0.5 * Math.sin(this.t * 6 + q.id);
       const cy = y - b.h * 0.45;
-      const gr = g.createRadialGradient(x, cy, 2, x, cy, b.w * (0.5 + fed * 0.06));
-      gr.addColorStop(0, `rgba(255,40,30,${(0.16 + fed * 0.07 + pulse * 0.1).toFixed(2)})`);
-      gr.addColorStop(1, "rgba(255,40,30,0)");
-      g.fillStyle = gr;
-      g.fillRect(x - b.w, cy - b.h, b.w * 2, b.h * 2);
+      this.glow(x, cy, b.w * (0.5 + fed * 0.06), "255,40,30", 0.16 + fed * 0.07 + pulse * 0.1);
     }
     const lean = q.state === "lunge" ? 6 : 0;
-    this.put(this.mons[q.type][f], x, y + 2 + lean, a);
+    if (q.state === "reach" || this.grab?.q === q) this.drawReach(q, x, y);
+    if (q.state === "swell") {
+      // it swells before it spits
+      const k = 1 + (1 - q.timer / 0.7) * 0.22 + (this.o.settings.calm ? 0 : Math.sin(this.t * 40) * 0.02);
+      g.save();
+      g.translate(x, y + 2);
+      g.scale(k, k);
+      this.put(this.mons[q.type][f], 0, 0, a);
+      g.restore();
+      this.glow(x, y - b.h * 0.5, b.w * 0.6, "190,220,70", 0.35);
+    } else this.put(this.mons[q.type][f], x, y + 2 + lean, a);
+    if (q.hitT > 0) {
+      g.globalCompositeOperation = "lighter";
+      this.put(this.mons[q.type][f], x, y + 2 + lean, Math.min(1, q.hitT * 2.5) * a);
+      g.globalCompositeOperation = "source-over";
+    }
+    const T = MONSTERS[q.type];
+    if (T.hp > 1 && q.state !== "dying") {
+      if (q.type === "colossus" && q.hp < T.hp) {
+        // the bark splits open, and the rot inside glows through
+        g.strokeStyle = `rgba(184,255,90,${(0.5 + 0.4 * Math.sin(this.t * 7)).toFixed(2)})`;
+        g.lineWidth = 1.6;
+        const r = rng(q.id * 7 + 3);
+        for (let k = 0; k < (T.hp - q.hp) * 2; k++) {
+          let cx = x + (r() - 0.5) * 50;
+          let cy = y - 30 - r() * 60;
+          g.beginPath();
+          g.moveTo(cx, cy);
+          for (let z = 0; z < 4; z++) {
+            cx += (r() - 0.5) * 12;
+            cy += (r() - 0.3) * 10;
+            g.lineTo(cx, cy);
+          }
+          g.stroke();
+        }
+      }
+      for (let k = 0; k < T.hp; k++) {
+        g.fillStyle = k < q.hp ? "#e0303a" : "rgba(40,20,20,0.6)";
+        g.beginPath();
+        g.arc(x + (k - (T.hp - 1) / 2) * 7, y - b.h - 4, 2.4, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+    if (q.stolen && q.state === "flee") {
+      const gy = y - b.h * 0.55;
+      this.glow(x + 18, gy, 16, "184,255,224", 0.9);
+    }
     if (q.state === "windup") {
       // the warning before it leaps
       g.font = "bold 22px system-ui, sans-serif";
@@ -3443,8 +4287,330 @@ export class Game {
     }
   }
 
+  /** the Burrower under the ground: a swelling that creeps towards your line, then splits */
+  private drawMound(q: Monster, x: number, y: number) {
+    const g = this.ctx;
+    const burst = q.state === "burst" ? 1 - q.timer / 0.4 : 0;
+    const shake = this.o.settings.calm ? 0 : Math.sin(this.t * 50) * (1 + burst * 3);
+    const r = 20 + Math.sin(q.phase * 6) * 2 + burst * 8;
+    g.fillStyle = "rgba(0,0,0,0.3)";
+    g.beginPath();
+    g.ellipse(x, y + 3, r + 4, r * 0.4, 0, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = "#4e3e2c";
+    g.strokeStyle = "#1c1410";
+    g.lineWidth = 1.3;
+    g.beginPath();
+    g.ellipse(x + shake, y - 4, r, r * 0.55, 0, Math.PI, 0);
+    g.lineTo(x + r + shake, y);
+    g.lineTo(x - r + shake, y);
+    g.closePath();
+    g.fill();
+    g.stroke();
+    g.strokeStyle = "#2a1e14";
+    g.lineWidth = 1.2;
+    g.beginPath();
+    for (const k of [-1, 0, 1]) {
+      g.moveTo(x + k * 6 + shake, y - r * 0.5);
+      g.lineTo(x + k * 9 + shake, y - r * 0.2);
+      g.lineTo(x + k * 13 + shake, y - 2);
+    }
+    g.stroke();
+    // a trail of turned earth behind it
+    g.fillStyle = "rgba(70,56,40,0.6)";
+    for (let k = 1; k < 5; k++) {
+      g.beginPath();
+      g.ellipse(x + Math.sin(q.phase * 2 + k) * 3, y + k * 10, 6 - k, 3, 0, 0, Math.PI * 2);
+      g.fill();
+    }
+    if (burst > 0) {
+      this.put(this.mons[q.type][wrap(Math.floor(this.t * 12), 4)], x, y + 2 + (1 - burst) * 50, burst);
+    }
+  }
+
+  /** the Hands' arm: drawn back while it aims, then out to wherever you are */
+  private drawReach(q: Monster, x: number, y: number) {
+    const g = this.ctx;
+    const holding = this.grab?.q === q;
+    const tx = holding ? this.sx(this.x) : this.sx(q.reachX ?? this.x);
+    const ty = holding ? this.PY - 10 : this.PY;
+    if (!holding) {
+      // where it will land: a ring on the ground ahead of you
+      const k = 1 - q.timer / 0.6;
+      g.strokeStyle = `rgba(224,48,58,${(0.35 + k * 0.5).toFixed(2)})`;
+      g.lineWidth = 2;
+      g.beginPath();
+      g.ellipse(tx, ty + 6, 34, 11, 0, 0, Math.PI * 2);
+      g.stroke();
+      return;
+    }
+    const mx = (x + tx) / 2 + Math.sin(this.t * 9) * 8;
+    const my = (y - 30 + ty) / 2;
+    for (const [w, c] of [[8, "#1c1410"], [5.5, "#bdb2a6"]] as [number, string][]) {
+      g.strokeStyle = c;
+      g.lineWidth = w;
+      g.lineCap = "round";
+      g.beginPath();
+      g.moveTo(x, y - 30);
+      g.quadraticCurveTo(mx, my, tx, ty);
+      g.stroke();
+    }
+    g.fillStyle = "#bdb2a6";
+    g.strokeStyle = "#1c1410";
+    g.lineWidth = 1.2;
+    g.beginPath();
+    g.ellipse(tx, ty, 7, 5, 0, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+  }
+
+  /** the Spitter's rot: an arc through the air, a ring where it will land, and a burning pool after */
+  private drawRot() {
+    const g = this.ctx;
+    for (const p of this.puddles) {
+      const x = this.sx(p.x);
+      const y = this.sy(p.y);
+      if (y < -30 || y > VIEW_H + 30) continue;
+      const a = Math.min(1, p.t / 0.8);
+      g.fillStyle = `rgba(60,70,14,${(0.75 * a).toFixed(2)})`;
+      g.beginPath();
+      g.ellipse(x, y, 26, 10, 0, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = `rgba(168,184,58,${(0.55 * a).toFixed(2)})`;
+      for (let k = 0; k < 5; k++) {
+        const an = k * 1.3 + p.t * 2;
+        g.beginPath();
+        g.arc(x + Math.cos(an) * 14, y + Math.sin(an) * 4, 2 + (k % 2), 0, Math.PI * 2);
+        g.fill();
+      }
+      this.glow(x, y, 30, "190,220,70", 0.18 * a);
+    }
+    for (const p of this.spits) {
+      const k = p.t / p.dur;
+      const tx = this.sx(p.tx);
+      const ty = this.sy(p.ty);
+      g.strokeStyle = `rgba(190,220,70,${(0.4 + k * 0.5).toFixed(2)})`;
+      g.lineWidth = 2;
+      g.setLineDash([5, 4]);
+      g.beginPath();
+      g.ellipse(tx, ty, 26 * (1.4 - k * 0.4), 10 * (1.4 - k * 0.4), 0, 0, Math.PI * 2);
+      g.stroke();
+      g.setLineDash([]);
+      const wx = p.x + (p.tx - p.x) * k;
+      const wy = p.y + (p.ty - p.y) * k;
+      const x = this.sx(wx);
+      const y = this.sy(wy) - Math.sin(k * Math.PI) * 70;
+      g.fillStyle = "#a8b83a";
+      g.strokeStyle = "#2a3008";
+      g.lineWidth = 1.2;
+      g.beginPath();
+      g.arc(x, y, 6, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+    }
+  }
+
+  private drawFord(f: Ford) {
+    const g = this.ctx;
+    const top = this.sy(f.y0);
+    const bot = this.sy(f.y1);
+    if (bot < -20 || top > VIEW_H + 20) return;
+    const land = Math.min(2, f.land);
+    const deep = ["#12191a", "#16262a", "#1a3236"][land];
+    const shallow = ["rgba(80,96,70,0.5)", "rgba(90,120,110,0.45)", "rgba(110,150,150,0.45)"][land];
+    const calm = this.o.settings.calm;
+    // a river across the whole land, running from left to right, with muddy banks
+    g.fillStyle = "#3a3024";
+    g.fillRect(0, top - 10, this.W, 10);
+    g.fillRect(0, bot, this.W, 10);
+    g.fillStyle = deep;
+    g.fillRect(0, top, this.W, bot - top);
+    // the shallows where the stones are, a paler band through the middle of the road
+    const sx0 = this.sx(f.cx) - (FORD.stones / 2) * FORD.spread - 20;
+    const sw = FORD.stones * FORD.spread + 40;
+    const sh = g.createLinearGradient(sx0 - 30, 0, sx0 + sw + 30, 0);
+    sh.addColorStop(0, "rgba(0,0,0,0)");
+    sh.addColorStop(0.2, shallow);
+    sh.addColorStop(0.8, shallow);
+    sh.addColorStop(1, "rgba(0,0,0,0)");
+    g.fillStyle = sh;
+    g.fillRect(sx0 - 30, top + 4, sw + 60, bot - top - 8);
+    // the current: streaks drifting sideways
+    g.strokeStyle = land === 0 ? "rgba(140,170,110,0.28)" : "rgba(190,225,230,0.3)";
+    g.lineWidth = 1.2;
+    g.beginPath();
+    const flow = calm ? this.t * 12 : this.t * 46;
+    for (let k = 0; k < 26; k++) {
+      const wy = top + 8 + ((k * 23.7) % Math.max(1, bot - top - 16));
+      const wx = (((k * 173 + flow - this.camX) % (this.W + 60)) + this.W + 60) % (this.W + 60) - 30;
+      g.moveTo(wx, wy);
+      g.quadraticCurveTo(wx + 10, wy - 2, wx + 22, wy);
+    }
+    g.stroke();
+    // the guide: a will-o'-the-wisp hops from stone to stone over the right way, once, then is gone
+    const each = FORD.lightEach;
+    const since = f.lit >= 0 ? this.t - f.lit : -1;
+    const ri = since >= 0 ? Math.floor(since / each) : -1;
+    f.rows.forEach((row, r) => {
+      const ry = this.sy(row.y);
+      if (f.bridged) {
+        g.strokeStyle = "#6a4a2a";
+        g.lineWidth = 6;
+        g.beginPath();
+        g.moveTo(this.sx(row.xs[0]) - 26, ry);
+        g.lineTo(this.sx(row.xs[row.xs.length - 1]) + 26, ry);
+        g.stroke();
+        g.strokeStyle = "#8ae05a";
+        g.lineWidth = 1;
+        g.stroke();
+      }
+      row.xs.forEach((sx0, k) => {
+        const x = this.sx(sx0);
+        const touched = r === ri && k === row.ok;
+        // a ring of water round each stone, as it breaks the current
+        g.strokeStyle = "rgba(220,240,240,0.35)";
+        g.lineWidth = 1;
+        g.beginPath();
+        g.ellipse(x - 3, ry + 1, 17, 6.5, 0, Math.PI * 0.6, Math.PI * 1.45);
+        g.stroke();
+        // flat stones, their tops just above the water, wet and dark
+        g.fillStyle = ["#4a4840", "#55564c", "#5e6258"][land];
+        g.strokeStyle = "#141210";
+        g.lineWidth = 1;
+        g.beginPath();
+        g.ellipse(x, ry, 13, 5, 0, 0, Math.PI * 2);
+        g.fill();
+        g.stroke();
+        g.fillStyle = "rgba(255,255,255,0.1)";
+        g.beginPath();
+        g.ellipse(x - 3, ry - 1.5, 5, 1.6, 0, 0, Math.PI * 2);
+        g.fill();
+        if (touched) this.glow(x, ry, 22, "255,236,170", 0.7 * (1 - (since % each) / each));
+      });
+    });
+    if (ri >= 0 && ri < f.rows.length && !f.bridged) {
+      const k = (since % each) / each;
+      const cur = f.rows[ri];
+      const prev = ri > 0 ? f.rows[ri - 1] : null;
+      const x0 = prev ? prev.xs[prev.ok] : cur.xs[cur.ok];
+      const y0 = prev ? prev.y : cur.y + 50;
+      const x1 = cur.xs[cur.ok];
+      const t = Math.min(1, k * 1.6);
+      const wx = this.sx(x0 + (x1 - x0) * t);
+      const wy = this.sy(y0 + (cur.y - y0) * t) - 16 - Math.sin(t * Math.PI) * 18;
+      const fade = ri === f.rows.length - 1 ? 1 - Math.max(0, k - 0.7) / 0.3 : 1;
+      this.glow(wx, wy, 20, "200,255,230", 0.8 * fade);
+      g.fillStyle = `rgba(255,255,255,${fade.toFixed(2)})`;
+      g.beginPath();
+      g.arc(wx, wy, 3, 0, Math.PI * 2);
+      g.fill();
+    }
+  }
+
+  private drawWisp(w: Wisp) {
+    const g = this.ctx;
+    const x = this.sx(w.x);
+    const y = this.sy(w.y) - 30 + Math.sin(w.ph * 2.2) * 4;
+    if (w.hit !== undefined) return;
+    const mem = this.mode === "mission";
+    const c = mem ? "255,240,190" : "184,255,224";
+    g.fillStyle = "rgba(0,0,0,0.25)";
+    g.beginPath();
+    g.ellipse(x, this.sy(w.y) + 2, 7, 2.5, 0, 0, Math.PI * 2);
+    g.fill();
+    const r = 16 + Math.sin(w.ph * 5) * 2;
+    const gl = g.createRadialGradient(x, y, 0, x, y, r);
+    gl.addColorStop(0, `rgba(${c},0.95)`);
+    gl.addColorStop(0.35, `rgba(${c},0.45)`);
+    gl.addColorStop(1, `rgba(${c},0)`);
+    g.fillStyle = gl;
+    g.fillRect(x - r, y - r, r * 2, r * 2);
+    g.fillStyle = "#ffffff";
+    g.beginPath();
+    g.arc(x, y, 3.2, 0, Math.PI * 2);
+    g.fill();
+    for (let k = 0; k < 4; k++) {
+      const a = w.ph * 3 + k * 1.6;
+      g.fillStyle = `rgba(${c},0.8)`;
+      g.fillRect(x + Math.cos(a) * 9 - 0.8, y + Math.sin(a) * 6 + 6 + k * 2, 1.6, 1.6);
+    }
+  }
+
+  /** the rune being cast: its stone, its strokes, and the time left */
+  private drawCast() {
+    const g = this.ctx;
+    const c = this.casting!;
+    const sp = SPELLS[c.spell];
+    const W = this.W;
+    const n = c.seq.length;
+    const cw = Math.min(W - 30, 70 + n * 46);
+    const x0 = (W - cw) / 2;
+    const y0 = 70;
+    const fade = c.end ? Math.max(0, 1 - (this.t - c.end) / 0.9) : 1;
+    g.globalAlpha = fade;
+    g.fillStyle = "rgba(20,18,24,0.82)";
+    g.strokeStyle = c.end ? (c.ok ? sp.colour : "#e0303a") : "#a8a090";
+    g.lineWidth = 2;
+    g.beginPath();
+    g.roundRect(x0, y0, cw, 104, 10);
+    g.fill();
+    g.stroke();
+    g.textAlign = "center";
+    g.fillStyle = sp.colour;
+    g.font = "bold 15px Georgia, serif";
+    g.fillText(c.end ? (c.ok ? `${sp.name}!` : "The rune breaks") : `${sp.name} · repeat the strokes`, W / 2, y0 + 22);
+    // the strokes: shown for a moment, then only the ones already drawn
+    const showFor = RUNE.show + n * 0.12;
+    const visible = c.t < showFor;
+    const arrow: Record<Dir4, number> = { up: -Math.PI / 2, right: 0, down: Math.PI / 2, left: Math.PI };
+    c.seq.forEach((d, i) => {
+      const cx = W / 2 + (i - (n - 1) / 2) * 44;
+      const cy = y0 + 56;
+      g.fillStyle = i < c.got ? "rgba(168,232,255,0.25)" : "rgba(255,255,255,0.07)";
+      g.beginPath();
+      g.arc(cx, cy, 17, 0, Math.PI * 2);
+      g.fill();
+      if (i < c.got || visible || (c.end && !c.ok)) {
+        g.save();
+        g.translate(cx, cy);
+        g.rotate(arrow[d]);
+        g.strokeStyle = i < c.got ? sp.colour : visible ? "#f6f1e4" : "rgba(255,120,120,0.7)";
+        g.lineWidth = 3.5;
+        g.lineCap = "round";
+        g.beginPath();
+        g.moveTo(-9, 0);
+        g.lineTo(9, 0);
+        g.moveTo(3, -6);
+        g.lineTo(9, 0);
+        g.lineTo(3, 6);
+        g.stroke();
+        g.restore();
+      } else {
+        g.fillStyle = "rgba(246,241,228,0.5)";
+        g.font = "bold 16px Georgia, serif";
+        g.fillText("?", cx, cy + 6);
+      }
+    });
+    if (!c.end) {
+      const k = Math.max(0, 1 - c.t / c.limit);
+      g.fillStyle = "rgba(255,255,255,0.15)";
+      g.fillRect(x0 + 14, y0 + 86, cw - 28, 5);
+      g.fillStyle = k > 0.3 ? sp.colour : "#e0303a";
+      g.fillRect(x0 + 14, y0 + 86, (cw - 28) * k, 5);
+    }
+    g.globalAlpha = 1;
+    g.textAlign = "left";
+  }
+
   private drawCompanion() {
     const c = this.comp!;
+    if (c.state === "rest") {
+      const g = this.ctx;
+      g.font = "italic bold 13px Georgia, serif";
+      g.textAlign = "center";
+      g.fillStyle = `rgba(240,240,255,${(0.5 + 0.4 * Math.sin(this.t * 3)).toFixed(2)})`;
+      g.fillText("z", this.sx(c.x) + 10, this.sy(c.y) - 34 - ((this.t * 10) % 8));
+    }
     const f = wrap(Math.floor(this.t * 8), 2);
     this.put(this.runArt[c.kind][f], this.sx(c.x), this.sy(c.y) + 4);
   }

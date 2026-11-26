@@ -33,13 +33,17 @@ export type Stats = {
   villagesSaved: number;
   villagesLost: number;
   memoriesFound: number;
+  /** runes cast, fords crossed dry, soul-lights and memories shot */
+  spells: number;
+  fords: number;
+  wisps: number;
 };
 
 export const emptyStats = (): Stats => ({
   metres: 0, seeds: 0, logs: 0, branches: 0, pitted: 0, crashed: 0, trapped: 0,
   arrowKills: 0, swordKills: 0, companions: 0, clean: 0, afterSword: 0,
   gates: 0, animalsLost: 0, peopleLost: 0, villagesSafe: 0,
-  souls: 0, villagesSaved: 0, villagesLost: 0, memoriesFound: 0,
+  souls: 0, villagesSaved: 0, villagesLost: 0, memoriesFound: 0, spells: 0, fords: 0, wisps: 0,
 });
 
 export type Mission = { stat: keyof Stats; goal: number; text: string };
@@ -51,7 +55,7 @@ const n = (x: number) => x.toLocaleString("en-GB");
 const LIST: Mission[] = [
   m("metres", 500, "Ride 500 m"),
   m("crashed", 1, "Lead a monster into a tree or a rock"),
-  m("seeds", 20, "Collect 20 seeds"),
+  m("souls", 10, "Gather 10 souls"),
   m("logs", 3, "Jump over 3 fallen trunks"),
   m("pitted", 1, "Lead a monster into a burning pit"),
   m("metres", 1000, "Reach First Green (1,000 m)"),
@@ -60,7 +64,8 @@ const LIST: Mission[] = [
   m("trapped", 1, "Catch a monster in a trap"),
   m("clean", 600, "Ride 600 m without losing a heart"),
   m("arrowKills", 1, "Shoot a monster with an arrow"),
-  m("seeds", 60, "Collect 60 seeds"),
+  m("spells", 1, "Cast a rune"),
+  m("souls", 30, "Gather 30 souls"),
   m("pitted", 3, "Lead 3 monsters into pits"),
   m("afterSword", 300, "Use a sword, then survive 300 m more"),
   m("companions", 1, "Find a companion"),
@@ -70,7 +75,9 @@ const LIST: Mission[] = [
   m("arrowKills", 2, "Shoot 2 monsters"),
   m("clean", 1500, "Ride 1,500 m without losing a heart"),
   m("trapped", 3, "Catch 3 monsters in traps"),
-  m("seeds", 150, "Collect 150 seeds"),
+  m("fords", 2, "Cross 2 fords without slipping"),
+  m("wisps", 3, "Shoot 3 drifting soul-lights"),
+  m("souls", 80, "Gather 80 souls"),
   m("metres", 5000, "Reach Bloom (5,000 m)"),
   m("villagesSafe", 1, "Lead the hunt past a village with nobody taken"),
   m("pitted", 8, "Lead 8 monsters into pits"),
@@ -87,7 +94,7 @@ export function missionAt(i: number): Mission {
   const kinds: Mission[] = [
     m("pitted", 4 * round, `Lead ${4 * round} monsters into pits`),
     m("crashed", 6 * round, `Lead ${6 * round} monsters into trees or rocks`),
-    m("seeds", 100 * round, `Collect ${n(100 * round)} seeds`),
+    m("souls", 40 * round, `Gather ${n(40 * round)} souls`),
     m("clean", 1000 * round, `Ride ${n(1000 * round)} m without losing a heart`),
     m("trapped", 2 * round, `Catch ${2 * round} monsters in traps`),
     m("arrowKills", round, `Shoot ${round} monsters`),
@@ -126,6 +133,8 @@ export type Save = {
   word: { day: string; got: number; done: boolean };
   seenSword: boolean;
   seenMonsters: string[];
+  /** monsters brought down at least once: the bestiary tells all about them */
+  killedMonsters: string[];
   /** obstacles the game has already explained */
   seenKinds: string[];
   wins: number;
@@ -174,6 +183,7 @@ export function freshSave(calm = false): Save {
     word: { day: today(), got: 0, done: false },
     seenSword: false,
     seenMonsters: [],
+    killedMonsters: [],
     seenKinds: [],
     wins: 0,
     tutorialDone: false,
@@ -199,6 +209,9 @@ export function loadSave(): Save {
     s.looks = { ...DEFAULT_LOOK, ...s.looks };
     s.settings = { ...base.settings, ...s.settings };
     if (s.word.day !== today()) s.word = { day: today(), got: 0, done: false };
+    const ids = ["hollow", "hound", "spitter", "burrower", "hands", "collector", "colossus"];
+    s.seenMonsters = (s.seenMonsters ?? []).filter((x) => ids.includes(x));
+    s.killedMonsters = (s.killedMonsters ?? []).filter((x) => ids.includes(x));
     return s;
   } catch {
     return base;
