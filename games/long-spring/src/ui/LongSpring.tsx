@@ -108,7 +108,7 @@ const TASKS: Record<ChapterRule | "plain", string> = {
   ribbon: "Follow the ribbon's glowing path. A green ring round you means you are on it.",
   dance: "The trees step aside on every beat of the drum. A shadow shows where each will stand.",
   count: "Three small lights ride behind you. Keep the monsters and the trees off them.",
-  plain: "Ride each third of the road without losing a heart.",
+  plain: "Don't get hurt. The chapter has three stretches: each one you ride without losing a heart brings back a third of the picture.",
 };
 /** a small picture of what to do */
 function TaskPic({ rule }: { rule?: ChapterRule }) {
@@ -569,6 +569,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
   /** the memory on the card has come back clear (found a second time) */
   const [memClear, setMemClear] = useState(false);
   const [memThirds, setMemThirds] = useState(3);
+  const [memResults, setMemResults] = useState<string[]>([]);
   /** the grey picture shown as a chapter begins */
   const [introCard, setIntroCard] = useState<number | null>(null);
   const introAt = useRef(0);
@@ -843,7 +844,14 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         // the picture, grey, and what this chapter asks: the world waits until the player rides on
         introAt.current = Date.now();
         setIntroCard(e.memory);
-      } else if (e.type === "piece") setLive(`${e.name}: ${e.n} of 3 parts of the picture in colour.`);
+      } else if (e.type === "piece") {
+        setLive(`${e.name}: ${e.n} of 3 parts of the picture in colour.`);
+        setBanner(`✦ ${e.n} of 3 in colour`);
+        setTimeout(() => setBanner(""), 1800);
+      } else if (e.type === "grey") {
+        setBanner(e.why === "far" ? "The ribbon got away: this third stays grey" : "You were hurt: this third stays grey");
+        setTimeout(() => setBanner(""), 2400);
+      }
       else if (e.type === "shade") setLive(e.saved ? "You gave a heart. They thank you, and walk away into the woods." : "You passed them by. The rot takes them.");
       else if (e.type === "event") {
         setBanner(e.name);
@@ -865,6 +873,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         });
         if (e.thirds > 0) runRef.current.memories.push(e.memory);
         setMemThirds(e.thirds);
+        setMemResults(e.results);
         setMemClear(e.thirds >= 3);
         setMemoryCard(e.memory);
       } else if (e.type === "tutorial") {
@@ -1263,6 +1272,12 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
     else setScreen("begin");
   };
   /** the whole mission again from the Rot: the book and the Named stay */
+  /** ride the mission from a chosen chapter (from the book or the map) */
+  const rideChapter = (i: number) => {
+    update((s) => ({ ...s, chapterAt: i }));
+    setReading(null);
+    ride("mission");
+  };
   const beginAgain = () => {
     // the whole mission from nothing: the lands, the chapters and the book
     update((s) => ({ ...s, checkpoint: 0, chapterAt: 0, furthestLand: 0, thirds: [], clear: [], memories: [], soulsTotal: 0 }));
@@ -1301,7 +1316,17 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         {save.clear.includes(i) ? (
           <Recite title={m.title} text={m.text} />
         ) : (
-          <p className="ls-muted ls-small ls-mist-more-note">The rest is in mist. Ride this land again and win it back before it is forgotten.</p>
+          <>
+            <p className="ls-muted ls-small ls-mist-more-note">
+              Part of it is still grey. Each of the chapter&apos;s three stretches brings back a third, if you ride it well. Ride it
+              again to win the rest.
+            </p>
+            {screen !== "play" && (
+              <button type="button" className="ls-chipbtn" onClick={() => rideChapter(i)}>
+                ▶ Ride this chapter again
+              </button>
+            )}
+          </>
         )}
         {nav && (
           <div className="ls-mist-nav">
@@ -2414,7 +2439,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
               </div>
               {introCard > 0 && (
                 <p className="ls-task-more">
-                  <span aria-hidden="true">♥</span> Someone by the road in a ring? Ride through it to give them a heart, if you will.
+                  <span aria-hidden="true">♥</span> People wait by their houses, half taken by the rot. Ride into the ring at their feet to give them one of your hearts, and they live. Pass by, and they turn into monsters.
                 </p>
               )}
               <button type="button" className="ls-btn is-go" onClick={closeIntro} ref={introBtn}>
@@ -2535,7 +2560,18 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
               {memThirds >= 3 ? (
                 <Recite title={MEMORIES[memoryCard].title} text={MEMORIES[memoryCard].text} />
               ) : (
-                <p className="ls-muted ls-small">The rest is still grey. Ride this chapter again some time, and win it back whole.</p>
+                <ul className="ls-thirds-why" aria-label="How each stretch went">
+                  {[0, 1, 2].map((k) => {
+                    const r = memResults[k] ?? "ok";
+                    return (
+                      <li key={k} className={r === "ok" ? "is-ok" : "is-grey"}>
+                        <span aria-hidden="true">{r === "ok" ? "✦" : "○"}</span>{" "}
+                        {MEMORIES[memoryCard].rule === "count" ? `Small light ${k + 1}: ` : `Stretch ${k + 1}: `}
+                        {r === "ok" ? "in colour" : r === "hurt" ? "grey, you lost a heart in it" : r === "far" ? "grey, the ribbon got away from you" : "grey, a monster took it"}
+                      </li>
+                    );
+                  })}
+                </ul>
               )}
               <p className="ls-muted ls-small">Written in the Book of Memories, {BIOMES[MEMORIES[memoryCard].land].name}.</p>
               <div className="ls-stack">

@@ -299,7 +299,7 @@ export const SPELLS: Record<SpellId, { name: string; help: string; colour: strin
 /** a rune is cast by repeating its pattern: how long it is in each land, how long it shows, time per stroke */
 /** ogham pieces per rune (by land), how long the letter shows, and the time to set it again */
 /** a rune: 3 to 5 strokes (by land); each shows for `each` s after `lead`; then `base` + `perStroke` a stroke to repeat them */
-export const RUNE = { len: [3, 3, 4, 5], lead: 0.5, each: 0.55, perStroke: 0.9, base: 1.4 };
+export const RUNE = { len: [3, 3, 3, 3], lead: 0.35, each: 0.55, perStroke: 1.2, base: 2 };
 /** fords: rows of stepping stones over black water; the right stone of each row lights up in turn, then goes dark */
 /** a smaller river: four rows of three stones, wide apart, built well beyond the bottom of the screen */
 export const FORD = { rows: 4, gap: 64, stones: 3, spread: 76, lightEach: 0.45, ahead: 720, endlessGap: [800, 1200] as [number, number] };
@@ -457,7 +457,7 @@ export const MISSION = {
   villageGap: [190, 280],
   /** the shortest the world holds still after a saved village or glade (then it waits for the player) */
   moment: { village: 1.2, glade: 1.6 },
-  heartGap: [150, 240], maxHearts: 9, hunters: [1, 1, 2, 2], sanctuary: 120, gateAhead: 900,
+  heartGap: [300, 460], maxHearts: 6, hunters: [1, 1, 2, 2], sanctuary: 120, gateAhead: 900,
   /** how far each way of a fork lies from the road, and how far ahead the fork shows */
   forkOff: [215, 255], forkAhead: 380,
   /** monsters made from what was forgotten, beyond the usual hunt */
@@ -469,6 +469,8 @@ export const MISSION = {
   fordAt: [380, 700] as [number, number],
   /** the mission rides a little slower than the other two: it is a story */
   pace: 0.85,
+  /** the monsters of the mission, in the order they come: a new kind every two chapters */
+  order: ["hollow", "hound", "spitter", "burrower", "hands", "collector"],
   /**
    * a chapter: the first comes this far into a land, the next this far after the last (m);
    * `limit` is how long the memory lasts before it is forgotten in each land (s);

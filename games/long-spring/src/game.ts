@@ -89,6 +89,8 @@ type Chapter = {
   i: number; t: number; startM: number; seg: number;
   /** thirds of the picture coloured so far, and whether this stretch went well */
   thirds: number; segHit: boolean; segT: number; nearT: number;
+  /** how each stretch went, for the card: "ok", "hurt", "far" (lost the ribbon) */
+  results: string[];
   /** the ribbon: where it flies, and where it has been */
   ribbon?: { x: number; y: number; cx: number; y0: number; ph: number; tail: { x: number; y: number }[]; cleared: number; on: number };
   /** the three small lights that ride behind you */
@@ -101,7 +103,7 @@ type Chapter = {
 /** a tree of the hall: where it stands, and the step it is taking */
 type Dancer = Obstacle & { bx?: number; fromX?: number; toX?: number; moveT?: number };
 /** someone the rot has touched, standing by the road: give a heart and they live; ride past and they turn */
-type Shade = { id: number; x: number; y: number; v: number; state: "wait" | "saved" | "turning" | "gone"; t: number; rot: number; told?: boolean };
+type Shade = { id: number; x: number; y: number; v: number; state: "wait" | "saved" | "turning" | "gone"; t: number; rot: number; told?: boolean; side: number };
 /** one notch-group of an ogham letter: strokes to the right, to the left, across the stem, or dots on it */
 type Piece = { side: "R" | "L" | "X" | "D"; n: number };
 /** a rune being cast: its letter-pieces, shown for a moment, then set back on the stem from memory, bottom up */
@@ -167,7 +169,8 @@ export type GameEvent =
   /** a chapter begins; a piece of it is won back; it is remembered (the world waits `hold` s) or forgotten */
   | { type: "chapter"; memory: number }
   | { type: "piece"; memory: number; n: number; name: string }
-  | { type: "memory"; memory: number; saved: boolean; thirds: number; hold: number; hearts: number; got: number; need: number }
+  | { type: "memory"; memory: number; saved: boolean; thirds: number; results: string[]; hold: number; hearts: number; got: number; need: number }
+  | { type: "grey"; n: number; why: string }
   | { type: "shade"; saved: boolean }
   | { type: "event"; name: string }
   | { type: "spell"; spell: SpellId; ok: boolean }
@@ -375,6 +378,8 @@ export class Game {
   /** how grey the world is: follows the forgetting, and comes back to colour when a memory is won */
   private forgetVis = 0;
   private shades: Shade[] = [];
+  /** the chapter being ridden (or last ridden) */
+  private curCh = 0;
   /** places remembered on this ride, still in sight */
   private places: { x: number; y: number; kind: ChapterPlace; bloom?: number }[] = [];
   /** the drum's beats, as rings on the ground */
@@ -383,6 +388,7 @@ export class Game {
   private owed = 0;
   /** where the mission starts (the chapter to ride), and the grey of the sleeping villagers */
   private greyFolk: Spr[] = [];
+  private greyHouse: Spr[] = [];
   /** The First Morning's ring of light */
   private tring: { x: number; y: number; ph: number } | null = null;
 
@@ -494,6 +500,7 @@ export class Game {
       trees: springTreeSprites(S),
     };
     this.greyFolk = this.life.folk.map((f) => tinted(f[0], "grayscale(1) brightness(0.8) contrast(0.9)"));
+    this.greyHouse = this.life.cottage.map((c) => tinted(c, "grayscale(1) brightness(0.65)"));
   }
 
   setChoice(c: Choice) {
@@ -873,7 +880,8 @@ export class Game {
     if (this.casting && !this.casting.end) return;
     if (!this.rune) return this.say("No rune. Rune-stones stand here and there in the land: ride through one.");
     const m = this.metres;
-    const len = RUNE.len[Math.min(3, this.mode === "endless" ? (m < 1500 ? 0 : m < 4000 ? 1 : m < 7000 ? 2 : 3) : this.mode === "tutorial" ? 0 : this.land)];
+    void m;
+    const len = 3;
     const all: Dir4[] = ["up", "right", "down", "left"];
     const dirs: Dir4[] = [];
     while (dirs.length < len) {
@@ -881,7 +889,7 @@ export class Game {
       // never the same stroke twice in a row: it would look like one
       if (d !== dirs[dirs.length - 1]) dirs.push(d);
     }
-    const show = RUNE.lead + len * RUNE.each;
+    const show = RUNE.lead;
     this.casting = { dirs, got: 0, t: 0, show, limit: show + RUNE.base + len * RUNE.perStroke, spell: this.rune };
     this.keys.left = this.keys.right = false;
     this.aimT = -1;
@@ -1017,8 +1025,7 @@ export class Game {
     this.kill(target, "sword");
     this.stats.swordKills++;
     if (this.swordAt < 0) this.swordAt = this.metres;
-    this.pending.push({ t: 2.2, n: 2 });
-    this.say("Blood on the ground. Two more are coming.", true);
+    this.say(`The blue flame cuts it down: ${MONSTERS[target.type].name} is gone.`, true);
     if (!this.o.seenSword) {
       this.o.seenSword = true;
       this.o.onEvent({ type: "swordFirst" });
@@ -1879,7 +1886,8 @@ export class Game {
       }
       const i = this.queue.shift()!;
       const rule = MEMORIES[i].rule;
-      const ch: Chapter = { i, t: 0, startM: m, seg: 0, thirds: 0, segHit: false, segT: 0, nearT: 0, shadesPut: 0 };
+      const ch: Chapter = { i, t: 0, startM: m, seg: 0, thirds: 0, segHit: false, segT: 0, nearT: 0, shadesPut: 0, results: [] };
+      this.curCh = i;
       if (rule === "ribbon") ch.ribbon = { x: this.x, y: this.y + 170, cx: this.x, y0: this.y, ph: 0, tail: [], cleared: this.y + (VIEW_H - this.PY) + 20, on: 0 };
       if (rule === "count") ch.kids = [0, 1, 2].map((k) => ({ alive: true, x: this.x, y: this.y - 20 * (k + 1), ph: k * 2 }));
       if (rule === "dance") {
@@ -2003,8 +2011,12 @@ export class Game {
     const seg = Math.floor((m - ch.startM) / C.seg);
     if (seg > ch.seg) {
       const good = rule === "ribbon" ? ch.nearT / Math.max(0.1, ch.segT) >= C.near : rule === "count" ? true : !ch.segHit;
+      if (rule !== "count") ch.results.push(good ? "ok" : rule === "ribbon" ? "far" : "hurt");
       if (rule !== "count" && good) this.colourThird();
-      else if (rule !== "count") this.say(rule === "ribbon" ? "The ribbon got away from you: that part stays grey." : "You were hurt: that part stays grey.");
+      else if (rule !== "count") {
+        this.say(rule === "ribbon" ? "The ribbon got away from you: that third stays grey." : "You were hurt in this stretch: that third stays grey.", true);
+        this.o.onEvent({ type: "grey", n: seg, why: rule === "ribbon" ? "far" : "hurt" });
+      }
       ch.seg = seg;
       ch.segHit = false;
       ch.segT = 0;
@@ -2092,7 +2104,8 @@ export class Game {
     this.keys.left = this.keys.right = false;
     this.aimT = -1;
     this.say(thirds >= 3 ? `${MEMORIES[ch.i].title}: it comes back whole.` : thirds ? `${MEMORIES[ch.i].title}: it comes back, in part.` : `${MEMORIES[ch.i].title}: it stays grey. Ride it again another time.`, true);
-    this.o.onEvent({ type: "memory", memory: ch.i, saved: thirds > 0, thirds, hold: this.freeze, hearts: this.hearts, got: this.savedLand, need: this.need });
+    if (ch.kids) ch.results = ch.kids.map((k) => (k.alive ? "ok" : "kid"));
+    this.o.onEvent({ type: "memory", memory: ch.i, saved: thirds > 0, thirds, results: ch.results, hold: this.freeze, hearts: this.hearts, got: this.savedLand, need: this.need });
   }
 
   /* someone by the road: heart or no heart */
@@ -2100,9 +2113,11 @@ export class Game {
     const ch = this.chapter!;
     ch.shadesPut++;
     const y = this.y + (VIEW_H - this.PY) + 50;
-    const x = this.freeX(this.x + (Math.random() < 0.5 ? -1 : 1) * (60 + Math.random() * 70), y);
-    this.clearArea((ox, oy) => Math.hypot(ox - x, (oy - y) * 1.3) < 46, x - 60, x + 60, y - 60, y + 60);
-    this.shades.push({ id: this.nextId++, x, y, v: Math.floor(Math.random() * VILLAGER_KINDS), state: "wait", t: 0, rot: 0.25 });
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const x = this.freeX(this.x + side * (60 + Math.random() * 60), y);
+    // their house stands behind them, away from the road
+    this.clearArea((ox, oy) => Math.abs(ox - (x + side * 30)) < 70 && oy > y - 90 && oy < y + 50, x - 110, x + 110, y - 100, y + 60);
+    this.shades.push({ id: this.nextId++, x, y, v: Math.floor(Math.random() * VILLAGER_KINDS), state: "wait", t: 0, rot: 0.25, side });
     if (!this.o.seenKinds.includes("shade")) {
       this.o.seenKinds.push("shade");
       this.say("Someone stands by the road, half taken by the rot. Ride through the ring round them to give them one of your hearts. You don't have to.", true);
@@ -2132,6 +2147,9 @@ export class Game {
         } else if (this.y > s.y + 34) {
           s.state = "turning";
           s.t = 0;
+          const cry = ["No! Don't leave me!", "It's in me… help!", "No, no, I'm changing!", "Lady, please!"][s.id % 4];
+          this.float(s.x, s.y - 50, cry, "#ff9a9a");
+          this.say(`“${cry}” The rot takes them.`);
         }
       } else if (s.state === "turning") {
         s.rot = Math.min(1, s.rot + dt * 0.5);
@@ -2350,9 +2368,12 @@ export class Game {
         say("Something has followed you out of the dark. You can't outrun it. Ride close past a tree and it will run straight into it.");
         break;
       case 5: {
-        const x = this.x + (Math.random() < 0.5 ? -1 : 1) * 70;
-        this.tring = { x, y: ahead + 60, ph: 0 };
-        say("Some stand by the road, half taken by the rot, in a ring of light. Ride through the ring to give them one of your hearts. Here, for the lesson, it costs nothing.");
+        this.hearts = Math.max(this.hearts, 3);
+        const x = this.freeX(this.x + (Math.random() < 0.5 ? -1 : 1) * 70, ahead + 60);
+        this.clearArea((ox, oy) => Math.hypot(ox - x, (oy - ahead - 60) * 1.3) < 80, x - 100, x + 100, ahead - 40, ahead + 160);
+        this.shades.push({ id: this.nextId++, x, y: ahead + 60, v: 0, state: "wait", t: 0, rot: 0.25, side: x < this.x ? -1 : 1 });
+        T.c0 = this.stats.souls;
+        say("Someone stands by their house, half taken by the rot, in a ring of light. Ride into the ring to give them one of your hearts, and they live. Pass by, and they turn into a monster.");
         break;
       }
       case 6: {
@@ -2439,18 +2460,15 @@ export class Game {
         }
         break;
       case 5: {
-        const r = this.tring;
-        if (!r) break;
-        r.ph += 1 / 60;
-        if (Math.abs(r.x - this.x) < 30 && Math.abs(r.y - this.y) < 22) {
-          this.tring = null;
-          this.burst(r.x, r.y - 10, 30, ["#fff4c0", "#ffe46a", "#b8ffe0"], 90);
-          sfx.pick();
-          this.say("The place comes back.", true);
-          this.tutorialNext();
-        } else if (this.y > r.y + 80) {
-          this.tring = null;
-          again("You rode past it. Another ring: steer into it.");
+        this.shadeStep(1 / 60);
+        if (this.stats.souls > T.c0) {
+          this.hearts = Math.max(this.hearts, 3);
+          if (this.t - T.t > 2.5 && !this.shades.some((q) => q.state === "saved")) this.tutorialNext();
+          else if (!this.shades.length) this.tutorialNext();
+        } else if (this.owed > 0 || (!this.shades.length && this.t - T.t > 1)) {
+          this.owed = 0;
+          this.shades = [];
+          again("You passed them by: in a real ride they would turn and hunt you. Again: ride into the ring.");
         }
         break;
       }
@@ -2658,7 +2676,8 @@ export class Game {
 
   /** who may hunt you here: in the mission each land has its own; in the endless ride it grows with the distance */
   private roster(): MonsterId[] {
-    if (this.mode === "mission") return (MISSION_ROSTER[this.land] ?? MISSION_ROSTER[0]) as MonsterId[];
+    // in the mission a new kind comes every two chapters
+    if (this.mode === "mission") return MISSION.order.slice(0, 1 + Math.floor(this.curCh / 2)) as MonsterId[];
     const m = this.metres + this.mOff;
     return (Object.keys(MONSTERS) as MonsterId[]).filter((k) => MONSTERS[k].weight > 0 && MONSTERS[k].from <= m);
   }
@@ -2851,8 +2870,11 @@ export class Game {
         let what = "a heart";
         if (this.hearts < this.maxHearts) this.hearts++;
         else {
+          // whole already: arrows and a trap instead, and the points twice
           this.score += full;
-          what = "double points (you are whole)";
+          this.arrows = Math.min(9, this.arrows + 3);
+          this.traps = Math.min(3, this.traps + 1);
+          what = "three arrows and a trap (your hearts are full)";
         }
         this.lampStreak++;
         this.float(this.x, this.y - 60, `+${fmtN(full)} · ${what}`, c.core);
@@ -4073,6 +4095,7 @@ export class Game {
       g.fillStyle = `rgba(235,240,255,${(this.flash * 1.2).toFixed(3)})`;
       g.fillRect(0, 0, W, H);
     }
+    if (this.lamp && this.mode === "endless") this.drawLampCue();
     if (this.casting) this.drawCast();
     if (this.wave >= 0 && !this.o.settings.calm) {
       const wy = (this.wave / 1.4) * (H + 120) - 60;
@@ -5560,23 +5583,30 @@ export class Game {
     if (near) this.glow(this.sx(this.x), this.PY - 10, 30, "150,255,170", 0.35);
   }
 
-  /** a small warm light with a child's shape in it */
+  /** a will-o'-the-wisp: a small flickering flame of light, with a trail */
   private drawKid(k: { x: number; y: number; ph: number }) {
     const g = this.ctx;
-    const x = this.sx(k.x);
-    const y = this.sy(k.y) + Math.sin(k.ph * 5) * 1.5;
-    this.glow(x, y - 8, 18, "255,220,150", 0.75);
-    g.fillStyle = "#fff4d8";
+    const x = this.sx(k.x) + Math.sin(k.ph * 2.3) * 3;
+    const y = this.sy(k.y) - 10 + Math.sin(k.ph * 3.1) * 3;
+    const fl = 0.8 + 0.2 * Math.sin(k.ph * 17) * Math.sin(k.ph * 7);
+    this.glow(x, y, 26 * fl, "170,230,255", 0.7);
+    this.glow(x, y, 12, "255,250,220", 0.9);
+    // the trail: little sparks drifting behind
+    for (let i = 1; i <= 5; i++) {
+      g.fillStyle = `rgba(200,240,255,${(0.5 - i * 0.08).toFixed(3)})`;
+      g.beginPath();
+      g.arc(x + Math.sin(k.ph * 4 - i) * 3, y - i * 4, 2.4 - i * 0.35, 0, Math.PI * 2);
+      g.fill();
+    }
+    // the flame
+    g.fillStyle = "#ffffff";
     g.beginPath();
-    g.arc(x, y - 13, 2.6, 0, Math.PI * 2);
-    g.fill();
-    g.beginPath();
-    g.moveTo(x - 3.4, y - 2);
-    g.lineTo(x, y - 10);
-    g.lineTo(x + 3.4, y - 2);
-    g.closePath();
+    g.moveTo(x, y - 8 * fl);
+    g.quadraticCurveTo(x + 4, y - 1, x, y + 3);
+    g.quadraticCurveTo(x - 4, y - 1, x, y - 8 * fl);
     g.fill();
   }
+
 
   /** someone by the road: grey, the rot climbing them; saved, in colour, waving; passed by, turning */
   private drawShade(sh: Shade) {
@@ -5585,6 +5615,12 @@ export class Game {
     const y = this.sy(sh.y);
     if (y < -60 || y > VIEW_H + 60) return;
     const fr = this.life.folk[sh.v];
+    // their house, a little back from the road: grey while they are, warm once they live
+    const house = this.life.cottage[sh.id % this.life.cottage.length];
+    if (house) {
+      if (sh.state === "saved") this.put(house, x + sh.side * 34, y - 14);
+      else this.put(this.greyHouse[sh.id % this.greyHouse.length] ?? house, x + sh.side * 34, y - 14);
+    }
     if (sh.state === "saved") {
       const a = Math.max(0, 1 - Math.max(0, sh.t - 2) / 1);
       this.glow(x, y - 16, 34, "255,244,200", 0.6 * a);
@@ -5691,6 +5727,50 @@ export class Game {
         g.fillStyle = fl[i % fl.length] ?? "#ffd0e0";
         g.fillRect(fx, fy, 2.4, 2.4);
       }
+    }
+  }
+
+  /** while lamp-lights are about: the lamp's order over her head, the next colour big and pulsing */
+  private drawLampCue() {
+    const l = this.lamp!;
+    const near = this.lights.some((q) => !q.taken && !q.gone && q.y > this.y - 20 && q.y < this.y + VIEW_H);
+    if (!near && l.got === 0) return;
+    const g = this.ctx;
+    const order = l.mirror ? [...l.want].reverse() : l.want;
+    const n = order.length;
+    const x0 = this.sx(this.x);
+    const y = this.PY - 70;
+    const w = 22;
+    g.fillStyle = "rgba(10,12,10,0.6)";
+    g.beginPath();
+    g.roundRect(x0 - (n * w) / 2 - 8, y - 16, n * w + 16, 32, 16);
+    g.fill();
+    order.forEach((c, i) => {
+      const cx = x0 + (i - (n - 1) / 2) * w;
+      const done = i < l.got;
+      const next = i === l.got;
+      const r = next ? 9 + Math.sin(this.t * 8) * 1.5 : 6;
+      if (next) this.glow(cx, y, 26, LAMP[c].rgb, 0.9);
+      g.fillStyle = done ? "rgba(255,255,255,0.25)" : `rgb(${LAMP[c].rgb})`;
+      g.beginPath();
+      g.arc(cx, y, r, 0, Math.PI * 2);
+      g.fill();
+      if (done) {
+        g.strokeStyle = "#ffffff";
+        g.lineWidth = 2;
+        g.beginPath();
+        g.moveTo(cx - 3, y);
+        g.lineTo(cx - 1, y + 3);
+        g.lineTo(cx + 4, y - 3);
+        g.stroke();
+      }
+    });
+    if (l.got === 0 && near) {
+      g.fillStyle = "rgba(255,250,230,0.9)";
+      g.font = "bold 12px system-ui, sans-serif";
+      g.textAlign = "center";
+      g.fillText("ride through the lights in this order", x0, y - 22);
+      g.textAlign = "left";
     }
   }
 
@@ -5859,7 +5939,7 @@ export class Game {
     g.textAlign = "center";
     g.fillStyle = sp.colour;
     g.font = "bold 15px Georgia, serif";
-    g.fillText(c.end ? (c.ok ? `${sp.name}!` : "The rune breaks") : showing ? `${sp.name}: watch the rune` : `${sp.name}: draw it again`, W / 2, y0 + 20);
+    g.fillText(c.end ? (c.ok ? `${sp.name}!` : "The rune breaks") : `${sp.name}`, W / 2, y0 + 20);
     // the rune: a ring, its letter in the middle, and four ways out of it
     const cx = W / 2;
     const cy = y0 + 76;
@@ -5878,7 +5958,8 @@ export class Game {
     const at: Record<Dir4, [number, number, number]> = { up: [0, -1, -Math.PI / 2], right: [1, 0, 0], down: [0, 1, Math.PI / 2], left: [-1, 0, Math.PI] };
     for (const d of ["up", "right", "down", "left"] as Dir4[]) {
       const [dx, dy, an] = at[d];
-      const on = (litOn && c.dirs[lit] === d) || (!showing && !c.end && c.got > 0 && c.dirs[c.got - 1] === d && c.t % 1 < 0.25);
+      // the stroke to draw now glows; nothing to remember
+      const on = (litOn && c.dirs[lit] === d) || (!showing && !c.end && c.dirs[c.got] === d);
       const wrong = c.end && !c.ok && c.miss !== undefined && c.dirs[c.miss] === d;
       const ax = cx + dx * (R + 18);
       const ay = cy + dy * (R + 18);
@@ -5896,19 +5977,20 @@ export class Game {
       g.fill();
       g.restore();
     }
-    // the strokes: one dot each, filled as you draw them
-    const dw = 14;
+    // the strokes, all of them, as arrows: done ones in colour, the next one large and white
+    const glyph: Record<Dir4, string> = { up: "↑", right: "→", down: "↓", left: "←" };
+    const dw = 30;
     for (let i = 0; i < n; i++) {
       const dx = cx + (i - (n - 1) / 2) * dw;
-      g.fillStyle = i < c.got ? sp.colour : showing && i <= lit ? "rgba(246,241,228,0.8)" : "rgba(255,255,255,0.18)";
-      g.beginPath();
-      g.arc(dx, y0 + ph - 18, 4, 0, Math.PI * 2);
-      g.fill();
+      const next = i === c.got && !c.end;
+      g.fillStyle = i < c.got ? sp.colour : next ? "#ffffff" : "rgba(255,255,255,0.4)";
+      g.font = `bold ${next ? 22 : 16}px system-ui, sans-serif`;
+      g.fillText(glyph[c.dirs[i]], dx, y0 + ph - 12);
     }
     if (!c.end) {
       g.fillStyle = "rgba(246,241,228,0.6)";
       g.font = "italic 12px Georgia, serif";
-      if (!showing) g.fillText(this.coarse ? "flick the left stick the same ways" : "the same arrows, in the same order", cx, y0 + ph - 30 + 44 > y0 + ph ? y0 + ph - 30 : y0 + ph - 30);
+      if (!showing) g.fillText(this.coarse ? "flick the left stick that way" : "press the arrows shown", cx, y0 + 38);
       const k = showing ? 1 : Math.max(0, 1 - (c.t - c.show) / (c.limit - c.show));
       g.fillStyle = "rgba(255,255,255,0.15)";
       g.fillRect(x0 + 14, y0 + ph - 8, cw - 28, 3);
