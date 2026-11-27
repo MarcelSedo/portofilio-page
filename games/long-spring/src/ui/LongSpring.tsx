@@ -10,7 +10,7 @@ import { STUDIO_LOGO } from "../studio-logo";
 import { MONSTER_BOX, iconUrls, monsterFrames, type IconId, type Spr } from "../sprites";
 import "../styles/long-spring.css";
 import { Divider, Ornament } from "./Ornament";
-import { CHAPTERS, ENDING, HEROINE, LAND_CHAPTERS, MEMORIES, NEED, PROLOGUE, RULES, memoryPic, mistOf } from "../story";
+import { CHAPTERS, ENDING, HEROINE, LAND_CHAPTERS, MEMORIES, NEED, PROLOGUE, RULES, memoryPic, mistOf, type ChapterRule } from "../story";
 
 export type LongSpringProps = { exitHref?: string; exitLabel?: string };
 
@@ -101,6 +101,51 @@ function partOf(text: string, thirds: number) {
   const lines = text.split("\n");
   const keep = Math.ceil((lines.length * thirds) / 3);
   return lines.map((l, k) => (k < keep || !l.trim() ? l : "· · ·")).join("\n");
+}
+
+/** what each chapter asks, in one line, under its picture */
+const TASKS: Record<ChapterRule | "plain", string> = {
+  ribbon: "Follow the ribbon's glowing path. A green ring round you means you are on it.",
+  dance: "The trees step aside on every beat of the drum. A shadow shows where each will stand.",
+  count: "Three small lights ride behind you. Keep the monsters and the trees off them.",
+  plain: "Ride each third of the road without losing a heart.",
+};
+/** a small picture of what to do */
+function TaskPic({ rule }: { rule?: ChapterRule }) {
+  return (
+    <svg className="ls-taskpic" viewBox="0 0 80 60" aria-hidden="true">
+      {rule === "ribbon" ? (
+        <>
+          <path d="M40 58 C20 44 62 32 40 18 C28 10 46 4 44 0" fill="none" stroke="rgba(120,255,140,0.35)" strokeWidth="12" strokeLinecap="round" />
+          <path d="M40 58 C20 44 62 32 40 18 C28 10 46 4 44 0" fill="none" stroke="#e6ffe0" strokeWidth="2" strokeDasharray="2 6" />
+          <path d="M44 6 q6 4 2 10 q-4 6 4 10" fill="none" stroke="#2bbf6a" strokeWidth="3" strokeLinecap="round" />
+          <ellipse cx="40" cy="52" rx="10" ry="3.5" fill="none" stroke="#bfffbf" strokeWidth="1.5" />
+          <circle cx="40" cy="48" r="4" fill="#fff4d8" />
+        </>
+      ) : rule === "dance" ? (
+        <>
+          <ellipse cx="40" cy="50" rx="30" ry="8" fill="none" stroke="rgba(255,220,150,0.6)" strokeWidth="2" />
+          <rect x="20" y="22" width="5" height="22" fill="#6a4a2e" />
+          <circle cx="22.5" cy="20" r="10" fill="#4a7a3a" />
+          <ellipse cx="54" cy="45" rx="9" ry="3.5" fill="rgba(255,230,170,0.25)" stroke="#ffe6aa" strokeDasharray="2 2" />
+          <path d="M32 30 h18 m-5 -4 l5 4 l-5 4" fill="none" stroke="#ffe6aa" strokeWidth="2" />
+        </>
+      ) : rule === "count" ? (
+        <>
+          <circle cx="40" cy="12" r="5" fill="#fff4d8" />
+          {[0, 1, 2].map((k) => (
+            <g key={k}>
+              <circle cx={40} cy={26 + k * 11} r={6} fill="rgba(255,220,150,0.35)" />
+              <circle cx={40} cy={26 + k * 11} r={2.5} fill="#fff4d8" />
+            </g>
+          ))}
+          <path d="M10 56 l8 -8 m0 0 l-3 1 m3 -1 l-1 3" stroke="#ff8080" strokeWidth="2" fill="none" />
+        </>
+      ) : (
+        <path d="M40 52 C10 32 18 10 32 14 C36 15 39 18 40 22 C41 18 44 15 48 14 C62 10 70 32 40 52 Z" fill="#ff6a80" stroke="#fff4d8" strokeWidth="1.5" />
+      )}
+    </svg>
+  );
 }
 
 /** the kingdom: the road of her life, from the hall to the sea, and the fourteen places on it */
@@ -451,6 +496,8 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
   const [memThirds, setMemThirds] = useState(3);
   /** the grey picture shown as a chapter begins */
   const [introCard, setIntroCard] = useState<number | null>(null);
+  const introAt = useRef(0);
+  const introBtn = useRef<HTMLButtonElement>(null);
   /** what the pause (or the end) dialog shows: its own buttons, the settings, or the book */
   const [view, setView] = useState<"main" | "settings" | "book">("main");
   const [bookTab, setBookTab] = useState(0);
@@ -718,9 +765,9 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         setLive(`${what} Press Space or Enter to ride on.`);
       } else if (e.type === "chapter") {
         update((s) => ({ ...s, chapterAt: e.memory, memories: s.memories.includes(e.memory) ? s.memories : [...s.memories, e.memory] }));
-        // the picture, grey, for a moment: this is what is at stake
+        // the picture, grey, and what this chapter asks: the world waits until the player rides on
+        introAt.current = Date.now();
         setIntroCard(e.memory);
-        setTimeout(() => setIntroCard((c) => (c === e.memory ? null : c)), 3400);
       } else if (e.type === "piece") setLive(`${e.name}: ${e.n} of 3 parts of the picture in colour.`);
       else if (e.type === "shade") setLive(e.saved ? "You gave a heart. They thank you, and walk away into the woods." : "You passed them by. The rot takes them.");
       else if (e.type === "event") {
@@ -905,6 +952,14 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
     }
   }, [screen, swordCard, memoryCard]);
 
+  const closeIntro = useCallback(() => {
+    setIntroCard(null);
+    gameRef.current?.release();
+    stageRef.current?.focus();
+  }, []);
+  useEffect(() => {
+    if (introCard !== null) introBtn.current?.focus({ preventScroll: true });
+  }, [introCard]);
   const closeMemory = useCallback(() => {
     setMemoryCard(null);
     gameRef.current?.release();
@@ -931,6 +986,11 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
   useEffect(() => {
     if (screen !== "play") return;
     const down = (e: KeyboardEvent) => {
+      if (introCard !== null) {
+        if (!e.repeat && Date.now() - introAt.current > 700 && (e.code === "Space" || e.code === "Enter" || e.code === "Escape" || KEYS[e.code])) closeIntro();
+        e.preventDefault();
+        return;
+      }
       if (memoryCard !== null) {
         if (e.code === "Escape") {
           e.preventDefault();
@@ -973,7 +1033,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
     };
-  }, [screen, paused, swordCard, togglePause, memoryCard, closeMemory, view, moment, rideOn]);
+  }, [screen, paused, swordCard, togglePause, memoryCard, closeMemory, view, moment, rideOn, introCard, closeIntro]);
   useEffect(() => {
     if (moment && !paused) momentBtn.current?.focus({ preventScroll: true });
   }, [moment, paused]);
@@ -2050,7 +2110,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
   const h = hud;
   const r = mode === "endless" || mode === "extreme" ? choiceOf(save).rider : brigidOf(save).rider;
   const clock = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
-  const dialog = paused || swordCard || memoryCard !== null || !!moment || screen === "over";
+  const dialog = paused || swordCard || memoryCard !== null || introCard !== null || !!moment || screen === "over";
 
   return (
     <div className={`ls${playing ? " is-playing" : ""}${save.settings.calm ? " is-calm" : ""}${full ? " is-full" : ""}`} ref={rootRef}>
@@ -2250,10 +2310,27 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         {!playing && <div className="ls-menu">{menu}</div>}
         {screen === "title" && fsButton("ls-fs")}
         {screen === "play" && introCard !== null && (
-          <div className="ls-intro-card" aria-hidden="true">
-            <MemPic i={introCard} state="mist" thirds={0} />
-            <p className="ls-intro-sign">{MEMORIES[introCard].sign}</p>
-            <p className="ls-intro-title">{MEMORIES[introCard].title}</p>
+          <div className="ls-overlay is-intro" role="dialog" aria-modal="true" aria-labelledby="ls-intro-title" aria-describedby="ls-intro-task">
+            <div className="ls-intro-card">
+              <p className="ls-kicker">Chapter {introCard + 1} of {MEMORIES.length}</p>
+              <MemPic i={introCard} state="mist" thirds={0} />
+              <p className="ls-ch-sign">{MEMORIES[introCard].sign}</p>
+              <h2 id="ls-intro-title" className="ls-ch-title">
+                {MEMORIES[introCard].title}
+              </h2>
+              <div id="ls-intro-task" className="ls-task">
+                <TaskPic rule={MEMORIES[introCard].rule} />
+                <p>{TASKS[MEMORIES[introCard].rule ?? "plain"]}</p>
+              </div>
+              {introCard > 0 && (
+                <p className="ls-task-more">
+                  <span aria-hidden="true">♥</span> Someone by the road in a ring? Ride through it to give them a heart, if you will.
+                </p>
+              )}
+              <button type="button" className="ls-btn is-go" onClick={closeIntro} ref={introBtn}>
+                Ride ▶
+              </button>
+            </div>
           </div>
         )}
         {screen === "play" && h?.finale && (

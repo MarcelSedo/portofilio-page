@@ -479,8 +479,12 @@ export const MISSION = {
     first: 90, gap: [70, 110] as [number, number], limit: [80, 74, 70, 66], pieceDelay: 2.2, again: 3, lend: 2,
     /** a chapter is three stretches of `seg` m; following the ribbon, `near` of the stretch must be close to it */
     seg: 480, near: 0.55,
+    /** how close to the ribbon's path counts as on it (px either side) */
+    width: 32,
     /** the hall: a drum beat every `beat` s, the trees step `step` px */
     beat: 0.65, step: 16,
+    /** the hall's rows of trees: one tree every `row` px across the road */
+    row: 62,
   },
 };
 /**

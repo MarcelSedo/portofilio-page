@@ -90,14 +90,16 @@ type Chapter = {
   /** thirds of the picture coloured so far, and whether this stretch went well */
   thirds: number; segHit: boolean; segT: number; nearT: number;
   /** the ribbon: where it flies, and where it has been */
-  ribbon?: { x: number; y: number; cx: number; ph: number; tail: { x: number; y: number }[] };
+  ribbon?: { x: number; y: number; cx: number; y0: number; ph: number; tail: { x: number; y: number }[]; cleared: number; on: number };
   /** the three small lights that ride behind you */
   kids?: { alive: boolean; x: number; y: number; ph: number }[];
   /** the drum of the hall */
-  beat?: number; beatT?: number;
+  beat?: number; beatT?: number; rowY?: number;
   place?: { x: number; y: number; kind: ChapterPlace; bloom?: number };
   shadesPut: number;
 };
+/** a tree of the hall: where it stands, and the step it is taking */
+type Dancer = Obstacle & { bx?: number; fromX?: number; toX?: number; moveT?: number };
 /** someone the rot has touched, standing by the road: give a heart and they live; ride past and they turn */
 type Shade = { id: number; x: number; y: number; v: number; state: "wait" | "saved" | "turning" | "gone"; t: number; rot: number; told?: boolean };
 /** one notch-group of an ogham letter: strokes to the right, to the left, across the stem, or dots on it */
@@ -374,6 +376,8 @@ export class Game {
   private shades: Shade[] = [];
   /** places remembered on this ride, still in sight */
   private places: { x: number; y: number; kind: ChapterPlace; bloom?: number }[] = [];
+  /** the drum's beats, as rings on the ground */
+  private pulses: { t: number }[] = [];
   /** people passed by on this ride: they come after you when the next chapter begins */
   private owed = 0;
   /** where the mission starts (the chapter to ride), and the grey of the sleeping villagers */
@@ -1824,6 +1828,13 @@ export class Game {
     this.nextChapterM = this.metres + MISSION.chapter.first;
   }
 
+  /** where the ribbon's path runs at a given depth: it weaves, gently at first */
+  private ribbonX(r: { cx: number; y0: number }, y: number) {
+    const d = y - r.y0;
+    const amp = Math.min(1, Math.max(0, d / 700));
+    return r.cx + (Math.sin(d * 0.0055) * 120 + Math.sin(d * 0.0155 + 1) * 34) * amp;
+  }
+
   /** how far through the chapter (0–1) */
   private chapterProgress() {
     const ch = this.chapter;
@@ -1844,11 +1855,12 @@ export class Game {
       const i = this.queue.shift()!;
       const rule = MEMORIES[i].rule;
       const ch: Chapter = { i, t: 0, startM: m, seg: 0, thirds: 0, segHit: false, segT: 0, nearT: 0, shadesPut: 0 };
-      if (rule === "ribbon") ch.ribbon = { x: this.x, y: this.y + 240, cx: this.x, ph: 0, tail: [] };
+      if (rule === "ribbon") ch.ribbon = { x: this.x, y: this.y + 170, cx: this.x, y0: this.y, ph: 0, tail: [], cleared: this.y + (VIEW_H - this.PY) + 20, on: 0 };
       if (rule === "count") ch.kids = [0, 1, 2].map((k) => ({ alive: true, x: this.x, y: this.y - 20 * (k + 1), ph: k * 2 }));
       if (rule === "dance") {
         ch.beat = 0;
         ch.beatT = 0;
+        ch.rowY = this.y + (VIEW_H - this.PY) + 120;
       }
       this.chapter = ch;
       if (!this.memories.includes(i)) this.memories.push(i);
@@ -1861,8 +1873,13 @@ export class Game {
       this.owed = 0;
       sfx.chime();
       this.wave = 0;
+      // the world waits while the card says what this chapter asks
+      if (this.o.holdMoments !== false) {
+        this.holding = true;
+        this.keys.left = this.keys.right = false;
+        this.aimT = -1;
+      }
       this.o.onEvent({ type: "chapter", memory: i });
-      this.say(`${MEMORIES[i].sign} ${rule === "ribbon" ? "Follow the ribbon: stay close to it." : rule === "dance" ? "The trees of the hall dance to the drum: they step aside on every beat." : rule === "count" ? "Three small lights ride behind you. Bring them all through." : "Ride it through without losing a heart, and it comes back whole."}`, true);
       return;
     }
     const ch = this.chapter;
@@ -1873,35 +1890,71 @@ export class Game {
     if (ch.ribbon) {
       const r = ch.ribbon;
       r.ph += dt;
-      r.cx += (this.x - r.cx) * Math.min(1, dt * 0.15);
-      r.x = r.cx + Math.sin(r.ph * 0.75) * 120 + Math.sin(r.ph * 1.9 + 1) * 40;
-      r.y = this.y + 230 + Math.sin(r.ph * 0.6) * 30;
+      // the ribbon's way is a path through the meadow: nothing stands on it
+      while (r.cleared < this.y + (VIEW_H - this.PY) + 360) {
+        const y0 = r.cleared;
+        for (let yy = y0; yy < y0 + 80; yy += 20) {
+          const px = this.ribbonX(r, yy);
+          this.clearArea((ox, oy) => Math.abs(ox - px) < 46 && Math.abs(oy - yy) < 14, px - 60, px + 60, yy - 20, yy + 20);
+        }
+        r.cleared += 80;
+      }
+      r.y = this.y + 170;
+      r.x = this.ribbonX(r, r.y) + Math.sin(r.ph * 3) * 6;
       r.tail.unshift({ x: r.x, y: r.y });
       if (r.tail.length > 26) r.tail.pop();
-      if (Math.abs(r.x - this.x) < 55) {
+      const on = Math.abs(this.ribbonX(r, this.y) - this.x) < MISSION.chapter.width;
+      r.on += ((on ? 1 : 0) - r.on) * Math.min(1, dt * 6);
+      if (on) {
         ch.nearT += dt;
         // spring follows her where she follows it
-        if (Math.random() < dt * 14) this.bloomAt(this.x + (Math.random() - 0.5) * 30, this.y - 6);
+        if (Math.random() < dt * 22) this.bloomAt(this.x + (Math.random() - 0.5) * 34, this.y - 4);
+        if (Math.random() < dt * 1.2) sfx.pick();
       }
     }
     // the hall's drum: on every beat the trees step to one side or the other
     if (rule === "dance") {
+      // the hall: rows of living trees across the road, like the pillars of a roofless hall
+      const bottom = this.y + (VIEW_H - this.PY) + 40;
+      while (ch.rowY! < bottom + 260 && this.metres - ch.startM < MISSION.chapter.seg * 3 - 60) {
+        const ry = Math.max(ch.rowY!, bottom);
+        const off = (Math.random() - 0.5) * 30;
+        for (let x = this.x - 320 + off; x <= this.x + 320; x += MISSION.chapter.row) {
+          const [w, h] = SIZE.tree;
+          const c = this.cell(Math.floor(x / CELL), Math.floor(ry / CELL));
+          for (const o of c.obs) if (!o.dead && Math.abs(o.x - x) < 30 && Math.abs(o.y - ry) < 20) o.dead = true;
+          c.obs.push({ id: this.nextId++, kind: "tree", x, y: ry, w, h, v: Math.floor(Math.random() * 3) });
+        }
+        ch.rowY = ry + 130 + Math.random() * 50;
+      }
       ch.beatT! += dt;
       if (ch.beatT! >= C.beat) {
         ch.beatT = 0;
         ch.beat!++;
         sfx.duck();
+        this.pulses.push({ t: this.t });
         for (const c of this.near(this.x, this.y + 200, 3, 3))
           for (const o of c.obs) {
             if (o.kind !== "tree" || o.dead) continue;
-            const ob = o as Obstacle & { bx?: number };
+            const ob = o as Dancer;
             if (ob.bx === undefined) ob.bx = o.x;
             // never onto her, though
             const nx = ob.bx + ((ch.beat! + o.id) % 2 ? C.step : -C.step);
             if (Math.abs(o.y - this.y) < 26 && Math.abs(nx - this.x) < 18) continue;
-            o.x = nx;
+            ob.fromX = o.x;
+            ob.toX = nx;
+            ob.moveT = this.t;
           }
       }
+      // they step, not jump: a quick slide with a little overshoot
+      for (const c of this.near(this.x, this.y + 200, 3, 3))
+        for (const o of c.obs) {
+          const ob = o as Dancer;
+          if (ob.moveT === undefined || ob.toX === undefined || ob.fromX === undefined) continue;
+          const k = Math.min(1, (this.t - ob.moveT) / 0.22);
+          const e = k < 1 ? 1 - Math.pow(1 - k, 3) * Math.cos(k * 3) : 1;
+          o.x = ob.fromX + (ob.toX - ob.fromX) * e;
+        }
     }
     // the children: they follow in her tracks; a monster that reaches one takes it
     if (ch.kids) {
@@ -3787,7 +3840,11 @@ export class Game {
     }
     if (this.tring) this.drawRing(this.tring);
     // what keeps its colour in the grey: the ribbon, the small lights, the place, and the people by the road
-    if (this.chapter?.ribbon) this.drawRibbon(this.chapter.ribbon);
+    if (this.chapter?.ribbon) {
+      this.drawRibbonPath(this.chapter.ribbon);
+      this.drawRibbon(this.chapter.ribbon);
+    }
+    if (this.chapter && MEMORIES[this.chapter.i].rule === "dance") this.drawDance(this.chapter);
     if (this.chapter?.kids) for (const k of this.chapter.kids) if (k.alive) this.drawKid(k);
     if (grey) {
       for (const p of this.extra) if (!p.taken && p.id === stoneId) {
@@ -5337,6 +5394,101 @@ export class Game {
     g.moveTo(x, y + 5);
     g.lineTo(x, gy);
     g.stroke();
+  }
+
+  /** the ribbon's path on the ground, glowing ahead of her; and how she is doing on it */
+  private drawRibbonPath(r: { cx: number; y0: number; on: number; y: number }) {
+    const g = this.ctx;
+    const on = r.on;
+    // a soft green lane
+    g.save();
+    g.lineCap = "round";
+    g.lineJoin = "round";
+    const pts: [number, number][] = [];
+    for (let y = this.y - 40; y <= r.y; y += 10) pts.push([this.sx(this.ribbonX(r, y)), this.sy(y)]);
+    const path = () => {
+      g.beginPath();
+      pts.forEach(([x, y], k) => (k ? g.lineTo(x, y) : g.moveTo(x, y)));
+    };
+    g.strokeStyle = `rgba(120,255,140,${(0.1 + 0.12 * on).toFixed(3)})`;
+    g.lineWidth = MISSION.chapter.width * 2;
+    path();
+    g.stroke();
+    // a line of small lights running along it, towards the ribbon
+    g.setLineDash([2, 12]);
+    g.lineDashOffset = -this.t * 60;
+    g.strokeStyle = `rgba(230,255,220,${(0.55 + 0.4 * on).toFixed(3)})`;
+    g.lineWidth = 3;
+    path();
+    g.stroke();
+    g.setLineDash([]);
+    g.restore();
+    // round her: a green halo while she is on it, a pale flicker when she is not
+    const x = this.sx(this.x);
+    if (on > 0.05) {
+      this.glow(x, this.PY - 8, 46, "140,255,150", 0.55 * on);
+      g.strokeStyle = `rgba(190,255,190,${(0.8 * on).toFixed(3)})`;
+      g.lineWidth = 2;
+      g.beginPath();
+      g.ellipse(x, this.PY + 4, 24 + Math.sin(this.t * 6) * 2, 8, 0, 0, Math.PI * 2);
+      g.stroke();
+    }
+    if (on < 0.6) {
+      // which way the path is: a small arrow at her feet
+      const dx = this.ribbonX(r, this.y + 40) - this.x;
+      if (Math.abs(dx) > MISSION.chapter.width) {
+        const dir = Math.sign(dx);
+        const a = (1 - on) * (0.6 + 0.4 * Math.sin(this.t * 8));
+        g.fillStyle = `rgba(230,255,220,${a.toFixed(3)})`;
+        g.beginPath();
+        g.moveTo(x + dir * 40, this.PY + 2);
+        g.lineTo(x + dir * 28, this.PY - 6);
+        g.lineTo(x + dir * 28, this.PY + 10);
+        g.closePath();
+        g.fill();
+      }
+    }
+  }
+
+  /** the hall's dance: where each tree will step on the next beat, and the beat itself as a ring on the ground */
+  private drawDance(ch: Chapter) {
+    const g = this.ctx;
+    const C = MISSION.chapter;
+    const toNext = C.beat - (ch.beatT ?? 0);
+    for (const p of this.pulses) {
+      const k = (this.t - p.t) / 0.6;
+      if (k > 1) continue;
+      g.strokeStyle = `rgba(255,220,150,${(0.5 * (1 - k)).toFixed(3)})`;
+      g.lineWidth = 3 * (1 - k) + 1;
+      g.beginPath();
+      g.ellipse(this.sx(this.x), this.PY + 4, 30 + k * 140, 10 + k * 48, 0, 0, Math.PI * 2);
+      g.stroke();
+    }
+    this.pulses = this.pulses.filter((p) => this.t - p.t < 0.7);
+    // just before the beat: a faint shadow where each tree is about to stand
+    if (toNext < 0.36) {
+      const a = (1 - toNext / 0.36) * 0.7;
+      g.save();
+      g.setLineDash([3, 3]);
+      g.strokeStyle = `rgba(255,230,170,${a.toFixed(3)})`;
+      g.fillStyle = `rgba(255,230,170,${(a * 0.25).toFixed(3)})`;
+      g.lineWidth = 1.4;
+      for (const c of this.near(this.x, this.y + 200, 3, 3))
+        for (const o of c.obs) {
+          const ob = o as Dancer;
+          if (o.kind !== "tree" || o.dead || ob.bx === undefined) continue;
+          const y = this.sy(o.y);
+          if (y < -20 || y > VIEW_H + 20) continue;
+          const nx = ob.bx + ((ch.beat! + 1 + o.id) % 2 ? C.step : -C.step);
+          // a pale ghost of the tree where it is about to stand
+          this.put(this.lands[this.biome].tree[o.v], this.sx(nx), y + o.h / 2 + 2, a * 0.55);
+          g.beginPath();
+          g.ellipse(this.sx(nx), y + 3, 11, 4, 0, 0, Math.PI * 2);
+          g.fill();
+          g.stroke();
+        }
+      g.restore();
+    }
   }
 
   /** Áine's green ribbon, flying ahead and weaving */
