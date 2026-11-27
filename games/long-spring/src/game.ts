@@ -358,7 +358,8 @@ export class Game {
   private nextEventT: number = ENDLESS.firstEvent;
   private calmT = 0;
   private flash = 0;
-  private beams: { x0: number; y0: number; x1: number; y1: number; t: number }[] = [];
+  /** a rune's beam: it reaches its target in a quarter of a second, strikes, and glows a while */
+  private beams: { x0: number; y0: number; x1: number; y1: number; t: number; q?: Monster; hit?: boolean }[] = [];
   /** the creeping fog: comes now and then, green in the rot, grey as it heals, a bright blue in Bloom */
   private fog: { t: number; len: number } | null = null;
   private nextFogT = 25 + Math.random() * 20;
@@ -950,20 +951,43 @@ export class Game {
   /** a cast rune looses a beam of green light, made of small glowing leaves, at the nearest monster: it is gone */
   private beam() {
     const q = this.monsters
-      .filter((m) => this.hunting(m) && m.state !== "dying" && this.sy(m.y) > -20 && this.sy(m.y) < VIEW_H)
+      .filter((m) => this.hunting(m) && m.state !== "dying" && this.sy(m.y) > -90 && this.sy(m.y) < VIEW_H)
       .sort((a, b) => Math.hypot(a.x - this.x, a.y - this.y) - Math.hypot(b.x - this.x, b.y - this.y))[0];
     if (!q) return;
-    this.beams.push({ x0: this.x, y0: this.y, x1: q.x, y1: q.y, t: this.t });
-    for (let k = 0; k < (this.o.settings.calm ? 10 : 30); k++) {
-      const f = Math.random();
-      this.fx.push({ x: this.x + (q.x - this.x) * f, y: this.y + (q.y - this.y) * f - 16, vx: (Math.random() - 0.5) * 60, vy: (Math.random() - 0.5) * 60, life: 0.5 + Math.random() * 0.5, c: ["#b8ff9a", "#6aff6a", "#ffffff"][k % 3], r: 1.4 });
-    }
-    if (q.type === "colossus") this.heavyBlow(q, "beam", "The beam burns into the Colossus.");
-    else {
-      this.giveSoulBack(q);
-      this.kill(q, "beam");
+    this.beams.push({ x0: this.x, y0: this.y, x1: q.x, y1: q.y, t: this.t, q });
+    // it holds the monster, and draws it down into sight, while the light reaches it
+    q.state = "stunned";
+    q.timer = 0.5;
+    q.y = Math.max(q.y, this.y - this.PY + 70);
+  }
+  /** the beams reach what they were cast at */
+  private beamStep() {
+    for (const bm of this.beams) {
+      if (bm.q && !bm.hit && bm.q.state !== "dying" && bm.q.state !== "gone") {
+        // held in the light, in sight, until it strikes
+        bm.q.y = Math.max(bm.q.y, this.y - this.PY + 80);
+        bm.x1 = bm.q.x;
+        bm.y1 = bm.q.y;
+      }
+      if (bm.hit || this.t - bm.t < 0.25) continue;
+      bm.hit = true;
+      const q = bm.q;
+      if (!q || q.state === "dying" || q.state === "gone") continue;
+      for (let k = 0; k < (this.o.settings.calm ? 14 : 50); k++) {
+        const a = Math.random() * Math.PI * 2;
+        const sp = 40 + Math.random() * 140;
+        this.fx.push({ x: q.x, y: q.y - 18, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.6 + Math.random() * 0.6, c: ["#b8ff9a", "#6aff6a", "#ffffff", "#e8ffb0"][k % 4], r: 1.2 + Math.random() * 1.4 });
+      }
+      this.shake = this.o.settings.calm ? 0 : 0.2;
+      sfx.crash();
+      if (q.type === "colossus") this.heavyBlow(q, "beam", "The beam burns into the Colossus.");
+      else {
+        this.giveSoulBack(q);
+        this.kill(q, "beam");
+      }
     }
   }
+
   private hunting(m: Monster) {
     return (
       m.state === "run" || m.state === "windup" || m.state === "lunge" || m.state === "recover" || m.state === "stunned" || m.state === "rooted" ||
@@ -1293,6 +1317,7 @@ export class Game {
     this.hunt(dt);
     this.companion(dt);
     this.projectiles(dt);
+    this.beamStep();
     this.particles(dt);
 
     this.o.missions.forEach((mi, slot) => {
@@ -1321,7 +1346,7 @@ export class Game {
       this.villages = this.villages.filter((v) => v.y1 > this.y - 700);
       this.trees = this.trees.filter((t) => t.y > this.y - 700);
       this.placed = this.placed.filter((p) => p.alive && p.y > this.y - 500);
-      this.beams = this.beams.filter((b) => this.t - b.t < 1);
+      this.beams = this.beams.filter((b) => this.t - b.t < 1.5);
       this.places = this.places.filter((p) => p.y > this.y - 700);
       this.fords = this.fords.filter((f) => f.y1 > this.y - 600);
     }
@@ -1916,7 +1941,7 @@ export class Game {
     if (rule === "dance") {
       // the hall: rows of living trees across the road, like the pillars of a roofless hall
       const bottom = this.y + (VIEW_H - this.PY) + 40;
-      while (ch.rowY! < bottom + 260 && this.metres - ch.startM < MISSION.chapter.seg * 3 - 60) {
+      while (MISSION.chapter.rows && ch.rowY! < bottom + 260 && this.metres - ch.startM < MISSION.chapter.seg * 3 - 60) {
         const ry = Math.max(ch.rowY!, bottom);
         const off = (Math.random() - 0.5) * 30;
         for (let x = this.x - 320 + off; x <= this.x + 320; x += MISSION.chapter.row) {
@@ -3910,30 +3935,51 @@ export class Game {
     }
     // the rune's beam: a river of small glowing leaves from her to what it struck
     for (const bm of this.beams) {
-      const a = 1 - (this.t - bm.t) / 0.7;
+      const age = this.t - bm.t;
+      const a = Math.min(1, 1 - (age - 0.6) / 0.7);
       if (a <= 0) continue;
-      const x0 = this.sx(bm.x0), y0 = this.sy(bm.y0) - 18, x1 = this.sx(bm.x1), y1 = this.sy(bm.y1) - 14;
+      // it grows from her to its target, then glows and fades
+      const grow = Math.min(1, age / 0.25);
+      const x0 = this.sx(bm.x0 + (this.x - bm.x0) * 0.5), y0 = this.PY - 18;
+      const tx = this.sx(bm.x1), ty = this.sy(bm.y1) - 16;
+      const x1 = x0 + (tx - x0) * grow, y1 = y0 + (ty - y0) * grow;
       const d = Math.hypot(x1 - x0, y1 - y0);
       g.save();
       g.globalAlpha = a;
-      g.strokeStyle = "rgba(150,255,140,0.35)";
-      g.lineWidth = 10 * a + 2;
+      g.lineCap = "round";
+      g.strokeStyle = "rgba(120,255,120,0.22)";
+      g.lineWidth = 26;
       g.beginPath();
       g.moveTo(x0, y0);
       g.lineTo(x1, y1);
       g.stroke();
-      const n = Math.max(8, Math.floor(d / 7));
+      g.strokeStyle = "rgba(190,255,170,0.55)";
+      g.lineWidth = 9;
+      g.stroke();
+      g.strokeStyle = "rgba(255,255,240,0.9)";
+      g.lineWidth = 2.5;
+      g.stroke();
+      const n = Math.max(10, Math.floor(d / 6));
+      const nx = -(y1 - y0) / (d || 1), ny = (x1 - x0) / (d || 1);
       for (let k = 0; k < n; k++) {
         const f = k / n;
-        const w = Math.sin(f * 18 + this.t * 20 + k) * 6 * a;
-        const nx = -(y1 - y0) / (d || 1), ny = (x1 - x0) / (d || 1);
+        const w = Math.sin(f * 20 + this.t * 18 + k) * 9;
         const px = x0 + (x1 - x0) * f + nx * w, py = y0 + (y1 - y0) * f + ny * w;
         g.fillStyle = k % 3 === 0 ? "#ffffff" : k % 3 === 1 ? "#b8ff9a" : "#6aff6a";
         g.beginPath();
-        g.ellipse(px, py, 3, 1.4, f * 9 + this.t * 6, 0, Math.PI * 2);
+        g.ellipse(px, py, 3.6, 1.6, f * 9 + this.t * 6, 0, Math.PI * 2);
         g.fill();
       }
-      this.glow(x1, y1, 40 * a + 10, "150,255,140", a);
+      this.glow(x0, y0, 34, "150,255,140", 0.8 * a);
+      if (bm.hit) {
+        const k = Math.min(1, (age - 0.25) / 0.5);
+        this.glow(tx, ty, 70 * (1 - k * 0.4), "190,255,170", (1 - k) * 1);
+        g.strokeStyle = `rgba(220,255,200,${(1 - k).toFixed(3)})`;
+        g.lineWidth = 3;
+        g.beginPath();
+        g.arc(tx, ty, 10 + k * 46, 0, Math.PI * 2);
+        g.stroke();
+      }
       g.restore();
     }
     // the aim: a dotted line swinging behind you, or following the mouse or the stick

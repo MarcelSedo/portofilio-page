@@ -14,21 +14,13 @@ the hawthorn kept its white;
 the kings grew fat on all it gave,
 and hungered in the night.`,
   `They dug beneath the oldest roots
-and called on what lay deep;
-it answered them, and turned them out,
-and woke what should not sleep.`,
-  `The land had one last gift to give;
-it found me where I lay,
-broken at the ravine’s cold foot,
-and would not let me stay.`,
-  `It took the years I was before
-and left me roots and rain;
-and every memory I keep
-turns one place green again.`,
-  `But what I was is slipping off
-like water through a hand:
+and woke what lay below;
+it turned them inside out; and I
+lay broken far below.`,
+  `The land took up what I had been
+and gave me roots and rain:
 so ride, and win back what is left,
-ere dark takes all the land.`,
+ere dark takes all again.`,
 ];
 
 /** the kinds of place Brigid can heal, as the codex explains them */

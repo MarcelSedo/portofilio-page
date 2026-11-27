@@ -58,6 +58,17 @@ const BRIGHT: Note[] = [
   [9, "e", 1], [11, "i", 1], [12, "i", 4], [null, "", 2], [16, "i", 2], [19, "i", 2], [17, "e", 1], [16, "i", 1],
   [14, "e", 2], [12, "i", 4], [null, "", 2], [11, "i", 1], [12, "i", 1], [14, "e", 2], [12, "i", 2], [9, "a", 2], [7, "a", 6], [null, "", 4],
 ];
+/**
+ * The menu's air: a tin whistle alone over a soft harp, a lilting slow air in D major (an original tune in the old
+ * style, 6/8). In eighths: [semitones above D, -, length]
+ */
+const WHISTLE_AIR: Note[] = [
+  [7, "", 2], [9, "", 1], [11, "", 3], [9, "", 2], [7, "", 1], [4, "", 3], [2, "", 2], [4, "", 1], [7, "", 2], [9, "", 1], [7, "", 6],
+  [7, "", 2], [9, "", 1], [11, "", 3], [14, "", 2], [12, "", 1], [11, "", 3], [9, "", 2], [7, "", 1], [4, "", 2], [2, "", 1], [0, "", 5], [null, "", 1],
+  [12, "", 3], [14, "", 3], [16, "", 2], [14, "", 1], [12, "", 3], [11, "", 2], [12, "", 1], [14, "", 2], [11, "", 1], [9, "", 6],
+  [12, "", 3], [14, "", 3], [16, "", 2], [19, "", 1], [16, "", 3], [14, "", 2], [12, "", 1], [11, "", 2], [9, "", 1],
+  [7, "", 2], [4, "", 1], [2, "", 3], [0, "", 6], [null, "", 6],
+];
 // chords, as semitones above D; each lasts two bars
 const Dm = [0, 3, 7];
 const D = [0, 4, 7];
@@ -78,6 +89,8 @@ const LANDS = [
   { tunes: [BRIGHT, AIR], chords: [D, G, C, D], shift: 0, voice: 0.5, pipe: 1, harp: 1, pad: 0.7, bright: 1 },
 ];
 const FINALE = { chords: [G, D, C, D] };
+/** the menu: the whistle alone, a little harp, hardly any wash */
+const MENU = { tunes: [WHISTLE_AIR], chords: [D, G, D, A], shift: 0, voice: 0, pipe: 1, harp: 0.45, pad: 0.35, bright: 0.4 };
 const LAMENT = { chords: [Dm, Bb, Gm, A] };
 
 function noiseBuf(c: BaseAudioContext, sec: number) {
@@ -202,49 +215,64 @@ function sing(t: number, freq: number, vowel: string, dur: number, next: string,
   }
 }
 
-/** a tin whistle: pure and breathy, with a cut (grace note) into the longer notes */
+/**
+ * A tin whistle: almost a pure tone, a soft chiff of breath at the start of each note, a cut (a grace note from
+ * above) into the longer ones, and a slow vibrato that only comes in once a note is held.
+ */
 function pipe(t: number, freq: number, dur: number, level: number) {
   if (!ctx || !pipeBus || level <= 0) return;
   const c = ctx;
+  const f = freq * 2;
   const o = c.createOscillator();
   o.type = "sine";
-  const o2 = c.createOscillator();
-  o2.type = "triangle";
-  const f = freq * 2;
-  if (dur > 0.3) {
+  if (dur > 0.32) {
     o.frequency.setValueAtTime(f * 1.122, t);
-    o.frequency.setValueAtTime(f, t + 0.045);
+    o.frequency.setValueAtTime(f, t + 0.05);
   } else o.frequency.setValueAtTime(f, t);
-  o2.frequency.value = f;
+  // a touch of the octave and the twelfth: the whistle's bright edge
+  const o2 = c.createOscillator();
+  o2.type = "sine";
+  o2.frequency.value = f * 2;
+  const o3 = c.createOscillator();
+  o3.type = "sine";
+  o3.frequency.value = f * 3;
   const vib = c.createOscillator();
   const vg = c.createGain();
-  vib.frequency.value = 5.8;
+  vib.frequency.value = 5.2;
   vg.gain.setValueAtTime(0, t);
-  vg.gain.linearRampToValueAtTime(f * 0.007, t + Math.min(0.4, dur));
+  vg.gain.setValueAtTime(0, t + Math.min(0.3, dur * 0.5));
+  vg.gain.linearRampToValueAtTime(f * 0.006, t + Math.min(0.9, dur));
   vib.connect(vg);
   vg.connect(o.frequency);
+  vg.connect(o2.frequency);
   const env = c.createGain();
   env.gain.setValueAtTime(0.0001, t);
-  env.gain.exponentialRampToValueAtTime(0.2 * level, t + 0.03);
-  env.gain.setValueAtTime(0.17 * level, t + dur * 0.85);
-  env.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.08);
+  env.gain.exponentialRampToValueAtTime(0.2 * level, t + 0.025);
+  env.gain.exponentialRampToValueAtTime(0.16 * level, t + 0.12);
+  env.gain.setValueAtTime(0.16 * level, t + dur * 0.85);
+  env.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.1);
   const g2 = c.createGain();
-  g2.gain.value = 0.2;
+  g2.gain.value = 0.1;
+  const g3 = c.createGain();
+  g3.gain.value = 0.035;
   o.connect(env);
   o2.connect(g2).connect(env);
+  o3.connect(g3).connect(env);
+  // the breath: a chiff at the start, and a thread of air under the note
   const air = c.createBufferSource();
-  air.buffer = noiseBuf(c, dur + 0.1);
+  air.buffer = noiseBuf(c, dur + 0.15);
   const bp = c.createBiquadFilter();
   bp.type = "bandpass";
-  bp.frequency.value = f * 1.5;
-  bp.Q.value = 3;
+  bp.frequency.value = f * 1.6;
+  bp.Q.value = 2.2;
   const ag = c.createGain();
-  ag.gain.value = 0.04;
-  air.connect(bp).connect(ag).connect(env);
+  ag.gain.setValueAtTime(0.09 * level, t);
+  ag.gain.exponentialRampToValueAtTime(0.012 * level, t + 0.06);
+  air.connect(bp).connect(ag).connect(pipeBus);
   env.connect(pipeBus);
-  for (const n of [o, o2, vib, air]) {
+  for (const n of [o, o2, o3, vib, air]) {
     n.start(t);
-    n.stop(t + dur + 0.12);
+    n.stop(t + dur + 0.16);
   }
 }
 
@@ -363,13 +391,13 @@ function drum(t: number, strong: boolean, amp: number) {
 function nextTune() {
   if (mood === "death") return DEEP;
   if (mood === "finale") return BRIGHT;
-  const L = mood === "menu" ? LANDS[Math.min(land, 1)] : LANDS[land];
+  const L = mood === "menu" ? MENU : LANDS[land];
   return L.tunes[phrase++ % L.tunes.length];
 }
 
 function schedule() {
   if (!ctx) return;
-  const L = LANDS[mood === "menu" ? Math.min(land, 1) : land];
+  const L = mood === "menu" ? MENU : LANDS[land];
   const d = mood === "ride" ? danger : 0;
   const bpm = mood === "death" ? 50 : mood === "menu" ? 66 : mood === "finale" ? 72 : 78 + d * 40;
   const eighth = 60 / bpm / 2;
@@ -410,9 +438,9 @@ function schedule() {
         const f = hz(n + (mood === "death" ? -5 : mood === "finale" ? 0 : L.shift));
         const dur = len * eighth * 0.98;
         // the voice floats an octave above the air; the whistle plays it as it is
-        const voice = mood === "finale" ? 0.3 : mood === "death" ? 0.8 : mood === "menu" ? 0.8 : L.voice * (1 - d * 0.4);
-        const whistle = mood === "finale" ? 0.9 : mood === "death" ? 0 : mood === "menu" ? 0.25 : L.pipe;
-        sing(nextT, f * 2, v, dur, nextV, voice);
+        const voice = mood === "finale" ? 0.3 : mood === "death" ? 0.8 : mood === "menu" ? 0 : L.voice * (1 - d * 0.4);
+        const whistle = mood === "finale" ? 0.9 : mood === "death" ? 0 : mood === "menu" ? 1 : L.pipe;
+        if (voice > 0) sing(nextT, f * 2, v, dur, nextV, voice);
         pipe(nextT, f, dur, whistle);
       }
       noteAt = step + len;

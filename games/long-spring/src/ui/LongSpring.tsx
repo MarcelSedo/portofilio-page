@@ -150,41 +150,116 @@ function TaskPic({ rule }: { rule?: ChapterRule }) {
 
 /** the kingdom: the road of her life, from the hall to the sea, and the fourteen places on it */
 const MAP_PTS: [number, number][] = [
-  [60, 40], [108, 62], [150, 46], [196, 74], [236, 58], [270, 92], [244, 128], [204, 148], [160, 136], [118, 160], [86, 196], [128, 222], [178, 232], [226, 246],
+  [58, 46], [104, 66], [146, 50], [196, 74], [238, 58], [272, 94], [246, 130], [204, 150], [160, 138], [116, 160], [80, 196], [124, 224], [176, 236], [226, 248],
 ];
-const MAP_REGIONS = ["#2a2420", "#3a4034", "#4a2a2a", "#2e5a44"];
-function KingdomMap({ thirds, at, light }: { thirds: number[]; at: number; light: number }) {
+/** a little scattered forest for each land: where its trees stand (deterministic) */
+function grove(x0: number, y0: number, x1: number, y1: number, n: number, seed: number) {
+  const out: [number, number][] = [];
+  let r = seed;
+  const rnd = () => ((r = (r * 9301 + 49297) % 233280) / 233280);
+  for (let k = 0; k < n; k++) out.push([x0 + rnd() * (x1 - x0), y0 + rnd() * (y1 - y0)]);
+  return out.sort((a, b) => a[1] - b[1]);
+}
+const DEAD = grove(18, 24, 176, 104, 26, 7);
+const GREYWOOD = grove(196, 22, 286, 146, 18, 11);
+const DEEPWOOD = grove(18, 112, 196, 186, 24, 23);
+const BLOOMWOOD = grove(18, 192, 196, 268, 20, 31);
+/** the little sign of each place on the map */
+function placeIcon(k: number, x: number, y: number) {
+  const s = { stroke: "#16120c", strokeWidth: 1 };
+  switch (k) {
+    case 0: return <path d={`M${x - 9} ${y - 6} q4 -6 8 0 q4 6 8 0`} fill="none" stroke="#2bbf6a" strokeWidth="2" />;
+    case 1: return <path d={`M${x - 8} ${y - 4} q8 -16 16 0`} fill="none" stroke="#7a5a3a" strokeWidth="2.4" />;
+    case 2: return <rect x={x - 4} y={y - 14} width="8" height="9" rx="4" fill="#8a5a2a" {...s} />;
+    case 3: return <path d={`M${x} ${y - 16} v10 M${x - 3} ${y - 13} h6`} stroke="#d8ccb0" strokeWidth="1.6" />;
+    case 4: return <path d={`M${x - 4} ${y - 14} h8 l-1 7 h-6 z`} fill="#2a2030" {...s} />;
+    case 5: return <ellipse cx={x} cy={y - 10} rx="4" ry="2" fill="#ff9ac0" />;
+    case 6: return <ellipse cx={x} cy={y - 10} rx="5" ry="2.4" fill="#0a0606" stroke="#a8202a" strokeWidth="1" />;
+    case 7: return <path d={`M${x - 5} ${y - 12} l2 4 l2 -4 l2 4 l2 -4`} fill="none" stroke="#f0e8d8" strokeWidth="1.4" />;
+    case 8: return <path d={`M${x - 5} ${y - 6} l2 -9 l3 4 l3 -6 l2 11 z`} fill="#3a1a1a" {...s} />;
+    case 9: return <path d={`M${x - 8} ${y - 8} h16`} stroke="#9a9a8a" strokeWidth="3" />;
+    case 10: return <path d={`M${x - 4} ${y - 16} h8 v10 h-8 z`} fill="#3a6aa8" {...s} />;
+    case 11: return <path d={`M${x - 9} ${y - 7} q5 -7 8 0 m2 0 q4 -7 8 0`} fill="none" stroke="#b8b0a0" strokeWidth="2" />;
+    case 12: return <path d={`M${x - 8} ${y - 6} q4 -4 8 0 q4 4 8 0`} fill="none" stroke="#7ac0e8" strokeWidth="2" />;
+    default: return <circle cx={x} cy={y - 11} r="5" fill="#ffb0d0" stroke="#5a8a3a" strokeWidth="1.5" />;
+  }
+}
+function KingdomMap({ thirds, at, light, reached, onPick }: { thirds: number[]; at: number; light: number; reached: number[]; onPick: (i: number) => void }) {
   const d = MAP_PTS.map(([x, y], k) => `${k ? "L" : "M"}${x} ${y}`).join(" ");
+  const tree = (x: number, y: number, crown: string, trunk: string, dead: boolean, k: number) =>
+    dead ? (
+      <path key={k} d={`M${x} ${y} v-9 m0 4 l-3 -4 m3 1 l3 -4`} stroke="#4a4038" strokeWidth="1.2" fill="none" />
+    ) : (
+      <g key={k}>
+        <rect x={x - 0.8} y={y - 4} width="1.6" height="4" fill={trunk} />
+        <circle cx={x} cy={y - 7} r="4" fill={crown} />
+      </g>
+    );
   return (
-    <svg className="ls-map" viewBox="0 0 300 280" role="img" aria-label={`The road from the hall to the sea: ${thirds.filter((t) => t >= 3).length} of 14 places remembered whole`}>
+    <svg className="ls-map" viewBox="0 0 300 280" role="group" aria-label={`The road from the hall to the sea: ${thirds.filter((t) => t >= 3).length} of 14 places remembered whole. Choose a place to read its memory.`}>
       <rect x="2" y="2" width="296" height="276" rx="14" fill="#16120c" stroke="#c9a24a" strokeWidth="3" />
       <rect x="9" y="9" width="282" height="262" rx="10" fill="none" stroke="#c9a24a" strokeOpacity="0.5" strokeDasharray="6 3" />
-      {/* the four lands */}
-      <path d="M20 20 H200 L170 110 H20 Z" fill={MAP_REGIONS[0]} />
-      <path d="M200 20 H280 V150 L210 150 L170 110 Z" fill={MAP_REGIONS[1]} />
-      <path d="M20 110 H170 L210 150 L170 185 H20 Z" fill={MAP_REGIONS[2]} />
-      <path d="M20 185 H170 L210 150 H280 V260 H20 Z" fill={MAP_REGIONS[3]} />
-      {/* the sea */}
-      <path d="M200 260 Q240 236 280 246 V260 Z" fill="#2a6a8a" />
-      <path d={d} fill="none" stroke="#e8d8a8" strokeWidth="3" strokeDasharray="2 5" strokeLinecap="round" />
-      {MAP_PTS.map(([x, y], k) => {
-        const t = thirds[k] ?? 0;
-        const fill = t >= 3 ? "#7dff78" : t > 0 ? "#e8c84a" : "#6a6a66";
-        return (
-          <g key={k}>
-            {t > 0 && <circle cx={x} cy={y} r={11} fill={fill} opacity="0.25" />}
-            <circle cx={x} cy={y} r={6} fill={fill} stroke="#16120c" strokeWidth="2" />
-            {k === at && <circle cx={x} cy={y} r={10} fill="none" stroke="#fff4d8" strokeWidth="1.5" />}
-          </g>
-        );
-      })}
+      {/* the four lands: the rot, the grey hills and mines, the deep wood under a red sky, the bloom by the sea */}
+      <path d="M16 16 H190 L176 108 H16 Z" fill="#1c1814" />
+      <path d="M190 16 H284 V148 L200 150 L176 108 Z" fill="#2c3228" />
+      <path d="M16 108 H176 L200 150 L180 188 H16 Z" fill="#1e3424" />
+      <path d="M16 108 H176 L200 150 L180 188 H16 Z" fill="url(#ls-redsky)" />
+      <path d="M16 188 H180 L200 150 H284 V264 H16 Z" fill="#3e7a4a" />
+      <defs>
+        <radialGradient id="ls-redsky" cx="0.4" cy="0.2" r="0.8">
+          <stop offset="0" stopColor="#a8282a" stopOpacity="0.35" />
+          <stop offset="1" stopColor="#a8282a" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      {/* the hills of First Green */}
+      {[[214, 40], [258, 36], [236, 104], [272, 122]].map(([x, y], k) => (
+        <g key={`h${k}`}>
+          <path d={`M${x - 16} ${y + 8} L${x} ${y - 10} L${x + 16} ${y + 8} Z`} fill="#4a5244" />
+          <path d={`M${x - 3} ${y + 8} v-5 a3 3 0 0 1 6 0 v5 Z`} fill="#0c0a08" />
+        </g>
+      ))}
+      {DEAD.map(([x, y], k) => tree(x, y, "", "", true, k))}
+      {GREYWOOD.map(([x, y], k) => tree(x, y, "#6a7a5a", "#4a3a2a", false, 100 + k))}
+      {DEEPWOOD.map(([x, y], k) => tree(x, y, "#2a5a32", "#3a2a1a", false, 200 + k))}
+      {BLOOMWOOD.map(([x, y], k) => tree(x, y, k % 3 ? "#5aa84a" : "#f0a8c8", "#5a3a22", false, 300 + k))}
+      {/* the stream, the ravine and the sea */}
+      <path d="M150 192 Q170 214 160 240 T176 268" fill="none" stroke="#7ac0e8" strokeWidth="2.4" opacity="0.8" />
+      <path d="M60 248 l14 -6 l-6 8 l16 -4" fill="none" stroke="#0c0a08" strokeWidth="2.4" />
+      <path d="M196 266 Q236 238 284 244 V264 Z" fill="#2a6a8a" />
+      <path d="M216 256 q6 -3 12 0 q6 3 12 0 M240 250 q6 -3 12 0" fill="none" stroke="#a8e0f0" strokeWidth="1" />
+      {/* the road of her life */}
+      <path d={d} fill="none" stroke="#e8d8a8" strokeWidth="2.6" strokeDasharray="2 5" strokeLinecap="round" />
+      {MAP_PTS.map(([x, y], k) => placeIcon(k, x, y))}
       {/* the people she gave a heart to: small lights along the road */}
       {Array.from({ length: Math.min(40, light) }, (_, k) => {
         const [x, y] = MAP_PTS[k % MAP_PTS.length];
         return <circle key={`l${k}`} cx={x + Math.cos(k * 2.4) * 15} cy={y + Math.sin(k * 2.4) * 12} r={1.6} fill="#fff4c0" />;
       })}
-      <text x="60" y="30" fill="#c9a24a" fontSize="9" fontFamily="Georgia, serif" textAnchor="middle">the hall</text>
-      <text x="240" y="272" fill="#c9a24a" fontSize="9" fontFamily="Georgia, serif" textAnchor="middle">the sea</text>
+      {MAP_PTS.map(([x, y], k) => {
+        const t = thirds[k] ?? 0;
+        const known = reached.includes(k);
+        const fill = t >= 3 ? "#7dff78" : t > 0 ? "#e8c84a" : known ? "#9a9a92" : "#4a4a46";
+        const label = `${k + 1}. ${known ? MEMORIES[k].title : "not reached yet"}${known ? (t >= 3 ? ", whole" : `, ${t} of 3 in colour`) : ""}`;
+        return (
+          <g
+            key={`p${k}`}
+            className={`ls-map-pt${known ? " is-known" : ""}`}
+            role={known ? "button" : undefined}
+            tabIndex={known ? 0 : undefined}
+            aria-label={label}
+            onClick={known ? () => onPick(k) : undefined}
+            onKeyDown={known ? (e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onPick(k)) : undefined}
+          >
+            <title>{label}</title>
+            <circle cx={x} cy={y} r={11} fill="transparent" />
+            {t > 0 && <circle cx={x} cy={y} r={9} fill={fill} opacity="0.25" />}
+            <circle cx={x} cy={y} r={5.5} fill={fill} stroke="#16120c" strokeWidth="2" />
+            {k === at && <circle cx={x} cy={y} r={9.5} fill="none" stroke="#fff4d8" strokeWidth="1.5" strokeDasharray="3 2" />}
+          </g>
+        );
+      })}
+      <text x="58" y="26" fill="#c9a24a" fontSize="9" fontFamily="Georgia, serif" textAnchor="middle">the hall</text>
+      <text x="252" y="272" fill="#e8d8a8" fontSize="9" fontFamily="Georgia, serif" textAnchor="middle">the sea</text>
     </svg>
   );
 }
@@ -1189,7 +1264,8 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
   };
   /** the whole mission again from the Rot: the book and the Named stay */
   const beginAgain = () => {
-    update((s) => ({ ...s, checkpoint: 0, chapterAt: 0 }));
+    // the whole mission from nothing: the lands, the chapters and the book
+    update((s) => ({ ...s, checkpoint: 0, chapterAt: 0, furthestLand: 0, thirds: [], clear: [], memories: [], soulsTotal: 0 }));
     ride("mission");
   };
   const landName = (i: number) => BIOMES[Math.min(i, BIOMES.length - 1)].name;
@@ -1248,7 +1324,16 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
     label: "The road",
     content: (
       <>
-        <KingdomMap thirds={save.thirds ?? []} at={save.chapterAt ?? 0} light={save.soulsTotal} />
+        <KingdomMap
+          thirds={save.thirds ?? []}
+          at={save.chapterAt ?? 0}
+          light={save.soulsTotal}
+          reached={save.memories}
+          onPick={(i) => {
+            setBookTab(MEMORIES[i].land + 1);
+            setReading(i);
+          }}
+        />
         <p className="ls-muted ls-small ls-center">
           From the hall where it began to the sea where it ended: the road of {HEROINE}&apos;s life. Green, a place remembered
           whole; gold, in part; grey, not yet. The small lights are those she gave a heart to.
@@ -1459,7 +1544,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
           {(save.chapterAt ?? 0) > 0 && (
             <button type="button" className="ls-btn is-big is-alt" onClick={beginAgain}>
               Begin again
-              <span className="ls-btn-sub">the whole mission, from The Rot</span>
+              <span className="ls-btn-sub">everything from the start, the book too</span>
             </button>
           )}
           <button
@@ -1475,7 +1560,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         </div>
         {save.checkpoint > 0 && (
           <p className="ls-muted ls-small">
-            Beginning again keeps the Book of Memories. The lands and the gates start over.
+            Beginning again starts the whole mission over: the lands, the chapters and the Book of Memories.
           </p>
         )}
         <div className="ls-grid2 is-narrow">
@@ -1515,7 +1600,12 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
           {titles[page]}
         </h2>
         {page === 0 && (
-          <div className="ls-prologue-verses">
+          <span className="ls-prologue-pic">
+            <MemPic i={8} state="clear" />
+          </span>
+        )}
+        {page === 0 && (
+          <div className="ls-prologue-verses is-three">
             {PROLOGUE.map((p, i) => (
               <p key={i} className={`ls-verse${i === 0 ? " ls-initial" : ""}`}>
                 {p}
@@ -1624,7 +1714,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
             </p>
           )}
           <p className="ls-muted ls-line">{bRider.line}</p>
-          <p className="ls-muted ls-small">For the endless ride. The mission is always {HEROINE} on her elk.</p>
+          <p className="ls-muted ls-small">For the endless ride and the hunt. The mission is always {HEROINE} on her elk.</p>
         </div>
         <div className="ls-picker-side">
           <Spinner label="Rider" rowKey="rider" value={bRider.name} onPrev={() => pickRider(-1)} onNext={() => pickRider(1)} />

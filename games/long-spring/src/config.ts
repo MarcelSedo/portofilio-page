@@ -484,7 +484,7 @@ export const MISSION = {
     /** the hall: a drum beat every `beat` s, the trees step `step` px */
     beat: 0.65, step: 16,
     /** the hall's rows of trees: one tree every `row` px across the road */
-    row: 62,
+    row: 62, rows: false,
   },
 };
 /**
