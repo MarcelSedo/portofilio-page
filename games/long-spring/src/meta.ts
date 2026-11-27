@@ -165,6 +165,10 @@ export type Save = {
   memories: number[];
   /** memories won back: they show clear in the book */
   clear: number[];
+  /** the best each chapter has come back: thirds of its picture in colour (0–3), by MEMORIES index */
+  thirds: number[];
+  /** the chapter a fallen Brigid rises again at */
+  chapterAt: number;
   /** everyone named she has saved, newest last (kept to the last 400) */
   named: string[];
   /** all souls ever saved, and the best ending (souls + reborn) */
@@ -210,6 +214,8 @@ export function freshSave(calm = false): Save {
     checkpoint: 0,
     memories: [],
     clear: [],
+    thirds: [],
+    chapterAt: 0,
     named: [],
     soulsTotal: 0,
     bestEnding: 0,
@@ -231,10 +237,14 @@ export function loadSave(): Save {
     const ids = ["hollow", "hound", "spitter", "burrower", "hands", "collector", "colossus"];
     s.seenMonsters = (s.seenMonsters ?? []).filter((x) => ids.includes(x));
     s.killedMonsters = (s.killedMonsters ?? []).filter((x) => ids.includes(x));
+    s.thirds = Array.isArray(s.thirds) ? s.thirds : [];
+    for (const i of s.clear) if (!(s.thirds[i] >= 3)) s.thirds[i] = 3;
     if ((old.book ?? 1) < 2) {
       // the book was rewritten: 24 memories became 14 chapters, and the lands start over
       s.memories = [];
       s.clear = [];
+      s.thirds = [];
+      s.chapterAt = 0;
       s.book = 2;
     }
     return s;

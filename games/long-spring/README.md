@@ -57,30 +57,27 @@ Open the page with `?tune`: sliders for metres per pixel, monster speed, the lea
 the stumble, and a box with the values to paste back into `TUNE`. With `?tune` the game is also on
 `window.longSpring` for experiments in the console.
 
-## The mission (numbers in `MISSION`, `config.ts`; texts in `story.ts`)
+## The mission (numbers in `MISSION.chapter`, `config.ts`; texts in `story.ts`)
 
-- **A chapter** begins 110 m into a land, then 150–220 m after the last. Its sign shows (a ribbon on a thorn, candles
-  in the snow), and the forgetting starts: `chapter.limit` seconds (80, 74, 70, 66 by land; 10 % less when a forgotten
-  one comes again). The world loses its colour (a saturation pass over the canvas) and darkens from the edges.
-- **Three pieces**, one after another: a **light** drifting over the land (shoot it; an empty quiver is lent two
-  arrows), a **ring** of light on the road (ride through it), a **rune-stone** (take it and cast it; a rune already in
-  hand anchors it too). A missed piece comes again after 3 s. The pieces keep their colour in the grey world.
-- **Remembered**: the colour comes back, a heart, the hunt is thrown back and stunned, a spring tree grows, and the
-  card shows the picture and the poem, with *Read it aloud* (the browser's own voice for now, a woman's if it has
-  one, slow, line by line; to be replaced by a recording). **Forgotten**: the memory goes dark (mist in the book), one
-  monster comes after you, and the memory comes back later in the land only if the land still needs it.
-- **The gate** opens when every chapter of the land has been played and all but one are remembered.
-- **The Collector** steals a won piece (in the endless ride the lamp's lights, in the hunt three arrows); shoot it to
-  get it back.
-- **Pace**: the mission rides at 85 % (`MISSION.pace`), with one hunter in the first two lands, two in the last two.
-- **The save** keeps `memories` (chapters reached) and `clear` (remembered). Older saves with the 24 memories are let
-  go once (`book: 2`).
-- **Wells**: the pits of green fire heal land by land, as before. In the finale the wells light up and the reborn come
-  out of them.
-- **Starting over**: once you have passed a gate, The mission asks where to ride from: on from the last gate, or the
-  whole mission again (the book stays).
-- **The finale** at the golden gate: the hunt ends, the rot dissolves, the people gather, a tree grows for every
-  memory won on the ride, Brigid goes into the light, and every heart she still has becomes one more person.
+- **The road of her life**: 14 chapters from the hall (where it began) to the sea (where it ended), in four lands
+  (3, 4, 4, 3). A chapter is three stretches of `seg` m (480 m, about 1.5 min). Fall, and you rise again at the start of
+  the chapter (`chapterAt` in the save).
+- **Grey, then colour**: a chapter begins with its picture in grey (a card for 3 s) and the land greys. Each stretch
+  ridden well brings a third of the picture back in colour (from the middle out), and the land with it. Near the end the
+  place itself appears (thorn with the ribbon, the arched trees of the hall, the door with three pairs of shoes, a
+  standing stone for the rest) and blooms. The card shows the picture and the poem as far as it was won; the book keeps
+  the best (`thirds`).
+- **Rules** (`rule` in `MEMORIES`): *ribbon*: follow Áine's ribbon, no monsters (a stretch counts if you stayed close for
+  `near` of it); *dance*: the trees step aside on every drum beat (`beat`, `step`); *count*: three small lights ride
+  behind you, a monster or a hit takes one, the picture comes back by as many as you bring through. The rest: a stretch
+  without losing a heart. The rules of chapters 4–14 are still to come.
+- **Hearts to give**: in a chapter one or two people stand by the road, half taken by the rot (they grey further as you
+  come). Ride through their ring to give a heart (never your last): "Thank you", they walk off in colour. Passed by,
+  they turn, and come after you when the next chapter begins.
+- **Runes** are tools for the land (a beam at the nearest monster, bridge, light, thorns, wind): press R, watch the
+  strokes light up round the rune, repeat them with the arrows.
+- **The book** opens on a map of the kingdom: the road, the 14 places (green whole, gold in part, grey not yet), and a
+  small light for everyone given a heart.
 
 ## The First Morning (tutorial)
 

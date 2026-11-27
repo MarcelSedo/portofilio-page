@@ -298,7 +298,8 @@ export const SPELLS: Record<SpellId, { name: string; help: string; colour: strin
 };
 /** a rune is cast by repeating its pattern: how long it is in each land, how long it shows, time per stroke */
 /** ogham pieces per rune (by land), how long the letter shows, and the time to set it again */
-export const RUNE = { len: [3, 3, 4, 5], show: 1.5, perPiece: 1.4, base: 1.6 };
+/** a rune: 3 to 5 strokes (by land); each shows for `each` s after `lead`; then `base` + `perStroke` a stroke to repeat them */
+export const RUNE = { len: [3, 3, 4, 5], lead: 0.5, each: 0.55, perStroke: 0.9, base: 1.4 };
 /** fords: rows of stepping stones over black water; the right stone of each row lights up in turn, then goes dark */
 /** a smaller river: four rows of three stones, wide apart, built well beyond the bottom of the screen */
 export const FORD = { rows: 4, gap: 64, stones: 3, spread: 76, lightEach: 0.45, ahead: 720, endlessGap: [800, 1200] as [number, number] };
@@ -474,7 +475,13 @@ export const MISSION = {
    * a piece shows `pieceDelay` s after the last one, a missed one comes back after `again` s;
    * `lend`: arrows the memory lends you when the quiver is empty and its light comes
    */
-  chapter: { first: 110, gap: [150, 220] as [number, number], limit: [80, 74, 70, 66], pieceDelay: 2.2, again: 3, lend: 2 },
+  chapter: {
+    first: 90, gap: [70, 110] as [number, number], limit: [80, 74, 70, 66], pieceDelay: 2.2, again: 3, lend: 2,
+    /** a chapter is three stretches of `seg` m; following the ribbon, `near` of the stretch must be close to it */
+    seg: 480, near: 0.55,
+    /** the hall: a drum beat every `beat` s, the trees step `step` px */
+    beat: 0.65, step: 16,
+  },
 };
 /**
  * The endless ride: only the lamp. Weapons come back by themselves; every five minutes the land
@@ -502,9 +509,9 @@ export const EVENTS: Record<EndlessEvent, { name: string; len: number; say: stri
   runes: { name: "Rune-stones", len: 50, say: "Rune-stones rise along the road. Take them, and cast." },
   boss: { name: "The Colossus", len: 100, say: "The ground shakes." },
 };
-/** The hunt: ten minutes, nothing to gather, only the monsters. What counts is how many you bring down, and whether you live. */
+/** The hunt: five minutes, nothing to gather, only the monsters. What counts is how many you bring down, and whether you live. */
 export const EXTREME = {
-  time: 600, boss: 520, arrows: 6, arrowEvery: 2.2, maxArrows: 9, trapEvery: 20, maxTraps: 3, swordEvery: 32, healEvery: 150,
+  time: 300, boss: 240, heartGap: [110, 180] as [number, number], every: 50, arrows: 6, arrowEvery: 2.2, maxArrows: 9, trapEvery: 20, maxTraps: 3, swordEvery: 32, healEvery: 150,
   /** hunters at once, every 100 s */
   hunters: [3, 3, 4, 4, 5, 6], respawn: 1.3,
   /** metres added for what turns up (all obstacles and monsters from the start) */

@@ -57,19 +57,29 @@ export type VillageKind = keyof typeof VILLAGE_KINDS;
 export type VillageSize = 0 | 1 | 2;
 
 export const RULES: string[] = [
-  "Each land keeps a few of Brigid's memories. A sign on the road brings one back, and the forgetting begins: the land loses its colour.",
-  "Win back its three pieces before it is gone: shoot its drifting light, ride through its ring of light, then take the rune-stone and cast it to anchor the memory.",
-  "A memory won back stays in the world: the land greens, a heart comes back to you, and the hunt falls back. A forgotten one goes dark, and something comes after you.",
-  "Win back all but one of a land's memories and a gate of spring opens. Four lands, and at the end, the golden gate.",
+  "Each chapter is a memory and a stretch of the road. It starts grey; ride each third of it well, and a third of its picture comes back in colour.",
+  "Each chapter is a little different: a ribbon to follow, trees that dance to a drum, small lights to bring through. The road tells you how.",
+  "Some stand by the road, half taken by the rot. Ride through their ring to give them a heart, or ride on: those you pass by come after you.",
+  "Runes help you through the land. Fall, and you rise again at the start of the chapter. At the end of the road, the golden gate.",
 ];
 
 export type Memory = {
   land: number; title: string; sign: string; text: string;
   /** the picture in /public/long-spring/memories */
   pic: string;
-  /** the three pieces of the moment Brigid has to win back before it is forgotten: a light to shoot, a place to ride through, a stone that anchors it */
+  /** the three parts of the moment, one for each third of the chapter (the picture colours a third at a time) */
   pieces: [string, string, string];
+  /** what is different in this chapter (the rest ride as usual: a third for each stretch ridden without losing a heart) */
+  rule?: ChapterRule;
+  /** the place on the road where it happened, which blooms when it is remembered */
+  place?: ChapterPlace;
 };
+/**
+ * ribbon: follow Áine's ribbon (no monsters); dance: the trees of the hall step to the drum;
+ * count: three small lights (the children) ride behind you, and nothing may take them
+ */
+export type ChapterRule = "ribbon" | "dance" | "count";
+export type ChapterPlace = "thorn" | "hall" | "door" | "stone";
 
 /**
  * Brigid's memories: fourteen chapters of the mission, in four lands (3, 4, 4, 3).
@@ -78,17 +88,17 @@ export type Memory = {
  */
 export const MEMORIES: Memory[] = [
   // Before
-  { land: 0, title: "The ribbon", pic: "01-ribbon", pieces: ["the green silk", "the wind in the field", "her mother's hands"],
+  { land: 0, title: "The ribbon", pic: "01-ribbon", rule: "ribbon", place: "thorn", pieces: ["the green silk", "the wind in the field", "her mother's hands"],
     sign: "A green ribbon flutters on a thorn.", text: `My mother tied a ribbon green
 of river-weed and grass:
 a girl who wears the field, she said,
 goes where the wild things pass.` },
-  { land: 0, title: "The hall", pic: "02-hall", pieces: ["the music", "the dancers", "the fire"],
+  { land: 0, title: "The hall", pic: "02-hall", rule: "dance", place: "hall", pieces: ["the music", "the dancers", "the fire"],
     sign: "Somewhere, someone hums a dance tune.", text: `They crowned me in a hall of trees,
 its rafters living wood;
 the petals fell all night like snow.
 I thought they always would.` },
-  { land: 0, title: "Counting", pic: "03-counting", pieces: ["three pairs of shoes", "the open door", "the voices"],
+  { land: 0, title: "Counting", pic: "03-counting", rule: "count", place: "door", pieces: ["three pairs of shoes", "the open door", "the voices"],
     sign: "Small footprints lead up to a door.", text: `Three. I had three. I cannot hear
 their names, not yet, not one;
 I only hear how many times
