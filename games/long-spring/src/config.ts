@@ -478,7 +478,7 @@ export const MISSION = {
    * `lend`: arrows the memory lends you when the quiver is empty and its light comes
    */
   chapter: {
-    first: 90, gap: [70, 110] as [number, number], limit: [80, 74, 70, 66], pieceDelay: 2.2, again: 3, lend: 2,
+    first: 0, gap: [70, 110] as [number, number], limit: [80, 74, 70, 66], pieceDelay: 2.2, again: 3, lend: 2,
     /** a chapter is three stretches of `seg` m; following the ribbon, `near` of the stretch must be close to it */
     seg: 480, near: 0.55,
     /** how close to the ribbon's path counts as on it (px either side) */

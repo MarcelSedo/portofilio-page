@@ -16,6 +16,9 @@ type Part =
   | { kind: "blink"; c: [number, number, number]; ph: number }
   | { kind: "ink"; c: [number, number, number] }
   | { kind: "shake"; r: Rect; amp: number };
+/** the moving figures looked wrong: for now the pictures only drift slowly closer */
+const MOVE_PARTS = false;
+
 type Slide = { src: string; text: string; focus: [number, number]; parts: Part[]; motes: "petals" | "seeds" | "ash" | "mist" | "sparks" | "none"; tint?: string };
 
 const SLIDES: Slide[] = [
@@ -211,7 +214,7 @@ export function Intro({ onDone, voice: voiceOn, calm }: { onDone: () => void; vo
       g.globalAlpha = alpha;
       // the picture fills the screen (contain), and the camera drifts slowly in towards its focus
       const base = Math.min(W / im.naturalWidth, H / im.naturalHeight);
-      const zoom = reduce ? 1 : 1 + Math.min(1, t / 12) * 0.07;
+      const zoom = reduce ? 1 : 1 + Math.min(1, t / 14) * 0.14;
       const sc = base * zoom;
       const dw = im.naturalWidth * sc;
       const dh = im.naturalHeight * sc;
@@ -223,7 +226,7 @@ export function Intro({ onDone, voice: voiceOn, calm }: { onDone: () => void; vo
       const P = (fx2: number, fy2: number) => [ox + fx2 * dw, oy + fy2 * dh] as const;
       const S = (fr: number) => fr * dw;
       const src = (fx2: number, fy2: number) => [fx2 * im.naturalWidth, fy2 * im.naturalHeight] as const;
-      if (!reduce)
+      if (MOVE_PARTS && !reduce)
         for (const part of s.parts) {
           if (part.kind === "sway") {
             // hair in the wind: thin strips of the picture slide sideways, more towards the free end
@@ -295,7 +298,7 @@ export function Intro({ onDone, voice: voiceOn, calm }: { onDone: () => void; vo
         g.fillRect(ox, oy, dw, dh);
       }
       // what drifts over the picture
-      if (!reduce && s.motes !== "none" && alpha > 0.2) drawMotes(g, ox, oy, dw, dh, s.motes, k);
+      if (MOVE_PARTS && !reduce && s.motes !== "none" && alpha > 0.2) drawMotes(g, ox, oy, dw, dh, s.motes, k);
       g.restore();
     };
     const drawMotes = (g: CanvasRenderingContext2D, ox: number, oy: number, dw: number, dh: number, kind: Slide["motes"], k: number) => {

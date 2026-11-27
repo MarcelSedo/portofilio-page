@@ -20,6 +20,7 @@ import {
   COTTAGE_DOOR, GATE, SPRING_TREE, animalSprites, cottageSprites, gateSprite, springTreeSprites, villagerSprites, wellSprite, VILLAGER_KINDS,
   type AnimalId,
 } from "./art-life";
+import { bakeScene, liveScene, type SceneArt } from "./scenes";
 import { GIFTS, MEMORIES, NEED, VILLAGE_KINDS, type ChapterPlace, line as folkLine, personName, villageName, type GiftId, type VillageKind, type VillageSize } from "./story";
 
 /** the height of the view in world units, whatever the screen */
@@ -27,7 +28,7 @@ export const VIEW_H = 600;
 const PY_AT = 0.3; // where you ride, from the top
 const CELL = 160;
 
-type Obstacle = { id: number; kind: Kind; x: number; y: number; w: number; h: number; v: number; dead?: boolean; cleared?: boolean; vid?: number; scar?: boolean };
+type Obstacle = { id: number; kind: Kind; x: number; y: number; w: number; h: number; v: number; dead?: boolean; still?: boolean; cleared?: boolean; vid?: number; scar?: boolean };
 type Pick = { id: number; kind: PickKind; x: number; y: number; taken?: boolean; letter?: string };
 /** life in the woods: crows and flies in the rot, butterflies and small birds where it is green */
 type Critter = { kind: "crow" | "flies" | "butterfly" | "finch" | "fairy"; x: number; y: number; ph: number; c: string; flown?: number; ring?: { cx: number; cy: number; i: number; n: number } };
@@ -99,7 +100,7 @@ type Chapter = {
   kids?: { alive: boolean; x: number; y: number; ph: number }[];
   /** the drum of the hall */
   beat?: number; beatT?: number; rowY?: number;
-  place?: { x: number; y: number; kind: ChapterPlace; bloom?: number };
+  place?: { x: number; y: number; kind: ChapterPlace; bloom?: number; i?: number };
   shadesPut: number;
 };
 /** the kinds of land a chapter's stretches can be: what grows there more, and what less */
@@ -398,7 +399,10 @@ export class Game {
   /** the chapter being ridden (or last ridden) */
   private curCh = 0;
   /** places remembered on this ride, still in sight */
-  private places: { x: number; y: number; kind: ChapterPlace; bloom?: number }[] = [];
+  private places: { x: number; y: number; kind: ChapterPlace; bloom?: number; i?: number }[] = [];
+  /** the chapter-end scenes, baked once each */
+  private sceneArt: SceneArt | null = null;
+  private sceneBaked = new Map<number, Spr>();
   /** the drum's beats, as rings on the ground */
   private pulses: { t: number }[] = [];
   /** people passed by on this ride: they come after you when the next chapter begins */
@@ -516,6 +520,8 @@ export class Game {
       gold: gateSprite(S, BIOMES[3].rock, BIOMES[3].leaves, BIOMES[3].flowers, true),
       trees: springTreeSprites(S),
     };
+    this.sceneArt = null;
+    this.sceneBaked.clear();
     this.greyFolk = this.life.folk.map((f) => tinted(f[0], "grayscale(1) brightness(0.8) contrast(0.9)"));
     this.greyHouse = this.life.cottage.map((c) => tinted(c, "grayscale(1) brightness(0.65)"));
   }
@@ -1249,7 +1255,7 @@ export class Game {
     if (this.mode === "endless") this.eventStep(dt);
     if (this.mode === "extreme" && this.runT >= EXTREME.time && !this.won) return this.outlast();
     const greyBy = [0.9, 0.5, 0.18, 0];
-    this.forgetVis += ((this.chapter ? greyBy[this.chapter.thirds] * Math.min(1, this.chapter.t / 1.2) : 0) - this.forgetVis) * Math.min(1, dt * 3);
+    this.forgetVis += (this.greyTarget(greyBy) - this.forgetVis) * Math.min(1, dt * 3);
     // the drawn bow: the world slows while you hold your breath, for as long as your calm lasts
     const drawing = this.aimT > 0.22 && this.arrows > 0 && this.focus > 0;
     this.slow += ((drawing ? 0.5 : 1) - this.slow) * Math.min(1, dt * 8);
@@ -1899,6 +1905,13 @@ export class Game {
     return r.cx + (Math.sin(d * 0.0055) * 120 + Math.sin(d * 0.0155 + 1) * 34) * amp;
   }
 
+  /** how grey the world is: in the story it is grey until a memory comes back, and stays as it came back until the next chapter */
+  private greyTarget(greyBy: number[]) {
+    if (this.chapter) return greyBy[this.chapter.thirds];
+    if (this.mode !== "mission" || this.o.showcase) return 0;
+    return this.finishAt ? greyBy[this.finishAt.thirds] : greyBy[0];
+  }
+
   /** how far through the chapter (0–1) */
   private chapterProgress() {
     const ch = this.chapter;
@@ -1928,6 +1941,9 @@ export class Game {
         ch.rowY = this.y + (VIEW_H - this.PY) + 120;
       }
       this.chapter = ch;
+      // a chapter begins grey and in mist, at once: no colour left over from before
+      this.forgetVis = 0.9;
+      this.mistVis = 0.95;
       // a chapter begins like a new level: an empty road ahead, nobody behind, the last scene gone
       this.places = [];
       for (const q of this.monsters) if (q.state !== "dying") q.state = "gone";
@@ -2006,7 +2022,7 @@ export class Game {
         this.pulses.push({ t: this.t });
         for (const c of this.near(this.x, this.y + 200, 3, 3))
           for (const o of c.obs) {
-            if (o.kind !== "tree" || o.dead) continue;
+            if (o.kind !== "tree" || o.dead || o.still) continue;
             const ob = o as Dancer;
             if (ob.bx === undefined) ob.bx = o.x;
             // never onto her, though
@@ -2087,21 +2103,34 @@ export class Game {
       const y0 = this.y + (VIEW_H - this.PY) + 40;
       const y = y0 + 900;
       const x = this.x;
-      // the land narrows like a funnel towards the place: two rows of trees, wide apart, closing in
-      this.clearArea((ox, oy) => oy > y0 - 40 && oy < y + 260, x - 900, x + 900, y0 - 60, y + 280);
-      const [tw, th] = SIZE.tree;
-      for (let yy = y0; yy < y - 60; yy += 46) {
+      // the land narrows like a funnel towards the place, made of whatever this stretch is made of:
+      // trees, standing stones, ruins, logs and thorns. They stand still, even in the hall.
+      this.clearArea((ox, oy) => oy > y0 - 40 && oy < y + 520, x - 900, x + 900, y0 - 60, y + 540);
+      const fl = FLAVOURS[this.flavourAt(ch.i, 2)];
+      const pool = (Object.entries(fl.w) as [Kind, number][]).filter(([kk]) => kk !== "pit" && kk !== "arch");
+      if (!pool.some(([kk]) => kk === "tree")) pool.push(["tree", 0.8]);
+      const tot = pool.reduce((a, [, w]) => a + w, 0);
+      const pick = (): Kind => {
+        let roll = Math.random() * tot;
+        for (const [kk, w] of pool) if ((roll -= w) < 0) return kk;
+        return "tree";
+      };
+      for (let yy = y0; yy < y - 60; yy += 50) {
         const k = (yy - y0) / (y - y0);
-        const half = 330 - 230 * k;
+        const half = 330 - 190 * k;
         for (const side of [-1, 1]) {
+          let off = 0;
           for (let extra = 0; extra < 3; extra++) {
-            const tx = x + side * (half + extra * 52 + (Math.random() - 0.5) * 10);
+            const kind = extra === 0 || Math.random() < 0.7 ? pick() : "tree";
+            const [w, h] = SIZE[kind];
+            const tx = x + side * (half + off + w / 2 + (Math.random() - 0.5) * 8);
+            off += w + 6;
             const c = this.cell(Math.floor(tx / CELL), Math.floor(yy / CELL));
-            c.obs.push({ id: this.nextId++, kind: "tree", x: tx, y: yy + extra * 9, w: tw, h: th, v: Math.floor(Math.random() * 3) });
+            c.obs.push({ id: this.nextId++, kind, x: tx, y: yy + extra * 9, w, h, v: Math.floor(Math.random() * 3), still: true });
           }
         }
       }
-      ch.place = { x, y, kind: MEMORIES[ch.i].place ?? "stone" };
+      ch.place = { x, y, kind: MEMORIES[ch.i].place ?? "stone", i: ch.i };
       this.wave = 0;
       this.calmT = 30;
       for (const q of this.monsters) if (this.hunting(q)) q.blind = Math.max(q.blind, 30);
@@ -2196,7 +2225,7 @@ export class Game {
     const cx = p?.x ?? this.x;
     const cy = p?.y ?? this.y + 100;
     this.burst(cx, cy - 20, this.o.settings.calm ? 24 : 70 * (0.4 + thirds / 5), [...(b.flowers.length ? b.flowers : ["#ffe46a", "#ffffff"]), "#b8ffe0", "#ff8ab0"], 180);
-    for (let k = 0; k < thirds + 1; k++) this.trees.push({ x: cx + (k % 2 ? 1 : -1) * (70 + k * 30), y: cy + (k - 1) * 40, big: k === 0, t: this.t + k * 0.2 });
+    if (!p) for (let k = 0; k < thirds + 1; k++) this.trees.push({ x: cx + (k % 2 ? 1 : -1) * (70 + k * 30), y: cy + (k - 1) * 40, big: k === 0, t: this.t + k * 0.2 });
     sfx.fanfare();
     this.wave = 0;
     void MISSION.chapter.gap;
@@ -3958,7 +3987,6 @@ export class Game {
     for (const c of this.cheer) if (this.finaleT >= c.at) list.push({ y: c.y, fn: () => this.drawCheer(c) });
     for (const sh of this.shades) list.push({ y: sh.y, fn: () => this.drawShade(sh) });
 
-    for (const pl of this.places) list.push({ y: pl.y, fn: () => this.drawPlace(pl) });
     for (const p of this.prey) if (p.state !== "safe" && p.state !== "eaten") list.push({ y: p.y, fn: () => this.drawPrey(p) });
     if (!this.o.showcase) {
       for (const q of this.monsters) list.push({ y: q.y, fn: () => this.drawMonster(q) });
@@ -3994,7 +4022,7 @@ export class Game {
     }
     if (this.chapter && MEMORIES[this.chapter.i].rule === "dance") this.drawDance(this.chapter);
     // the place where it happened keeps its colour in the grey: it is where she is going
-    if (this.chapter?.place) this.drawPlace(this.chapter.place);
+    for (const pl of this.places) this.drawPlace(pl);
     if (this.chapter?.kids) for (const k of this.chapter.kids) if (k.alive) this.drawKid(k);
     if (grey) {
       for (const p of this.extra) if (!p.taken && p.id === stoneId) {
@@ -4197,10 +4225,12 @@ export class Game {
     // the mist of a memory not yet won back: thick at the start of a chapter, lifting a third at a time
     if (this.chapter && !this.o.showcase) {
       const mistBy = [0.95, 0.45, 0.12, 0];
-      this.mistVis += (mistBy[this.chapter.thirds] * Math.min(1, this.chapter.t / 1.2) - this.mistVis) * Math.min(1, 1 / 20);
+      this.mistVis += (mistBy[this.chapter.thirds] - this.mistVis) * Math.min(1, 1 / 20);
       const k = this.mistVis;
       if (k > 0.02) this.drawFogK(k, "205,210,214");
     }
+    // the place where it happened stands clear of the grey and the mist: it is where she is going
+    if (this.chapter?.place && !this.o.showcase) this.drawPlace(this.chapter.place);
     if (this.t - this.redT < 1.2 && !this.o.showcase) {
       const a = 1 - (this.t - this.redT) / 1.2;
       const vg = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.7);
@@ -5667,7 +5697,7 @@ export class Game {
       for (const c of this.near(this.x, this.y + 200, 3, 3))
         for (const o of c.obs) {
           const ob = o as Dancer;
-          if (o.kind !== "tree" || o.dead || ob.bx === undefined) continue;
+          if (o.kind !== "tree" || o.dead || o.still || ob.bx === undefined) continue;
           const y = this.sy(o.y);
           if (y < -20 || y > VIEW_H + 20) continue;
           const nx = ob.bx + ((ch.beat! + 1 + o.id) % 2 ? C.step : -C.step);
@@ -5791,183 +5821,34 @@ export class Game {
   }
 
   /** the place where it happened: grey while it is remembered, in bloom once it is */
-  private drawPlace(p: { x: number; y: number; kind: ChapterPlace; bloom?: number }) {
+  private drawPlace(p: { x: number; y: number; kind: ChapterPlace; bloom?: number; i?: number }) {
     const g = this.ctx;
     const x = this.sx(p.x);
     const y = this.sy(p.y);
-    if (y < -120 || y > VIEW_H + 80) return;
+    const K = 1.25;
+    // the scene lies below where she stops: x ±360, y −100 … +420 scene units
+    if (y < -420 * K || y > VIEW_H + 100 * K || x < -400 * K || x > this.W + 400 * K) return;
+    const i = p.i ?? 0;
     const k = p.bloom === undefined ? 0 : Math.min(1, (this.t - p.bloom) / 1.2);
-    const land = this.lands[this.biome];
-    const big = p.kind === "riverTree" || p.kind === "fire";
+    if (!this.sceneArt) {
+      const life = this.life;
+      this.sceneArt = { land: this.lands[3], spring: life.trees, folk: life.folk, beasts: life.animals, cott: life.cottage, well: life.well, flowers: BIOMES[3].flowers };
+    }
+    let baked = this.sceneBaked.get(i);
+    if (!baked) {
+      baked = bakeScene(this.S, i, this.sceneArt, K);
+      this.sceneBaked.set(i, baked);
+    }
     // a beacon: always lit, brighter once it blooms
-    this.glow(x, y - 40, big ? 220 : 90, "255,236,170", (big ? 0.45 : 0.25) + 0.35 * k + Math.sin(this.t * 2) * 0.05);
+    this.glow(x, y + 190 * K, 330, "255,236,170", 0.22 + 0.3 * k + Math.sin(this.t * 2) * 0.04);
+    g.drawImage(baked.c, x - baked.ax * K, y - baked.ay * K, baked.w * K, baked.h * K);
     g.save();
-    if (big) {
-      g.translate(x, y);
-      g.scale(1.9, 1.9);
-      g.translate(-x, -y);
-    }
-    if (p.kind === "riverTree") {
-      // a stream across the road, and by it an apple tree with the green ribbon caught in its branches
-      g.fillStyle = "#3a9ac8";
-      g.beginPath();
-      g.moveTo(x - 260, y + 30);
-      g.bezierCurveTo(x - 120, y + 10, x + 80, y + 50, x + 260, y + 24);
-      g.lineTo(x + 260, y + 44);
-      g.bezierCurveTo(x + 80, y + 70, x - 120, y + 30, x - 260, y + 50);
-      g.closePath();
-      g.fill();
-      g.strokeStyle = "rgba(220,240,255,0.5)";
-      g.lineWidth = 1;
-      for (let i = 0; i < 6; i++) {
-        const wx = x - 200 + i * 80 + ((this.t * 20) % 80);
-        g.beginPath();
-        g.moveTo(wx, y + 36);
-        g.quadraticCurveTo(wx + 6, y + 33, wx + 12, y + 36);
-        g.stroke();
-      }
-      g.fillStyle = "#5a3a22";
-      g.fillRect(x + 50, y - 50, 8, 52);
-      g.strokeStyle = "#5a3a22";
-      g.lineWidth = 4;
-      g.beginPath();
-      g.moveTo(x + 54, y - 34);
-      g.lineTo(x + 30, y - 58);
-      g.moveTo(x + 54, y - 40);
-      g.lineTo(x + 78, y - 62);
-      g.stroke();
-      for (let i = 0; i < 10; i++) {
-        g.fillStyle = i % 3 ? "#5ab84a" : "#ffc0d8";
-        g.beginPath();
-        g.arc(x + 54 + Math.cos(i * 1.9) * 26, y - 66 + Math.sin(i * 1.9) * 16, 11, 0, Math.PI * 2);
-        g.fill();
-      }
-      this.glow(x + 20, y - 46, 30, "120,255,150", 0.8);
-      g.strokeStyle = "#2bdf7a";
-      g.lineWidth = 4;
-      g.beginPath();
-      g.moveTo(x + 34, y - 56);
-      g.bezierCurveTo(x + 22, y - 44 + Math.sin(this.t * 4) * 4, x + 14, y - 30, x + 2, y - 36 + Math.sin(this.t * 5) * 5);
-      g.stroke();
-    } else if (p.kind === "fire") {
-      // the fire in the hall of trees, and the dancers round it, long-haired like her, in a ring
-      const fl = 0.85 + 0.15 * Math.sin(this.t * 13) * Math.sin(this.t * 7);
-      this.glow(x, y - 24, 130, "255,170,60", 0.85);
-      this.glow(x, y - 20, 50, "255,240,180", 0.9);
-      const ring = (front: boolean) => {
-        for (let d = 0; d < 10; d++) {
-          const an = (d / 10) * Math.PI * 2 + this.t * 0.9;
-          if (Math.sin(an) > 0 !== front) continue;
-          const dx = x + Math.cos(an) * 62;
-          const dy = y - 2 + Math.sin(an) * 22;
-          const hop = Math.abs(Math.sin(this.t * 6 + d)) * 5;
-          const sw = Math.sin(this.t * 6 + d) * 4;
-          // the robe, the long hair flying, arms up
-          g.fillStyle = d % 2 ? "#2e8a4a" : "#3a6a8a";
-          g.beginPath();
-          g.moveTo(dx - 7, dy - hop);
-          g.lineTo(dx - 2, dy - 22 - hop);
-          g.lineTo(dx + 2, dy - 22 - hop);
-          g.lineTo(dx + 7, dy - hop);
-          g.closePath();
-          g.fill();
-          g.strokeStyle = "#1a120c";
-          g.lineWidth = 1;
-          g.stroke();
-          g.fillStyle = "#f0dcc0";
-          g.beginPath();
-          g.arc(dx, dy - 26 - hop, 3.6, 0, Math.PI * 2);
-          g.fill();
-          g.strokeStyle = d % 3 ? "#3aa85a" : "#c87a3a";
-          g.lineWidth = 2.6;
-          g.beginPath();
-          g.moveTo(dx, dy - 28 - hop);
-          g.quadraticCurveTo(dx - 8 - sw, dy - 24 - hop, dx - 12 - sw, dy - 14 - hop);
-          g.stroke();
-          g.strokeStyle = "#f0dcc0";
-          g.lineWidth = 1.6;
-          g.beginPath();
-          g.moveTo(dx - 2, dy - 18 - hop);
-          g.lineTo(dx - 8, dy - 30 - hop + sw);
-          g.moveTo(dx + 2, dy - 18 - hop);
-          g.lineTo(dx + 8, dy - 30 - hop - sw);
-          g.stroke();
-        }
-      };
-      ring(false);
-      g.fillStyle = "#3a2414";
-      g.fillRect(x - 22, y - 6, 44, 8);
-      ["#c8341a", "#ff8a1a", "#ffd84a", "#fff8d0"].forEach((c, i) => {
-        g.fillStyle = c;
-        g.beginPath();
-        const h = (54 - i * 12) * fl;
-        const w = 20 - i * 4;
-        g.moveTo(x - w, y - 2);
-        g.quadraticCurveTo(x - w * 0.6 + Math.sin(this.t * 9 + i) * 3, y - h * 0.6, x, y - h);
-        g.quadraticCurveTo(x + w * 0.6 - Math.sin(this.t * 8 + i) * 3, y - h * 0.6, x + w, y - 2);
-        g.fill();
-      });
-      for (let i = 0; i < 8; i++) {
-        const sy2 = (this.t * 40 + i * 13) % 70;
-        g.fillStyle = `rgba(255,220,120,${(1 - sy2 / 70).toFixed(2)})`;
-        g.fillRect(x + Math.sin(i * 3 + this.t * 2) * 14, y - 30 - sy2, 2, 2);
-      }
-      ring(true);
-    } else if (p.kind === "thorn") {
-      this.put(land.thorns, x, y);
-      // the ribbon caught on the thorn
-      g.strokeStyle = "#2bbf6a";
-      g.lineWidth = 3;
-      g.beginPath();
-      g.moveTo(x + 4, y - 10);
-      g.bezierCurveTo(x + 18, y - 22 + Math.sin(this.t * 4) * 4, x + 28, y - 4, x + 40, y - 18 + Math.sin(this.t * 5) * 5);
-      g.stroke();
-    } else if (p.kind === "hall") {
-      // two living trees grown into an arch
-      g.strokeStyle = "#5a3a24";
-      g.lineWidth = 7;
-      g.lineCap = "round";
-      g.beginPath();
-      g.moveTo(x - 34, y);
-      g.bezierCurveTo(x - 40, y - 50, x - 10, y - 78, x, y - 74);
-      g.moveTo(x + 34, y);
-      g.bezierCurveTo(x + 40, y - 50, x + 10, y - 78, x, y - 74);
-      g.stroke();
-      g.fillStyle = k > 0 ? "#5aa83a" : "#3a3a34";
-      for (let a = 0; a < 9; a++) {
-        const an = Math.PI * (1.05 + (a / 8) * 0.9);
-        g.beginPath();
-        g.arc(x + Math.cos(an) * 40, y - 40 + Math.sin(an) * 40, 9, 0, Math.PI * 2);
-        g.fill();
-      }
-    } else if (p.kind === "door") {
-      this.put(this.life.cottage[0], x, y + 6);
-      const cols = ["#c8402a", "#2a8a6a", "#d8a82a"];
-      cols.forEach((c, i) => {
-        g.fillStyle = c;
-        g.beginPath();
-        g.ellipse(x - 14 + i * 14, y + 14, 4, 2.4, 0, 0, Math.PI * 2);
-        g.ellipse(x - 9 + i * 14, y + 15, 4, 2.4, 0, 0, Math.PI * 2);
-        g.fill();
-      });
-    } else {
-      this.put(land.menhir, x, y);
-      this.glow(x, y - 20, 24, "150,255,170", 0.4 + 0.2 * Math.sin(this.t * 3));
-    }
+    g.translate(x, y);
+    g.scale(K, K);
+    liveScene(g, i, this.sceneArt, this.o.settings.calm ? 0.5 : this.t);
     g.restore();
-    // blossom falls on it once it is remembered
-    if (k > 0) {
-      const fl = BIOMES[3].flowers;
-      for (let i = 0; i < 14 * k; i++) {
-        const fx = x + Math.sin(i * 7.3) * 44;
-        const fy = y - 70 + ((i * 23 + (this.t - (p.bloom ?? 0)) * 18) % 80);
-        g.fillStyle = fl[i % fl.length] ?? "#ffd0e0";
-        g.fillRect(fx, fy, 2.4, 2.4);
-      }
-    }
   }
 
-  /** while lamp-lights are about: the lamp's order over her head, the next colour big and pulsing */
   private drawLampCue() {
     const l = this.lamp!;
     const near = this.lights.some((q) => !q.taken && !q.gone && q.y > this.y - 20 && q.y < this.y + VIEW_H);

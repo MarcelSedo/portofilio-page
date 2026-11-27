@@ -617,6 +617,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
   const [introCard, setIntroCard] = useState<number | null>(null);
   /** the opening pictures: shown before the first ride of the story, or watched again from the menu */
   const [opening, setOpening] = useState<null | "ride" | "watch">(null);
+  const finishedAt = useRef(0);
   const introAt = useRef(0);
   const introBtn = useRef<HTMLButtonElement>(null);
   /** what the pause (or the end) dialog shows: its own buttons, the settings, or the book */
@@ -898,6 +899,8 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
           setTimeout(() => setBanner(""), 1800);
         }
       } else if (e.type === "grey") {
+        // the finish words say it already
+        if (Date.now() - finishedAt.current < 3500) return;
         setBanner(e.why === "far" ? "The ribbon got away: a piece of the memory fades" : "A piece of the memory slips away");
         setTimeout(() => setBanner(""), 2400);
       }
@@ -906,6 +909,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         setBanner(e.name);
         setTimeout(() => setBanner(""), 2400);
       } else if (e.type === "memory") {
+        finishedAt.current = Date.now();
         setBanner("");
         // the chapter is ridden: "Well done" over the scene first, then the picture and the poem
         update((s) => {
