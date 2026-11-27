@@ -71,7 +71,7 @@ export type Memory = {
  * count: three small lights (the children) ride behind you, and nothing may take them
  */
 export type ChapterRule = "ribbon" | "dance" | "count";
-export type ChapterPlace = "thorn" | "hall" | "door" | "stone";
+export type ChapterPlace = "thorn" | "hall" | "door" | "stone" | "riverTree" | "fire";
 
 /**
  * Brigid's memories: fourteen chapters of the mission, in four lands (3, 4, 4, 3).
@@ -80,12 +80,12 @@ export type ChapterPlace = "thorn" | "hall" | "door" | "stone";
  */
 export const MEMORIES: Memory[] = [
   // Before
-  { land: 0, title: "The ribbon", pic: "01-ribbon", rule: "ribbon", place: "thorn", pieces: ["the green silk", "the wind in the field", "her mother's hands"],
+  { land: 0, title: "The ribbon", pic: "01-ribbon", rule: "ribbon", place: "riverTree", pieces: ["the green silk", "the wind in the field", "her mother's hands"],
     sign: "A green ribbon flutters on a thorn.", text: `My mother tied a ribbon green
 of river-weed and grass:
 a girl who wears the field, she said,
 goes where the wild things pass.` },
-  { land: 0, title: "The hall", pic: "02-hall", rule: "dance", place: "hall", pieces: ["the music", "the dancers", "the fire"],
+  { land: 0, title: "The hall", pic: "02-hall", rule: "dance", place: "fire", pieces: ["the music", "the dancers", "the fire"],
     sign: "Somewhere, someone hums a dance tune.", text: `They crowned me in a hall of trees,
 its rafters living wood;
 the petals fell all night like snow.

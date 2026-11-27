@@ -185,60 +185,95 @@ function placeIcon(k: number, x: number, y: number) {
   }
 }
 function KingdomMap({ thirds, at, light, reached, onPick }: { thirds: number[]; at: number; light: number; reached: number[]; onPick: (i: number) => void }) {
-  const d = MAP_PTS.map(([x, y], k) => `${k ? "L" : "M"}${x} ${y}`).join(" ");
-  const tree = (x: number, y: number, crown: string, trunk: string, dead: boolean, k: number) =>
-    dead ? (
-      <path key={k} d={`M${x} ${y} v-9 m0 4 l-3 -4 m3 1 l3 -4`} stroke="#4a4038" strokeWidth="1.2" fill="none" />
-    ) : (
+  const road = MAP_PTS.map(([x, y], k) => {
+    if (!k) return `M${x} ${y}`;
+    const [px, py] = MAP_PTS[k - 1];
+    return `Q${(px + x) / 2 + (k % 2 ? 8 : -8)} ${(py + y) / 2 + (k % 2 ? -6 : 6)} ${x} ${y}`;
+  }).join(" ");
+  const ink = "#2a2016";
+  // an engraved tree: a dead one, a conifer, or a round one with a shaded side
+  const tree = (x: number, y: number, kind: "dead" | "pine" | "round" | "bloom", k: number) => {
+    if (kind === "dead")
+      return <path key={k} d={`M${x} ${y} v-8 m0 3 l-3 -3 m3 1 l3 -4 m-3 0 v-2`} stroke="#5a4c3a" strokeWidth="0.9" fill="none" />;
+    if (kind === "pine")
+      return (
+        <g key={k}>
+          <path d={`M${x} ${y - 10} l4 8 h-8 z`} fill="#6a7458" stroke={ink} strokeWidth="0.5" />
+          <path d={`M${x} ${y - 10} l4 8 h-4 z`} fill="#4a5440" />
+        </g>
+      );
+    return (
       <g key={k}>
-        <rect x={x - 0.8} y={y - 4} width="1.6" height="4" fill={trunk} />
-        <circle cx={x} cy={y - 7} r="4" fill={crown} />
+        <line x1={x} y1={y} x2={x} y2={y - 3} stroke={ink} strokeWidth="0.8" />
+        <circle cx={x} cy={y - 6} r="3.6" fill={kind === "bloom" && k % 3 === 0 ? "#e8b8c8" : kind === "bloom" ? "#7ab25a" : "#3a6a3e"} stroke={ink} strokeWidth="0.5" />
+        <path d={`M${x + 0.6} ${y - 9.4} a3.6 3.6 0 0 1 0 7`} fill="rgba(0,0,0,0.25)" />
       </g>
     );
+  };
   return (
-    <svg className="ls-map" viewBox="0 0 300 280" role="group" aria-label={`The road from the hall to the sea: ${thirds.filter((t) => t >= 3).length} of 14 places remembered whole. Choose a place to read its memory.`}>
-      <rect x="2" y="2" width="296" height="276" rx="14" fill="#16120c" stroke="#c9a24a" strokeWidth="3" />
-      <rect x="9" y="9" width="282" height="262" rx="10" fill="none" stroke="#c9a24a" strokeOpacity="0.5" strokeDasharray="6 3" />
-      {/* the four lands: the rot, the grey hills and mines, the deep wood under a red sky, the bloom by the sea */}
-      <path d="M16 16 H190 L176 108 H16 Z" fill="#1c1814" />
-      <path d="M190 16 H284 V148 L200 150 L176 108 Z" fill="#2c3228" />
-      <path d="M16 108 H176 L200 150 L180 188 H16 Z" fill="#1e3424" />
-      <path d="M16 108 H176 L200 150 L180 188 H16 Z" fill="url(#ls-redsky)" />
-      <path d="M16 188 H180 L200 150 H284 V264 H16 Z" fill="#3e7a4a" />
+    <svg className="ls-map" viewBox="0 0 300 280" role="group" aria-label={`The road of her life, from the hall to the sea: ${thirds.filter((t) => t >= 3).length} of 14 places remembered whole. Choose a place to read its memory.`}>
       <defs>
-        <radialGradient id="ls-redsky" cx="0.4" cy="0.2" r="0.8">
-          <stop offset="0" stopColor="#a8282a" stopOpacity="0.35" />
-          <stop offset="1" stopColor="#a8282a" stopOpacity="0" />
+        <radialGradient id="ls-paper" cx="0.5" cy="0.45" r="0.75">
+          <stop offset="0" stopColor="#d8c9a2" />
+          <stop offset="0.75" stopColor="#bba77a" />
+          <stop offset="1" stopColor="#8a7650" />
         </radialGradient>
+        <filter id="ls-grain" x="0" y="0" width="100%" height="100%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="4" />
+          <feColorMatrix values="0 0 0 0 0.2  0 0 0 0 0.15  0 0 0 0 0.08  0 0 0 0.22 0" />
+          <feComposite in2="SourceGraphic" operator="in" />
+        </filter>
+        <pattern id="ls-hatch" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
+          <line x1="0" y1="0" x2="0" y2="4" stroke="#3a2e1e" strokeWidth="0.6" strokeOpacity="0.5" />
+        </pattern>
       </defs>
-      {/* the hills of First Green */}
-      {[[214, 40], [258, 36], [236, 104], [272, 122]].map(([x, y], k) => (
+      <rect x="2" y="2" width="296" height="276" rx="6" fill="#1a140c" />
+      <rect x="8" y="8" width="284" height="264" rx="3" fill="url(#ls-paper)" />
+      <rect x="8" y="8" width="284" height="264" rx="3" fill="#000" filter="url(#ls-grain)" />
+      {/* the rot round the hall: a dark wash, hatched */}
+      <path d="M12 12 H178 Q190 60 170 104 Q120 116 12 110 Z" fill="#4a3e30" fillOpacity="0.45" />
+      <path d="M12 12 H178 Q190 60 170 104 Q120 116 12 110 Z" fill="url(#ls-hatch)" />
+      {/* the grey hills and their mines */}
+      {[[212, 34], [244, 26], [270, 44], [226, 96], [262, 112]].map(([x, y], k) => (
         <g key={`h${k}`}>
-          <path d={`M${x - 16} ${y + 8} L${x} ${y - 10} L${x + 16} ${y + 8} Z`} fill="#4a5244" />
-          <path d={`M${x - 3} ${y + 8} v-5 a3 3 0 0 1 6 0 v5 Z`} fill="#0c0a08" />
+          <path d={`M${x - 18} ${y + 10} Q${x - 6} ${y - 12} ${x} ${y - 12} Q${x + 6} ${y - 12} ${x + 18} ${y + 10}`} fill="#a89a7a" stroke={ink} strokeWidth="0.8" />
+          <path d={`M${x} ${y - 12} Q${x + 6} ${y - 12} ${x + 18} ${y + 10} L${x + 4} ${y + 10} Z`} fill="url(#ls-hatch)" />
+          {k % 2 === 0 && <path d={`M${x - 3} ${y + 10} v-4 a3 3 0 0 1 6 0 v4 Z`} fill={ink} />}
         </g>
       ))}
-      {DEAD.map(([x, y], k) => tree(x, y, "", "", true, k))}
-      {GREYWOOD.map(([x, y], k) => tree(x, y, "#6a7a5a", "#4a3a2a", false, 100 + k))}
-      {DEEPWOOD.map(([x, y], k) => tree(x, y, "#2a5a32", "#3a2a1a", false, 200 + k))}
-      {BLOOMWOOD.map(([x, y], k) => tree(x, y, k % 3 ? "#5aa84a" : "#f0a8c8", "#5a3a22", false, 300 + k))}
-      {/* the stream, the ravine and the sea */}
-      <path d="M150 192 Q170 214 160 240 T176 268" fill="none" stroke="#7ac0e8" strokeWidth="2.4" opacity="0.8" />
-      <path d="M60 248 l14 -6 l-6 8 l16 -4" fill="none" stroke="#0c0a08" strokeWidth="2.4" />
-      <path d="M196 266 Q236 238 284 244 V264 Z" fill="#2a6a8a" />
-      <path d="M216 256 q6 -3 12 0 q6 3 12 0 M240 250 q6 -3 12 0" fill="none" stroke="#a8e0f0" strokeWidth="1" />
-      {/* the road of her life */}
-      <path d={d} fill="none" stroke="#e8d8a8" strokeWidth="2.6" strokeDasharray="2 5" strokeLinecap="round" />
+      {/* the deep wood, under a red sky */}
+      <path d="M12 112 Q100 120 172 110 Q196 150 178 186 Q100 196 12 190 Z" fill="#6a2a20" fillOpacity="0.1" />
+      {/* the sea, with its waves, and the ravine */}
+      <path d="M190 272 Q214 250 250 252 Q276 246 292 236 V272 Z" fill="#5a8aa0" stroke={ink} strokeWidth="0.8" />
+      {[0, 1, 2].map((k) => (
+        <path key={`w${k}`} d={`M${206 + k * 26} ${264 - k * 4} q4 -3 8 0 q4 3 8 0`} fill="none" stroke="#e8f0f0" strokeWidth="0.8" />
+      ))}
+      <path d="M150 196 Q172 214 158 236 Q148 256 178 268" fill="none" stroke="#4a7a90" strokeWidth="2.2" />
+      <path d="M150 196 Q172 214 158 236 Q148 256 178 268" fill="none" stroke="#a8d0e0" strokeWidth="0.7" />
+      <path d="M44 244 l10 -6 l-3 8 l12 -5 l-4 9" fill="none" stroke={ink} strokeWidth="1.4" />
+      {DEAD.map(([x, y], k) => tree(x, y, "dead", k))}
+      {GREYWOOD.map(([x, y], k) => tree(x, y, "pine", 100 + k))}
+      {DEEPWOOD.map(([x, y], k) => tree(x, y, "round", 200 + k))}
+      {BLOOMWOOD.map(([x, y], k) => tree(x, y, "bloom", 300 + k))}
+      {/* the names of the four lands */}
+      {[["The Rot", 44, 100], ["First Green", 258, 160], ["Deep Green", 50, 140], ["Bloom", 108, 266]].map(([n, x, y]) => (
+        <text key={n as string} x={x as number} y={y as number} fill="#3a2a18" fontSize="10" fontFamily='"LS Uncial", Georgia, serif' textAnchor="middle" opacity="0.85">
+          {n}
+        </text>
+      ))}
+      {/* the road of her life, as a dotted ink line */}
+      <path d={road} fill="none" stroke="#f4ead0" strokeWidth="3.4" strokeLinecap="round" opacity="0.6" />
+      <path d={road} fill="none" stroke="#5a3a1a" strokeWidth="1.4" strokeDasharray="3 3" strokeLinecap="round" />
       {MAP_PTS.map(([x, y], k) => placeIcon(k, x, y))}
       {/* the people she gave a heart to: small lights along the road */}
       {Array.from({ length: Math.min(40, light) }, (_, k) => {
         const [x, y] = MAP_PTS[k % MAP_PTS.length];
-        return <circle key={`l${k}`} cx={x + Math.cos(k * 2.4) * 15} cy={y + Math.sin(k * 2.4) * 12} r={1.6} fill="#fff4c0" />;
+        return <circle key={`l${k}`} cx={x + Math.cos(k * 2.4) * 15} cy={y + Math.sin(k * 2.4) * 12} r={1.5} fill="#fff8d0" stroke="#c9a24a" strokeWidth="0.4" />;
       })}
       {MAP_PTS.map(([x, y], k) => {
         const t = thirds[k] ?? 0;
         const known = reached.includes(k);
-        const fill = t >= 3 ? "#7dff78" : t > 0 ? "#e8c84a" : known ? "#9a9a92" : "#4a4a46";
+        const gem = t >= 3 ? "#3aa84a" : t > 0 ? "#d8a82a" : known ? "#8a8278" : "#5a5248";
         const label = `${k + 1}. ${known ? MEMORIES[k].title : "not reached yet"}${known ? (t >= 3 ? ", whole" : `, ${t} of 3 in colour`) : ""}`;
         return (
           <g
@@ -252,14 +287,31 @@ function KingdomMap({ thirds, at, light, reached, onPick }: { thirds: number[]; 
           >
             <title>{label}</title>
             <circle cx={x} cy={y} r={11} fill="transparent" />
-            {t > 0 && <circle cx={x} cy={y} r={9} fill={fill} opacity="0.25" />}
-            <circle cx={x} cy={y} r={5.5} fill={fill} stroke="#16120c" strokeWidth="2" />
-            {k === at && <circle cx={x} cy={y} r={9.5} fill="none" stroke="#fff4d8" strokeWidth="1.5" strokeDasharray="3 2" />}
+            {k === at && <circle cx={x} cy={y} r={9} fill="none" stroke="#8a2a1a" strokeWidth="1.2" strokeDasharray="2 2" />}
+            <circle cx={x} cy={y} r={5.4} fill="#c9a24a" stroke={ink} strokeWidth="1" />
+            <circle cx={x} cy={y} r={3.2} fill={gem} />
+            <text x={x + (k === 5 || k === 4 ? -9 : 8)} y={y + 3} fontSize="6.5" fontFamily="Georgia, serif" fill={ink} textAnchor={k === 5 || k === 4 ? "end" : "start"}>
+              {k + 1}
+            </text>
           </g>
         );
       })}
-      <text x="58" y="26" fill="#c9a24a" fontSize="9" fontFamily="Georgia, serif" textAnchor="middle">the hall</text>
-      <text x="252" y="272" fill="#e8d8a8" fontSize="9" fontFamily="Georgia, serif" textAnchor="middle">the sea</text>
+      {/* a compass, and the corners */}
+      <g transform="translate(266 200)">
+        <circle r="13" fill="none" stroke={ink} strokeWidth="0.7" />
+        <path d="M0 -15 L3 0 L0 15 L-3 0 Z" fill={ink} />
+        <path d="M-15 0 L0 3 L15 0 L0 -3 Z" fill="#8a7650" stroke={ink} strokeWidth="0.5" />
+        <text y="-17" fontSize="7" textAnchor="middle" fill={ink} fontFamily="Georgia, serif">N</text>
+      </g>
+      {[[14, 14], [286, 14], [14, 266], [286, 266]].map(([x, y], k) => (
+        <g key={`c${k}`} transform={`translate(${x} ${y})`}>
+          <circle r="5" fill="none" stroke="#c9a24a" strokeWidth="1.4" />
+          <path d="M-5 0 a5 5 0 0 0 5 -5 a5 5 0 0 0 5 5 a5 5 0 0 0 -5 5 a5 5 0 0 0 -5 -5" fill="none" stroke="#c9a24a" strokeWidth="1" />
+        </g>
+      ))}
+      <rect x="8" y="8" width="284" height="264" rx="3" fill="none" stroke="#c9a24a" strokeWidth="2" />
+      <text x="58" y="30" fill={ink} fontSize="8" fontFamily="Georgia, serif" fontStyle="italic" textAnchor="middle">the hall</text>
+      <text x="248" y="246" fill={ink} fontSize="8" fontFamily="Georgia, serif" fontStyle="italic" textAnchor="middle">the sea</text>
     </svg>
   );
 }
@@ -857,16 +909,14 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         setBanner(e.name);
         setTimeout(() => setBanner(""), 2400);
       } else if (e.type === "memory") {
-        // the chapter is ridden: the world holds still while the picture and the poem are shown
-        g?.pause();
-        if (g) setHud(g.hud());
+        // the chapter is ridden: "Well done" over the scene first, then the picture and the poem
         update((s) => {
           const thirds = [...(s.thirds ?? [])];
           thirds[e.memory] = Math.max(thirds[e.memory] ?? 0, e.thirds);
           return {
             ...s,
             thirds,
-            chapterAt: Math.min(MEMORIES.length - 1, e.memory + 1),
+            chapterAt: e.thirds > 0 ? Math.min(MEMORIES.length - 1, e.memory + 1) : e.memory,
             memories: s.memories.includes(e.memory) ? s.memories : [...s.memories, e.memory],
             clear: e.thirds >= 3 && !s.clear.includes(e.memory) ? [...s.clear, e.memory] : s.clear,
           };
@@ -875,7 +925,11 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         setMemThirds(e.thirds);
         setMemResults(e.results);
         setMemClear(e.thirds >= 3);
-        setMemoryCard(e.memory);
+        setTimeout(() => {
+          gameRef.current?.pause();
+          if (gameRef.current) setHud(gameRef.current.hud());
+          setMemoryCard(e.memory);
+        }, e.hold * 1000);
       } else if (e.type === "tutorial") {
         setTutStep(e.done ? -1 : e.step);
         if (e.done) update((s) => ({ ...s, tutorialDone: true }));
@@ -1481,7 +1535,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         </p>
         <div className="ls-stack is-wide">
           <button type="button" className="ls-btn is-big" onClick={openMission}>
-            {save.endings > 0 ? "The mission again" : "The mission"}
+            {save.endings > 0 ? "The story again" : "The story"}
             <span className="ls-btn-sub">
               {HEROINE}&apos;s story · {save.endings > 0 ? "from the start" : landName(save.checkpoint)}
             </span>
@@ -1557,7 +1611,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
       <section className="ls-panel" aria-labelledby="ls-begin-title">
         <Ornament medal />
         {x}
-        <p className="ls-kicker">The mission</p>
+        <p className="ls-kicker">The story</p>
         <h2 id="ls-begin-title" className="ls-h2" tabIndex={-1} ref={headRef}>
           Where does {HEROINE} ride from?
         </h2>
@@ -1585,7 +1639,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         </div>
         {save.checkpoint > 0 && (
           <p className="ls-muted ls-small">
-            Beginning again starts the whole mission over: the lands, the chapters and the Book of Memories.
+            Beginning again starts the whole story over: the lands, the chapters and the Book of Memories.
           </p>
         )}
         <div className="ls-grid2 is-narrow">
@@ -1675,7 +1729,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                       ride("mission");
                     }}
                   >
-                    Skip it: ride the mission
+                    Skip it: ride the story
                   </button>
                 </>
               ) : (
@@ -1698,7 +1752,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
     menu = (
       <section className="ls-panel is-text is-book" aria-labelledby="ls-book-title">
         <Ornament medal />
-        <Close onClick={() => setScreen("begin")} label="Close, back to the mission" />
+        <Close onClick={() => setScreen("begin")} label="Close, back to the story" />
         <p className="ls-kicker">
           {memCount} of {MEMORIES.length} memories remembered
         </p>
@@ -1739,7 +1793,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
             </p>
           )}
           <p className="ls-muted ls-line">{bRider.line}</p>
-          <p className="ls-muted ls-small">For the endless ride and the hunt. The mission is always {HEROINE} on her elk.</p>
+          <p className="ls-muted ls-small">For the endless ride and the hunt. The story is always {HEROINE} on her elk.</p>
         </div>
         <div className="ls-picker-side">
           <Spinner label="Rider" rowKey="rider" value={bRider.name} onPrev={() => pickRider(-1)} onNext={() => pickRider(1)} />
@@ -1855,7 +1909,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         content: (
           <ul className="ls-help">
             <li>
-              <strong>Three ways to ride.</strong> <em>The mission</em>: {HEROINE}&apos;s story, fourteen memories to win back
+              <strong>Three ways to ride.</strong> <em>The story</em>: {HEROINE}&apos;s, fourteen memories to win back
               in four lands, and an end. <em>The endless ride</em>: any rider, no end, a lamp to fill with lights, for as long
               as you last. <em>The hunt</em>: five minutes of nothing but monsters; what counts is how many you bring down, and
               whether you live.
@@ -1873,7 +1927,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
               magic blue in Bloom. You see things later in it.
             </li>
             <li>
-              New to it? Ride <em>The First Morning</em> from the mission: it can&apos;t kill you.
+              New to it? Ride <em>The First Morning</em> from the story: it can&apos;t kill you.
             </li>
           </ul>
         ),
@@ -1913,7 +1967,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
               is left: it fills again as you ride, and faster with every hit. Hold too long and the bow starts to shake.
             </li>
             <li>
-              <strong>Arrows</strong> of green light come with a bow found on the road; in the mission a memory lends you two
+              <strong>Arrows</strong> of green light come with a bow found on the road; in the story a memory lends you two
               when your quiver is empty. A <strong>root trap</strong> bursts into glowing lianas that wrap whatever runs into it.
             </li>
             <li>
@@ -1941,7 +1995,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
               <li>
                 <strong>Rune-stones</strong> stand here and there in the land. Ride through one to carry its rune. Press{" "}
                 <kbd>R</kbd> (or the rune button): round the rune, its strokes light up one after another (↑ → ↓ …). Then draw
-                them again with the arrows, in the same order (on a phone, flick the left stick). A wrong stroke breaks it.
+                them again with the arrows, in the same order (on a phone, flick the left stick). A wrong stroke does not break it: press R and try again.
               </li>
               <li>The further you ride, the more strokes: three in The Rot, five in Bloom.</li>
               <li>A rune cast right also looses a beam of green light, made of small glowing leaves, at the nearest monster.</li>
@@ -1960,7 +2014,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
               <li>
                 <strong>Fords.</strong> Black water across the whole road, and rows of stepping stones. As the ford comes into
                 view, one stone in each row lights up, one row after another. Then they go dark: ride the same stones from
-                memory. A wrong stone costs a heart. One ford in each of the first three lands of the mission, now and then in
+                memory. A wrong stone costs a heart. One ford in each of the first three lands of the story, now and then in
                 the endless ride, none in Bloom.
               </li>
             </ul>
@@ -1969,11 +2023,11 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
       },
       {
         id: "mission",
-        label: "The mission",
+        label: "The story",
         content: (
           <ul className="ls-help">
             <li>
-              <strong>The road of her life.</strong> The mission is fourteen chapters, from the hall where it all began to the
+              <strong>The road of her life.</strong> The story is fourteen chapters, from the hall where it all began to the
               sea where it ended. Each chapter is one of {HEROINE}&apos;s memories and one stretch of the road. Fall, and you
               rise again at the start of the chapter.
             </li>
@@ -2547,7 +2601,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
             <div className="ls-mist is-pop">
               <Close onClick={closeMemory} label="Close and ride on" />
               <p className="ls-kicker">
-                Chapter {memoryCard + 1} of {MEMORIES.length} · {memThirds >= 3 ? "it comes back whole" : memThirds ? `${memThirds} of 3 in colour` : "it stays grey"}
+                Chapter {memoryCard + 1} of {MEMORIES.length} · {memThirds >= 3 ? "it comes back whole" : memThirds ? `${memThirds} of 3 in colour` : "it stays grey: you will ride it again"}
               </p>
               <MemPic i={memoryCard} state="mist" thirds={memThirds} />
               <p className="ls-mist-sign">{MEMORIES[memoryCard].sign}</p>
@@ -2641,12 +2695,12 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                     You are ready
                   </h2>
                   <p>
-                    {HEROINE} knows how to ride, how to lead the rot into the land, and how a memory is won back. The mission
+                    {HEROINE} knows how to ride, how to lead the rot into the land, and how a memory is won back. The story
                     begins where the rot is deepest.
                   </p>
                   <div className="ls-stack">
                     <button type="button" className="ls-btn is-go" onClick={() => ride("mission")}>
-                      Begin the mission
+                      Begin the story
                     </button>
                     <button type="button" className="ls-btn is-ghost" onClick={() => setScreen("title")}>
                       To the menu
