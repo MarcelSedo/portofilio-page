@@ -430,7 +430,7 @@ export const GATES = [
 
 /** life on the road: animals crossing (from First Green), villages (in Bloom), and what they are worth */
 export const LIFE = {
-  animalsFrom: 1100,
+  animalsFrom: 300,
   /** metres between two animals, at least and at most */
   animalGap: [220, 480] as [number, number],
   villagesFrom: 5500,
@@ -482,6 +482,10 @@ export const MISSION = {
  */
 export const ENDLESS = {
   soulsPerHeart: 10, wispGap: [300, 520] as [number, number], wispSouls: 3,
+  /** the lamp is an occasional game, not the goal: the first lights after this many metres, then a new lamp every so often */
+  lampFirst: 250, lampGap: [450, 750] as [number, number],
+  /** now and then a village: a heart for its souls, and points for each soul */
+  villageFirst: 380, villageGap: [650, 1000] as [number, number], soulPts: 100,
   arrows: 3, arrowEvery: 4, maxArrows: 6, trapEvery: 30, maxTraps: 2, swordEvery: 55,
   /** the first event (s into the ride), then one every `every` s; each lasts its own time, then `calm` s of quiet */
   firstEvent: 200, every: 300, calm: 30,
@@ -502,7 +506,7 @@ export const EVENTS: Record<EndlessEvent, { name: string; len: number; say: stri
 export const EXTREME = {
   time: 600, boss: 520, arrows: 6, arrowEvery: 2.2, maxArrows: 9, trapEvery: 20, maxTraps: 3, swordEvery: 32, healEvery: 150,
   /** hunters at once, every 100 s */
-  hunters: [2, 3, 3, 4, 4, 5], respawn: 1.6,
+  hunters: [3, 3, 4, 4, 5, 6], respawn: 1.3,
   /** metres added for what turns up (all obstacles and monsters from the start) */
   mOff: 3000,
 };

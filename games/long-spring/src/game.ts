@@ -57,7 +57,9 @@ export type Mode = "endless" | "mission" | "tutorial" | "extreme";
 type Monster = {
   id: number; type: MonsterId; x: number; y: number; vx: number; state: MState; timer: number; cool: number;
   judged: Set<number>; dodgeT: number; dodgeDir: number; blind: number; flinch: number; phase: number;
-  aimX: number; lure?: Companion; how?: "pit" | "trap" | "arrow" | "sword" | "hound" | "dawn";
+  aimX: number; lure?: Companion; how?: "pit" | "trap" | "arrow" | "sword" | "hound" | "dawn" | "beam";
+  /** when lianas from a root trap took hold of it */
+  vines?: number;
   /** meals: each one makes it faster and quicker to leap */
   fed?: number;
   /** made from the people of a lost village */
@@ -78,7 +80,7 @@ export const LAMP: Record<LampColour, { rgb: string; core: string; name: string;
 type LampLight = { id: number; row: number; colour: LampColour; x: number; y: number; ph: number; gone?: boolean; taken?: boolean };
 type Spit = { x: number; y: number; tx: number; ty: number; t: number; dur: number };
 type Puddle = { x: number; y: number; t: number; hit?: boolean };
-type Companion = { kind: "hound" | "raven" | "doe"; x: number; y: number; state: "follow" | "fight" | "rest" | "gone"; t: number; target?: Monster; vx: number; kills?: number };
+type Companion = { kind: "hound" | "raven" | "doe" | "fox" | "hare"; x: number; y: number; state: "follow" | "fight" | "rest" | "gone"; t: number; target?: Monster; vx: number; kills?: number };
 type Dir4 = "up" | "down" | "left" | "right";
 type Ford = { id: number; y0: number; y1: number; cx: number; land: number; rows: { y: number; xs: number[]; ok: number; passed?: boolean }[]; lit: number; bridged?: boolean; slipped?: boolean; told?: boolean; counted?: boolean };
 type Wisp = { id: number; x: number; y: number; vx: number; ph: number; memory: number; clarify: boolean; hit?: number; piece?: boolean };
@@ -283,8 +285,10 @@ export class Game {
   /** the endless ride: a lamp to fill with lights, in the right order */
   private lamp: { want: LampColour[]; got: number; spilt: number; mirror: boolean } | null = null;
   private lampStreak = 0;
+  /** rows of lights shown for this lamp so far */
+  private lampRows = 0;
   private lights: LampLight[] = [];
-  private nextLights = 90;
+  private nextLights: number = ENDLESS.lampFirst;
   private lightRow = 0;
   /** the Hands have hold of you */
   private grab: { q: Monster; t: number } | null = null;
@@ -334,6 +338,10 @@ export class Game {
   private nextEventT: number = ENDLESS.firstEvent;
   private calmT = 0;
   private flash = 0;
+  private beams: { x0: number; y0: number; x1: number; y1: number; t: number }[] = [];
+  /** the creeping fog: comes now and then, green in the rot, grey as it heals, a bright blue in Bloom */
+  private fog: { t: number; len: number } | null = null;
+  private nextFogT = 70 + Math.random() * 60;
   private nextRuneT = 0;
   private extremeBoss = false;
   // the mission's chapters
@@ -377,7 +385,7 @@ export class Game {
   private need = 0;
   private needBase = 0;
   private nextHeart = 60;
-  private nextVillageM = 70;
+  private nextVillageM: number = ENDLESS.villageFirst;
   private villageRand = rng((Math.random() * 1e9) | 0);
   private memories: number[];
   private clear: number[];
@@ -419,7 +427,6 @@ export class Game {
     this.wordGot = opts.wordGot;
     this.speed = this.targetSpeed();
     if (this.mode === "mission") this.arrows = MISSION.arrows;
-    else if (this.mode === "endless") this.arrows = ENDLESS.arrows;
     else if (this.mode === "extreme") this.arrows = EXTREME.arrows;
     const [wa, wb] = this.mode === "mission" ? MISSION.wispGap : ENDLESS.wispGap;
     this.nextWisp = 120 + Math.random() * (wb - wa) * 0.5 + wa * 0.4;
@@ -636,7 +643,7 @@ export class Game {
     c.scar = scar;
     const b = BIOMES[scar ? 0 : landHere];
     const ramp = Math.min(1, 0.5 + m / 3000);
-    const n = Math.round(TUNE.density * b.busy * ramp * (0.7 + r() * 0.6));
+    const n = Math.round(TUNE.density * b.busy * ramp * (0.7 + r() * 0.6) * (this.mode === "extreme" ? 0.62 : 1));
     const ok = (k: Kind) => m >= OBSTACLES[k].from;
     const weights: [Kind, number][] = (
       [
@@ -734,9 +741,13 @@ export class Game {
         }
       return c;
     }
-    if (this.mode !== "endless") return c;
-    // the endless road: nothing to gather but the lamp's lights; now and then a rune-stone, which is a test, not a gift
-    const table: [PickKind, number][] = [["rune", 0.01]];
+    if (this.mode !== "endless" && this.mode !== "extreme") return c;
+    // the endless road and the hunt: weapons and now and then a heart lie on the road (more of them in the hunt)
+    const hunt = this.mode === "extreme";
+    const trapRate = (this.o.choice.rider.id === "dryad" ? 0.08 : 0.04) * (hunt ? 1.4 : 1);
+    const table: [PickKind, number][] = [
+      ["trap", trapRate], ["sword", hunt ? 0.04 : 0.028], ["bow", hunt ? 0.06 : 0.026], ["rune", hunt ? 0.016 : 0.012], ["heart", hunt ? 0.012 : 0.006],
+    ];
     for (const [kind, p] of table) {
       if (r() < p) {
         const x = i * CELL + 18 + r() * (CELL - 36);
@@ -890,6 +901,7 @@ export class Game {
     }
     this.lastSpell = c.spell;
     this.stats.spells = (this.stats.spells ?? 0) + 1;
+    this.beam();
     sfx.fanfare();
     const sp = SPELLS[c.spell];
     if (c.spell === "thorn") {
@@ -924,6 +936,23 @@ export class Game {
     }
     void sp;
   }
+  /** a cast rune looses a beam of green light, made of small glowing leaves, at the nearest monster: it is gone */
+  private beam() {
+    const q = this.monsters
+      .filter((m) => this.hunting(m) && m.state !== "dying" && this.sy(m.y) > -20 && this.sy(m.y) < VIEW_H)
+      .sort((a, b) => Math.hypot(a.x - this.x, a.y - this.y) - Math.hypot(b.x - this.x, b.y - this.y))[0];
+    if (!q) return;
+    this.beams.push({ x0: this.x, y0: this.y, x1: q.x, y1: q.y, t: this.t });
+    for (let k = 0; k < (this.o.settings.calm ? 10 : 30); k++) {
+      const f = Math.random();
+      this.fx.push({ x: this.x + (q.x - this.x) * f, y: this.y + (q.y - this.y) * f - 16, vx: (Math.random() - 0.5) * 60, vy: (Math.random() - 0.5) * 60, life: 0.5 + Math.random() * 0.5, c: ["#b8ff9a", "#6aff6a", "#ffffff"][k % 3], r: 1.4 });
+    }
+    if (q.type === "colossus") this.heavyBlow(q, "beam", "The beam burns into the Colossus.");
+    else {
+      this.giveSoulBack(q);
+      this.kill(q, "beam");
+    }
+  }
   private hunting(m: Monster) {
     return (
       m.state === "run" || m.state === "windup" || m.state === "lunge" || m.state === "recover" || m.state === "stunned" || m.state === "rooted" ||
@@ -935,7 +964,7 @@ export class Game {
     const target = this.monsters
       .filter((m) => this.hunting(m) && this.y - m.y < 70 && this.y - m.y > -40 && Math.abs(m.x - this.x) < 46)
       .sort((a, b) => b.y - a.y)[0];
-    this.swing = 0.25;
+    this.swing = 0.35;
     if (!target) return this.say("Nothing within reach of the sword.");
     this.swords--;
     if (target.hp > 3) {
@@ -1003,8 +1032,8 @@ export class Game {
   private kill(m: Monster, how: NonNullable<Monster["how"]>) {
     this.lastKill = how;
     if (how !== "dawn" || !this.won) this.stats.kills = (this.stats.kills ?? 0) + 1;
-    // in the hunt, what falls drops arrows
-    if (this.mode === "extreme") {
+    // (once, in the hunt, what fell dropped arrows; now they lie on the road)
+    if (false as boolean) {
       const n = m.type === "colossus" ? 5 : Math.random() < 0.5 ? 1 : 0;
       if (n) {
         this.arrows = Math.min(EXTREME.maxArrows, this.arrows + n);
@@ -1018,8 +1047,9 @@ export class Game {
     m.how = how;
     this.respawn = Math.max(this.respawn, 4);
     if (how === "sword" || how === "hound") this.gore(m.x, m.y - 10, 30);
-    else if (how === "arrow") this.burst(m.x, m.y - 10, 16, ["#cdb39a", "#93725f", "#b8ff5a"], 70);
+    else if (how === "arrow") this.burst(m.x, m.y - 10, 18, ["#b8ff9a", "#6aff6a", "#93725f"], 70);
     else if (how === "dawn") this.burst(m.x, m.y - 10, 24, ["#fff4c0", "#b8ff5a", "#ffffff"], 60);
+    else if (how === "beam") this.burst(m.x, m.y - 14, 34, ["#b8ff9a", "#6aff6a", "#ffffff", "#1a3a12"], 110);
     else if (how === "pit") this.burst(m.x, m.y, 16, ["#7dff4f", "#d8ff9a"], 50);
     else this.gore(m.x, m.y - 6, 16);
     sfx.kill();
@@ -1121,6 +1151,19 @@ export class Game {
     }
     this.runT += dt;
     if (this.flash > 0) this.flash -= dt;
+    if (this.mode !== "tutorial" && !this.o.showcase && !this.finaleT) {
+      if (this.fog) {
+        this.fog.t += dt;
+        if (this.fog.t >= this.fog.len) {
+          this.fog = null;
+          this.nextFogT = this.runT + 70 + Math.random() * 80;
+        }
+      } else if (this.runT >= this.nextFogT) {
+        this.fog = { t: 0, len: 25 + Math.random() * 20 };
+        const l = this.landAtY(this.y);
+        this.say(l === 0 ? "A green fog creeps in from the edges." : l === 3 ? "A blue fog rises, bright as magic." : "A grey fog creeps over the land.");
+      }
+    }
     this.armoury(dt);
     if (this.mode === "endless") this.eventStep(dt);
     if (this.mode === "extreme" && this.runT >= EXTREME.time && !this.won) return this.outlast();
@@ -1237,6 +1280,11 @@ export class Game {
       if (!this.done.has(slot) && this.stats[mi.stat] >= mi.goal) {
         this.done.add(slot);
         this.mult++;
+        // a task done is a heart back
+        if (this.hearts < this.maxHearts) {
+          this.hearts++;
+          this.float(this.x, this.y - 70, "task done: +♥", "#ff8aa0");
+        }
         sfx.mission();
         this.o.onEvent({ type: "mission", slot });
       }
@@ -1254,6 +1302,7 @@ export class Game {
       this.villages = this.villages.filter((v) => v.y1 > this.y - 700);
       this.trees = this.trees.filter((t) => t.y > this.y - 700);
       this.placed = this.placed.filter((p) => p.alive && p.y > this.y - 500);
+      this.beams = this.beams.filter((b) => this.t - b.t < 1);
       this.fords = this.fords.filter((f) => f.y1 > this.y - 600);
     }
 
@@ -1411,8 +1460,28 @@ export class Game {
     const pendingGate = this.gates.some((g) => !g.passed);
     if (this.mode === "mission") {
       const fordNear = this.fords.some((f) => f.y1 + 260 > this.y && f.y0 - 900 < this.y + VIEW_H);
+      // hearts lie in the land, a little more often the longer you stay in one land
+      if (m >= this.nextHeart && fordNear) this.nextHeart = m + 30;
+      if (m >= this.nextHeart) {
+        const [a, b] = MISSION.heartGap;
+        const kind = Math.max(0.55, 1 - (m - this.landM) / 4000);
+        this.nextHeart = m + (a + Math.random() * (b - a)) * kind;
+        const y = this.y + (VIEW_H - this.PY) + 60;
+        if (this.hearts < this.maxHearts) this.extra.push({ id: this.nextId++, kind: "heart", x: this.freeX(this.x + (Math.random() - 0.5) * 260, y), y });
+      }
       this.chapterStep(dt);
       if (!pendingGate && !fordNear && !this.chapter && !this.queue.length && this.savedLand >= this.need) this.openGate();
+    } else if (this.mode === "endless" && !this.o.showcase && m >= this.nextVillageM && this.fords.some((f) => f.y1 + 260 > this.y && f.y0 - 900 < this.y + VIEW_H)) {
+      this.nextVillageM += 40;
+    } else if (this.mode === "endless" && !this.o.showcase && m >= this.nextVillageM) {
+      // now and then a village: give it a heart, and its souls count in the final score next to the kilometres
+      this.nextVillageM = m + ENDLESS.villageGap[0] + Math.random() * (ENDLESS.villageGap[1] - ENDLESS.villageGap[0]);
+      const v = this.buildVillage(Math.random() < 0.6 ? "hamlet" : "village");
+      if (!this.o.seenKinds.includes("endlessVillage")) {
+        this.o.seenKinds.push("endlessVillage");
+        this.o.onEvent({ type: "seenKind", kind: "village" });
+        this.say(`${v.name} ahead: ride through the glowing ring to give it a heart (never your last). Every soul saved counts in your score, next to the kilometres.`, true);
+      }
     }
     for (const v of this.villages) {
       if (v.state !== "waiting") {
@@ -1591,6 +1660,11 @@ export class Game {
     this.souls += v.size;
     this.stats.souls += v.size;
     this.stats.villagesSaved++;
+    if (this.mode === "endless") {
+      const pts = ENDLESS.soulPts * v.size * this.mult;
+      this.score += pts;
+      this.float(v.ax, v.ay - 50, `+${fmtN(pts)}`, "#b8ffe0");
+    }
     this.savedAll.push(v.kind);
     sfx.fanfare();
     const b = BIOMES[this.land];
@@ -1891,7 +1965,8 @@ export class Game {
   /* ---------------- what comes back by itself, the endless ride's events, the end of the hunt ---------------- */
 
   private armoury(dt: number) {
-    const R = this.mode === "extreme" ? EXTREME : this.mode === "endless" ? ENDLESS : null;
+    // weapons and hearts are found on the road again in every mode: nothing comes back by itself
+    const R = null as typeof ENDLESS | typeof EXTREME | null;
     if (!R || this.o.showcase) return;
     const g = this.regen;
     g.a += dt;
@@ -1928,7 +2003,7 @@ export class Game {
     const e = this.event;
     if (!e) {
       if (this.runT < this.nextEventT) return;
-      const order: EndlessEvent[] = ["fog", "storm", "fords", "runes", "boss"];
+      const order: EndlessEvent[] = ["storm", "fords", "runes", "boss"];
       const name = order[this.eventN++ % order.length];
       this.event = { name, t: 0, len: EVENTS[name].len };
       this.nextEventT = this.runT + ENDLESS.every;
@@ -2278,13 +2353,13 @@ export class Game {
   /** animals crossing the road, and the people of the villages */
   private wildlife(dt: number) {
     const m = this.metres;
-    if (this.mode !== "tutorial" && this.mode !== "extreme" && m + this.mOff >= this.nextAnimal) {
+    if (this.mode !== "tutorial" && m + this.mOff >= this.nextAnimal) {
       const [a, b] = LIFE.animalGap;
       this.nextAnimal = m + this.mOff + a + Math.random() * (b - a);
       const kinds: AnimalId[] = this.biome <= 1 ? ["hare"] : ["hare", "hare", "fox", "deer"];
       const kind = kinds[Math.floor(Math.random() * kinds.length)];
       const dir = Math.random() < 0.5 ? -1 : 1;
-      const sp = kind === "hare" ? 95 : kind === "fox" ? 105 : 120;
+      const sp = kind === "hare" ? 120 : kind === "fox" ? 130 : 140;
       // it comes in from the side and crosses your line about when the hunt behind you gets there
       const dy = 170 + Math.random() * 100;
       const vy = 50 + Math.random() * 30;
@@ -2299,6 +2374,7 @@ export class Game {
       });
       if (!this.o.seenKinds.includes("prey")) {
         this.o.seenKinds.push("prey");
+        this.say(`An animal is crossing. Catch it as it runs (ride right into its path) and it becomes your companion.`, true);
         this.o.onEvent({ type: "seenKind", kind: "prey" });
         this.say(
           this.mode === "endless"
@@ -2349,6 +2425,18 @@ export class Game {
           if (Math.abs(dx) > 1) p.dir = dx > 0 ? 1 : -1;
         }
       } else {
+        // catch it as it crosses, and it runs with you: a friend who will give its life for yours
+        if ((p.state === "run" || p.state === "flee") && this.mode !== "tutorial" && (!this.comp || this.comp.state === "gone") && Math.abs(p.x - this.x) < 16 && Math.abs(p.y - this.y) < 14 && this.air <= 0) {
+          p.state = "safe";
+          const kind: Companion["kind"] = p.kind === "deer" ? "doe" : p.kind === "fox" ? "fox" : "hare";
+          this.comp = { kind, x: p.x, y: p.y, state: "follow", t: 0, vx: 0 };
+          this.stats.companions++;
+          this.burst(p.x, p.y - 10, 20, ["#b8ffe0", "#ffffff", "#8ae05a"], 70);
+          sfx.chime();
+          const who = kind === "doe" ? "The deer" : kind === "fox" ? "The fox" : "The hare";
+          this.say(`${who} runs with you now. When a monster is on your heels, it will give its life to stop it.`, true);
+          continue;
+        }
         if (p.state === "run" && qd < 130) {
           // it bolts away from the monster
           p.state = "flee";
@@ -2527,14 +2615,20 @@ export class Game {
   private lampStep(dt: number) {
     if (this.mode !== "endless" || this.o.showcase) return;
     const m = this.metres;
-    if (!this.lamp && m > 60) {
+    if (!this.lamp && m >= this.nextLights - 40) {
       this.newLamp();
+      this.lampRows = 0;
       if (!this.o.seenKinds.includes("lamp")) {
         this.o.seenKinds.push("lamp");
-        this.say(`Your lamp wants lights, in order: ${this.lamp!.want.join(", ")}. Ride through them: each right one is points, a full lamp many more, and the colour it wants most is its gift. Three full lamps in a row give a heart.`, true);
+        this.say(`Lights ahead! Your lamp wants them in order: ${this.lamp!.want.join(", ")}. Ride through the right ones: a full lamp gives you a heart.`, true);
       }
     }
     for (const l of this.lights) l.ph += dt;
+    // a lamp left half-filled for too long is put out; the next lights bring a new one
+    if (this.lamp && this.lampRows > this.lamp.want.length && m >= this.nextLights) {
+      this.newLamp();
+      this.lampRows = 0;
+    }
     if (this.lamp && m >= this.nextLights) {
       const y = this.y + (VIEW_H - this.PY) + 140;
       const busy =
@@ -2550,7 +2644,9 @@ export class Game {
           this.clearArea((ox, oy) => Math.hypot(ox - x, (oy - y) * 1.4) < 40, x - 50, x + 50, y - 50, y + 50);
           this.lights.push({ id: this.nextId++, row, colour, x, y, ph: Math.random() * 6 });
         });
-        this.nextLights = m + 55 + Math.random() * 45;
+        // the next light of the same lamp comes soon; a new lamp only after a long while
+        this.lampRows++;
+        this.nextLights = m + (this.lampRows < (this.lamp?.want.length ?? 3) + 1 ? 60 + Math.random() * 40 : ENDLESS.lampGap[0] + Math.random() * (ENDLESS.lampGap[1] - ENDLESS.lampGap[0]));
       }
     }
     for (const l of this.lights) {
@@ -2575,35 +2671,30 @@ export class Game {
       const pts = ENDLESS.lightPts * this.mult;
       this.score += pts;
       if (lamp.got >= lamp.want.length) {
-        const gift = this.lampGift();
+        // a lamp filled in the right order gives a heart (points, if you are whole)
         const full = Math.round(ENDLESS.lampPts * lamp.want.length * (lamp.mirror ? 1.5 : 1) * this.mult);
         this.score += full;
-        let what: string = LAMP[gift].gift;
-        if (gift === "green") {
-          if (this.hearts < this.maxHearts) this.hearts++;
-          else {
-            this.score += full;
-            what = "double points";
-          }
-        } else if (gift === "gold") this.arrows = Math.min(9, this.arrows + 3);
-        else for (const q of this.monsters) if (this.hunting(q)) q.blind = Math.max(q.blind, 6);
-        this.lampStreak++;
-        // three lamps in a row without spilling: a heart
-        if (this.lampStreak % 3 === 0 && this.hearts < this.maxHearts) {
-          this.hearts++;
-          this.float(this.x, this.y - 84, "three clean lamps: +♥", "#ff8aa0");
+        let what = "a heart";
+        if (this.hearts < this.maxHearts) this.hearts++;
+        else {
+          this.score += full;
+          what = "double points (you are whole)";
         }
+        this.lampStreak++;
         this.float(this.x, this.y - 60, `+${fmtN(full)} · ${what}`, c.core);
         this.say(`The lamp is full: +${fmtN(full)}, and ${what}.`);
         this.stats.lamps++;
         sfx.chime();
-        this.newLamp();
+        this.lamp = null;
+        this.lampRows = 0;
+        this.nextLights = this.metres + ENDLESS.lampGap[0] + Math.random() * (ENDLESS.lampGap[1] - ENDLESS.lampGap[0]);
         this.o.onEvent({ type: "lamp" });
       } else this.float(l.x, l.y - 40, `+${fmtN(pts)}`, c.core);
     } else {
       lamp.got = 0;
       lamp.spilt = this.t;
       this.lampStreak = 0;
+      this.lampRows = 0;
       sfx.hit();
       this.float(this.x, this.y - 60, "the lamp spills", "#e0c0c0");
       const order = lamp.mirror ? [...lamp.want].reverse() : lamp.want;
@@ -2967,6 +3058,7 @@ export class Game {
         if (tr.alive && Math.abs(tr.x - q.x) < 14 && Math.abs(tr.y - q.y) < 10) {
           tr.alive = false;
           this.stats.trapped++;
+          q.vines = this.t;
           this.heavyBlow(q, "trap", `${cap(T.name)} is caught in your trap.`);
           hit = true;
           break;
@@ -3065,7 +3157,7 @@ export class Game {
     q.lure = undefined;
     c.kills = (c.kills ?? 0) + 1;
     // one fight, and it is the last: the friend dies with the monster
-    const name = c.kind === "raven" ? "raven" : c.kind;
+    const name = c.kind === "raven" ? "raven" : c.kind === "doe" ? "deer" : c.kind;
     const fell = this.heavyBlow(q, "hound", "");
     this.gore(c.x, c.y - 6, 34);
     this.shake = this.o.settings.calm ? 0 : 0.25;
@@ -3358,7 +3450,7 @@ export class Game {
       souls: this.mode === "mission" ? this.savedLand : this.souls,
       need: this.need,
       chapter: this.chapter ? { memory: this.chapter.i, got: this.chapter.got, forget: Math.min(1, this.chapter.t / this.chapter.limit) } : null,
-      event: this.calmT > 0 ? "Quiet" : this.event ? EVENTS[this.event.name].name : null,
+      event: this.calmT > 0 ? "Quiet" : this.event ? EVENTS[this.event.name].name : this.fog ? "Fog" : null,
       timeLeft: this.mode === "extreme" ? Math.max(0, EXTREME.time - this.runT) : 0,
       kills: this.stats.kills ?? 0,
       lamps: this.stats.lamps,
@@ -3629,15 +3721,65 @@ export class Game {
       const len = Math.hypot(s.vx, vy) || 1;
       const dx = (s.vx / len) * 9;
       const dy = (vy / len) * 9;
-      g.strokeStyle = "#1c1410";
-      g.lineWidth = 2.6;
+      if (s.spear) {
+        g.strokeStyle = "#1c1410";
+        g.lineWidth = 2.6;
+        g.beginPath();
+        g.moveTo(x - dx, y - dy);
+        g.lineTo(x + dx, y + dy);
+        g.stroke();
+        g.strokeStyle = "#d8dce4";
+        g.lineWidth = 1.4;
+        g.stroke();
+        continue;
+      }
+      // the dryad's arrows are light: a glowing green shaft with a trail
+      const home = s.home ? "168,232,255" : "120,255,110";
+      this.glow(x, y, 16, home, 0.55);
+      g.strokeStyle = `rgba(${home},0.35)`;
+      g.lineWidth = 4;
+      g.beginPath();
+      g.moveTo(x - dx * 2.4, y - dy * 2.4);
+      g.lineTo(x + dx, y + dy);
+      g.stroke();
+      g.strokeStyle = s.home ? "#d8f6ff" : "#c8ffb0";
+      g.lineWidth = 1.8;
       g.beginPath();
       g.moveTo(x - dx, y - dy);
       g.lineTo(x + dx, y + dy);
       g.stroke();
-      g.strokeStyle = s.spear ? "#d8dce4" : "#efe3c6";
-      g.lineWidth = 1.4;
+      g.fillStyle = "#ffffff";
+      g.beginPath();
+      g.arc(x + dx, y + dy, 1.6, 0, Math.PI * 2);
+      g.fill();
+    }
+    // the rune's beam: a river of small glowing leaves from her to what it struck
+    for (const bm of this.beams) {
+      const a = 1 - (this.t - bm.t) / 0.7;
+      if (a <= 0) continue;
+      const x0 = this.sx(bm.x0), y0 = this.sy(bm.y0) - 18, x1 = this.sx(bm.x1), y1 = this.sy(bm.y1) - 14;
+      const d = Math.hypot(x1 - x0, y1 - y0);
+      g.save();
+      g.globalAlpha = a;
+      g.strokeStyle = "rgba(150,255,140,0.35)";
+      g.lineWidth = 10 * a + 2;
+      g.beginPath();
+      g.moveTo(x0, y0);
+      g.lineTo(x1, y1);
       g.stroke();
+      const n = Math.max(8, Math.floor(d / 7));
+      for (let k = 0; k < n; k++) {
+        const f = k / n;
+        const w = Math.sin(f * 18 + this.t * 20 + k) * 6 * a;
+        const nx = -(y1 - y0) / (d || 1), ny = (x1 - x0) / (d || 1);
+        const px = x0 + (x1 - x0) * f + nx * w, py = y0 + (y1 - y0) * f + ny * w;
+        g.fillStyle = k % 3 === 0 ? "#ffffff" : k % 3 === 1 ? "#b8ff9a" : "#6aff6a";
+        g.beginPath();
+        g.ellipse(px, py, 3, 1.4, f * 9 + this.t * 6, 0, Math.PI * 2);
+        g.fill();
+      }
+      this.glow(x1, y1, 40 * a + 10, "150,255,140", a);
+      g.restore();
     }
     // the aim: a dotted line swinging behind you, or following the mouse or the stick
     if (this.aimT >= 0 && !this.o.showcase) {
@@ -3725,15 +3867,7 @@ export class Game {
         g.fillRect(0, H * 0.4, W, H * 0.6);
       }
     }
-    if (this.event?.name === "fog") {
-      const k = Math.min(1, this.event.t / 4, (this.event.len - this.event.t) / 4);
-      const fog = g.createLinearGradient(0, this.PY + 40, 0, H);
-      fog.addColorStop(0, `rgba(196,202,206,${(0.12 * k).toFixed(3)})`);
-      fog.addColorStop(0.45, `rgba(196,202,206,${(0.7 * k).toFixed(3)})`);
-      fog.addColorStop(1, `rgba(206,210,214,${(0.94 * k).toFixed(3)})`);
-      g.fillStyle = fog;
-      g.fillRect(0, 0, W, H);
-    }
+    if (this.fog) this.drawFog();
     if (this.flash > 0) {
       g.fillStyle = `rgba(235,240,255,${(this.flash * 1.2).toFixed(3)})`;
       g.fillRect(0, 0, W, H);
@@ -4689,11 +4823,24 @@ export class Game {
     if (fade <= 0) return;
     this.put(this.hero[f], x, y + 6 - lift, (this.inv > 0 && this.o.settings.calm ? 0.6 : 1) * Math.min(1, fade));
     if (this.swing > 0) {
-      g.strokeStyle = "rgba(255,255,255,0.9)";
-      g.lineWidth = 3;
-      g.beginPath();
-      g.arc(x, y - 20, 34, Math.PI * 1.1, Math.PI * 1.9);
-      g.stroke();
+      // the sword burns with a blue flame as it is drawn
+      const k = this.swing / 0.35;
+      this.glow(x, y - 34, 52, "90,150,255", 0.6 * k);
+      for (let i = 0; i < 3; i++) {
+        g.strokeStyle = ["rgba(60,110,255,0.55)", "rgba(120,190,255,0.8)", "rgba(230,245,255,0.95)"][i];
+        g.lineWidth = [9, 5, 2][i];
+        g.beginPath();
+        g.arc(x, y - 20, 34 + Math.sin(this.t * 40 + i) * 1.5, Math.PI * (1.1 + (1 - k) * 0.2), Math.PI * 1.9);
+        g.stroke();
+      }
+      g.fillStyle = "rgba(160,210,255,0.9)";
+      for (let i = 0; i < 8; i++) {
+        const an = Math.PI * (1.1 + (i / 8) * 0.8);
+        const r = 34 + Math.random() * 8;
+        g.beginPath();
+        g.arc(x + Math.cos(an) * r, y - 20 + Math.sin(an) * r - Math.random() * 6, 1.4, 0, Math.PI * 2);
+        g.fill();
+      }
     }
   }
 
@@ -4783,6 +4930,36 @@ export class Game {
       g.strokeText("!", x, y - b.h + 4);
       g.fillStyle = "#ff4040";
       g.fillText("!", x, y - b.h + 4);
+    }
+    if (q.vines !== undefined && this.t - q.vines < 1.8) {
+      // lianas burst out of the trap and wrap it, glowing
+      const k = Math.min(1, (this.t - q.vines) / 0.35);
+      const fade = Math.max(0, 1 - Math.max(0, this.t - q.vines - 1.2) / 0.6);
+      g.save();
+      g.globalAlpha = fade;
+      this.glow(x, y - b.h * 0.4, b.w * 0.8, "120,255,110", 0.35);
+      for (let i = 0; i < 5; i++) {
+        const side = i % 2 ? 1 : -1;
+        g.strokeStyle = i % 2 ? "#3a8a2a" : "#6ad84a";
+        g.lineWidth = 2.6 - i * 0.25;
+        g.beginPath();
+        g.moveTo(x + side * (4 + i * 3), y + 3);
+        const top = y + 3 - b.h * 0.95 * k;
+        for (let s2 = 1; s2 <= 8; s2++) {
+          const f = s2 / 8;
+          const yy = y + 3 + (top - y - 3) * f;
+          g.lineTo(x + Math.sin(f * 7 + i * 1.3) * b.w * 0.32 * side, yy);
+        }
+        g.stroke();
+        g.fillStyle = "#9aff7a";
+        for (let s2 = 2; s2 <= 7; s2 += 2) {
+          const f = (s2 / 8) * k;
+          g.beginPath();
+          g.ellipse(x + Math.sin(f * 7 + i * 1.3) * b.w * 0.32 * side + 3, y + 3 - b.h * 0.95 * f, 3, 1.5, 0.6 * side, 0, Math.PI * 2);
+          g.fill();
+        }
+      }
+      g.restore();
     }
     if (q.state === "rooted") {
       g.strokeStyle = "#5a3a22";
@@ -5064,6 +5241,51 @@ export class Game {
     g.stroke();
   }
 
+  /** the creeping fog: soft banks rolling in along the edges and the bottom, thin over the middle */
+  private drawFog() {
+    const g = this.ctx;
+    const f = this.fog!;
+    const W = this.W;
+    const H = VIEW_H;
+    const k = Math.min(1, f.t / 5, (f.len - f.t) / 5);
+    if (k <= 0) return;
+    const l = this.landAtY(this.y);
+    const rgb = l === 0 ? "120,180,96" : l === 3 ? "110,190,255" : "190,196,200";
+    g.fillStyle = `rgba(${rgb},${(0.12 * k).toFixed(3)})`;
+    g.fillRect(0, 0, W, H);
+    const t = this.t;
+    const banks = 9;
+    for (let i = 0; i < banks; i++) {
+      const ph = i * 1.7;
+      const side = i % 3;
+      const r = 90 + (i % 4) * 30;
+      // left edge, right edge, the bottom; they creep in and out
+      const reach = (0.6 + 0.4 * Math.sin(t * 0.35 + ph)) * k;
+      let x = 0;
+      let y = 0;
+      if (side === 0) {
+        x = -r * 0.5 + reach * r * 0.6;
+        y = ((i * 97 + t * 14) % (H + 200)) - 100;
+      } else if (side === 1) {
+        x = W + r * 0.5 - reach * r * 0.6;
+        y = ((i * 131 + t * 11) % (H + 200)) - 100;
+      } else {
+        x = ((i * 173 + t * 18) % (W + 200)) - 100;
+        y = H + r * 0.3 - reach * r * 0.7;
+      }
+      this.glow(x, y, r, rgb, (l === 3 ? 0.75 : 0.55) * k);
+    }
+    // in Bloom it is magic: it glitters
+    if (l === 3 && !this.o.settings.calm) {
+      g.fillStyle = `rgba(220,240,255,${(0.8 * k).toFixed(3)})`;
+      for (let i = 0; i < 24; i++) {
+        const x = (i * 53 + Math.sin(t + i) * 20) % W;
+        const y = (i * 71 + t * 9) % H;
+        if (Math.sin(t * 3 + i * 2) > 0.4) g.fillRect(x, y, 1.6, 1.6);
+      }
+    }
+  }
+
   /** the ring of light a memory's second piece waits in: ride through it */
   private drawRing(r: { x: number; y: number; ph: number }) {
     const g = this.ctx;
@@ -5258,7 +5480,11 @@ export class Game {
       g.fillText("z", this.sx(c.x) + 10, this.sy(c.y) - 34 - ((this.t * 10) % 8));
     }
     const f = wrap(Math.floor(this.t * 8), 2);
-    this.put(this.runArt[c.kind][f], this.sx(c.x), this.sy(c.y) + 4);
+    if (c.kind === "fox" || c.kind === "hare") {
+      const fr = this.life.animals[c.kind];
+      this.putFlip(fr[wrap(Math.floor(this.t * 9), 2)], this.sx(c.x), this.sy(c.y) + 4, c.vx < 0);
+      this.glow(this.sx(c.x), this.sy(c.y) - 8, 18, "150,255,170", 0.25);
+    } else this.put(this.runArt[c.kind][f], this.sx(c.x), this.sy(c.y) + 4);
   }
 }
 

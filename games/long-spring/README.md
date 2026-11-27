@@ -6,10 +6,12 @@ Brigid's ride through a world turned inside out. Three ways to play, one set of 
   Green, Bloom, and wins back fourteen of her memories (3, 4, 4, 3). Each memory is a chapter, raced against the
   forgetting. Win back all but one of a land's memories and the gate of spring opens; after Bloom, the golden gate and
   the end. Fall, and you rise again at the last gate.
-- **The endless ride** (30–60 minutes): any rider and mount, no villages, no hearts on the road. The only thing to
-  gather is the lamp's coloured lights, in order. Weapons come back by themselves; every five minutes the land does
-  something (fog, a storm, fords, rune-stones, the Colossus), then goes quiet. Missions and the score multiplier.
-- **The hunt** (10 minutes): any rider, The Rot, only monsters. Score = how many you bring down, and whether you live.
+- **The endless ride** (30–60 minutes): any rider and mount. Score = kilometres + souls saved + lamps. Weapons and now
+  and then a heart lie on the road; now and then a village waits for a heart; every task done gives a heart; now and
+  then a lamp of coloured lights (fill it in order: a heart). Every five minutes an event (storm, fords, rune-stones,
+  the Colossus), then quiet. Missions and the score multiplier.
+- **The hunt** (10 minutes): any rider, The Rot, fewer obstacles, more monsters, weapons and hearts on the road.
+  Score = how many you bring down, and whether you live.
 - **The First Morning**: a short lesson ride that can't kill you, offered before the first mission.
 
 ## Files
@@ -97,13 +99,16 @@ a gate. Nothing can kill you.
 - **Monsters** are ash-grey, darker towards the ground, with veins, and a smoke of the dark round their feet.
 - **Companions** act where you can see it: the hound tears a monster down (twice, then it falls), the raven blinds
   them all and takes the eyes of the nearest, the doe leads one into the woods for good.
-- **The endless ride** (`ENDLESS`, `EVENTS`): lamps of 3 lights, 4 from 10 min, 5 from 25 min; a mirrored lamp (⇄,
+- **Everywhere**: a creeping fog now and then (green in The Rot, grey in the middle lands, glittering blue in Bloom);
+  animals that cross the road become a one-use companion if you catch them; green arrows of light, root traps that
+  burst into glowing lianas, a rune cast right looses a beam of leaf-light that destroys the nearest monster (three
+  blows on the Colossus), and the sword burns blue.
+- **The endless ride** (`ENDLESS`, `EVENTS`): lights from 250 m, a new lamp every 450–750 m; a full lamp gives a heart;
+  villages from 380 m, every 650–1000 m, 100 points a soul. Lamps of 3 lights, 4 from 10 min, 5 from 25 min; a mirrored lamp (⇄,
   from 10 min, 30 %) wants them backwards. Right light +20 × multiplier, full lamp +150 per light (×1.5 mirrored);
-  three full lamps without a spill give a heart. Arrows +1 every 4 s (max 6), a trap every 30 s, the sword every 55 s.
-  Records: score, metres, lamps (`best`, `bestMetres`, `bestLamps`).
-- **The hunt** (`EXTREME`): 600 s, hunters 2, 3, 3, 4, 4, 5 (every 100 s), respawn 1.6 s, the Colossus at 520 s.
-  Arrows +1 every 2.2 s (max 9), half the kills drop one more (the Colossus five), a heart every 150 s. No animals,
-  fords, lamps or memories. Records: `bestKills`, `huntsWon`.
+  Records: score, metres, souls, lamps (`best`, `bestMetres`, `bestSouls`, `bestLamps`).
+- **The hunt** (`EXTREME`): 600 s, 62 % of the obstacles, hunters 3, 3, 4, 4, 5, 6 (every 100 s), respawn 1.3 s, the
+  Colossus at 520 s. Weapons and hearts lie on the road more often than elsewhere. Records: `bestKills`, `huntsWon`.
 
 ## Music and the opening
 

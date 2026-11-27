@@ -703,7 +703,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         if (e.mode === "endless") {
           best = e.score > saveRef.current.best;
           update((s) => ({
-            ...s, best: Math.max(s.best, e.score), bestMetres: Math.max(s.bestMetres, e.metres), bestLamps: Math.max(s.bestLamps ?? 0, e.stats.lamps),
+            ...s, best: Math.max(s.best, e.score), bestMetres: Math.max(s.bestMetres, e.metres), bestSouls: Math.max(s.bestSouls, e.stats.souls), bestLamps: Math.max(s.bestLamps ?? 0, e.stats.lamps),
           }));
         } else if (e.mode === "extreme") {
           best = e.stats.kills > (saveRef.current.bestKills ?? 0);
@@ -1232,7 +1232,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
           <div className="ls-grid2">
             <button type="button" className="ls-btn is-big" onClick={() => ride("endless")}>
               Endless ride
-              <span className="ls-btn-sub">the lamp · as long as you last</span>
+              <span className="ls-btn-sub">kilometres &amp; souls · as long as you last</span>
             </button>
             <button type="button" className="ls-btn is-big is-alt" onClick={() => ride("extreme")}>
               The hunt
@@ -1255,7 +1255,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
           </div>
         </div>
         <p className="ls-muted ls-small">
-          Memories: {save.clear.length}/{MEMORIES.length} · Endless best: {fmt(save.best)} ({km(save.bestMetres)}) · The hunt: {fmt(save.bestKills ?? 0)} brought down
+          Memories: {save.clear.length}/{MEMORIES.length} · Endless best: {fmt(save.best)} ({km(save.bestMetres)}, {fmt(save.bestSouls)} souls) · The hunt: {fmt(save.bestKills ?? 0)} brought down
         </p>
         <p className="ls-credits-link">
           <button type="button" className="ls-linkbtn" onClick={() => setScreen("credits")}>
@@ -1607,6 +1607,10 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
               the middle. Everything else (trees, rocks, stones, the green fire): ride round it.
             </li>
             <li>
+              <strong>Fog</strong> creeps in now and then along the edges: green in the rot, grey as the land heals, a bright,
+              magic blue in Bloom. You see things later in it.
+            </li>
+            <li>
               New to it? Ride <em>The First Morning</em> from the mission: it can&apos;t kill you.
             </li>
           </ul>
@@ -1647,9 +1651,8 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
               is left: it fills again as you ride, and faster with every hit. Hold too long and the bow starts to shake.
             </li>
             <li>
-              <strong>Arrows.</strong> In the mission they come with a bow found on the road, and a memory lends you two
-              when your quiver is empty. In the endless ride and the hunt they come back by themselves, and so do traps and the
-              sword, more slowly. In the hunt, what you bring down often drops an arrow.
+              <strong>Arrows</strong> of green light come with a bow found on the road; in the mission a memory lends you two
+              when your quiver is empty. A <strong>root trap</strong> bursts into glowing lianas that wrap whatever runs into it.
             </li>
             <li>
               <strong>Everything works on everything.</strong> An arrow is one blow, a root trap (Z, dropped behind you) or the
@@ -1657,8 +1660,12 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
               see the <em>Bestiary</em>.
             </li>
             <li>
-              <strong>The sword (X) is the last resort.</strong> It kills whatever is on your neck, but the blood wakes the
-              rot: every sword kill brings two new monsters.
+              <strong>The sword (X) is the last resort.</strong> It burns with a blue flame and kills whatever is on your
+              neck, but the blood wakes the rot: every sword kill brings two new monsters.
+            </li>
+            <li>
+              <strong>Companions.</strong> Hares, foxes and deer cross the road, fast. Catch one as it runs (ride right into its
+              path) and it runs with you. When a monster is on your heels it throws itself at it, kills it, and dies with it.
             </li>
           </ul>
         ),
@@ -1676,6 +1683,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                 set it (on a phone, flick the left stick). The wrong piece breaks the rune.
               </li>
               <li>The further you ride, the more pieces: three in The Rot, five in Bloom.</li>
+              <li>A rune cast right also looses a beam of green light, made of small glowing leaves, at the nearest monster.</li>
             </ul>
             <ul className="ls-spells">
               {Object.entries(SPELLS).map(([id, sp]) => (
@@ -1733,22 +1741,23 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
           <>
             <ul className="ls-help">
               <li>
-                <strong>Ride as long as you can</strong>, on any rider and mount. It starts gently: one monster at a time, and
-                more kinds the further you get. Your arrows, traps and sword come back by themselves.
+                <strong>Ride as far as you can</strong>, on any rider and mount. It starts gently: one monster at a time, and
+                more kinds the further you get. Weapons and now and then a heart lie on the road.
               </li>
               <li>
-                <strong>The lamp is all you gather.</strong> Up in the bar you see which lights it wants, in order. They float
-                over the road three at a time, one of each colour: ride through the right one (points). Take a wrong one and the
-                lamp spills. Fill it for many more points, and the colour it wants most is your gift: <em>green</em> a heart,{" "}
-                <em>gold</em> three arrows, <em>blue</em> a quiet step. Three full lamps in a row without spilling give a heart.
+                <strong>The score</strong> is the kilometres, the souls you save and the lamps you fill. Now and then a hamlet or
+                a village waits by the road: ride through its glowing ring to give it a heart (never your last). Every task you
+                finish (the missions below) gives a heart back.
               </li>
               <li>
-                <strong>It grows.</strong> From ten minutes the lamp wants four lights, from twenty-five five. Now and then a{" "}
-                <em>mirrored</em> lamp (⇄) wants them the other way round, from the last to the first.
+                <strong>The lamp</strong>, now and then: lights float over the road three at a time, one of each colour. Ride
+                through the ones it wants, in order (shown in the bar). A wrong one spills it. Fill it and it gives you a heart.
+                From ten minutes it wants four lights, from twenty-five five; a <em>mirrored</em> lamp (⇄) wants them the other
+                way round.
               </li>
               <li>
-                <strong>Every five minutes the land does something</strong>: fog, a storm, a run of fords, rune-stones, the
-                Colossus. Then it goes quiet for a while, to breathe.
+                <strong>Every five minutes the land does something</strong>: a storm, a run of fords, rune-stones, the Colossus.
+                Then it goes quiet for a while.
               </li>
               <li>An animal eaten by the rot costs you points.</li>
             </ul>
@@ -1782,18 +1791,18 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         content: (
           <ul className="ls-help">
             <li>
-              <strong>Ten minutes</strong> in The Rot, on any rider. Nothing to gather, no fords, no lamps: only the monsters,
-              more and more of them ({EXTREME.hunters[0]} at once at first, up to {EXTREME.hunters[EXTREME.hunters.length - 1]}).
+              <strong>Ten minutes</strong> in The Rot, on any rider. Fewer obstacles, more monsters, no fords, villages or
+              lamps: weapons and hearts lie on the road, more of them than elsewhere. The monsters come more and more ({EXTREME.hunters[0]} at once at first, up to {EXTREME.hunters[EXTREME.hunters.length - 1]}).
             </li>
             <li>
               <strong>What counts</strong> is how many you bring down, by any means: arrows, traps, the sword, trees, rocks and
               the green fire. And whether you are still riding when the time is up.
             </li>
             <li>
-              <strong>The fight feeds itself.</strong> Arrows come back fast, and what falls often drops one more. Traps and the
-              sword come back too. Every two and a half minutes you hold on, a heart comes back.
+              <strong>Keep picking up</strong>: bows, traps, swords, rune-stones and hearts. Catch a crossing animal and it fights
+              for you once.
             </li>
-            <li>Near the end the Colossus comes. It is worth five arrows.</li>
+            <li>Near the end the Colossus comes.</li>
           </ul>
         ),
       },
@@ -1984,7 +1993,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                   <strong className="ls-souls">{km(h?.metres ?? 0)}</strong>
                   <strong className="ls-souls is-small">
                     {" "}
-                    · {h?.lamps ?? 0} {h?.lamps === 1 ? "lamp" : "lamps"}
+                    · {h?.souls ?? 0} {h?.souls === 1 ? "soul" : "souls"}
                   </strong>
                   <span className="ls-muted">
                     {" "}
@@ -2069,7 +2078,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
               </span>
               {h?.companion && (
                 <span title={h.companionRest ? "Companion, resting" : "Companion, on guard"} className={`ls-item${h.companionRest ? " is-rest" : ""}`} aria-hidden="true">
-                  {ico(h.companion as "hound" | "raven" | "doe", "✦")}
+                  {ico((h.companion === "fox" ? "hound" : h.companion === "hare" ? "doe" : h.companion) as "hound" | "raven" | "doe", "✦")}
                   {h.companionRest && <span className="ls-zz">z</span>}
                 </span>
               )}
@@ -2448,18 +2457,20 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                       <span className="ls-record-b">best {km(save.bestMetres)}</span>
                     </div>
                     <div>
-                      <span className="ls-record-n">{fmt(result.stats.lamps)}</span>
+                      <span className="ls-record-n">{fmt(result.stats.souls)}</span>
                       <span className="ls-record-l">
-                        {result.stats.lamps === 1 ? "lamp filled" : "lamps filled"}
-                        {result.stats.lamps >= (save.bestLamps ?? 0) && result.stats.lamps > 0 && <span className="ls-new"> best!</span>}
+                        {result.stats.souls === 1 ? "soul saved" : "souls saved"}
+                        {result.stats.souls >= save.bestSouls && result.stats.souls > 0 && <span className="ls-new"> best!</span>}
                       </span>
-                      <span className="ls-record-b">best {fmt(save.bestLamps ?? 0)}</span>
+                      <span className="ls-record-b">best {fmt(save.bestSouls)}</span>
                     </div>
                   </div>
                   <div className="ls-tables">
                     {statTable("The ride", [
                       ["Score", `${fmt(result.score)} (best ${fmt(save.best)})`],
+                      ["Villages saved", result.stats.villagesSaved],
                       ["Lamps filled", result.stats.lamps],
+                      ["Companions", result.stats.companions],
                       ["Fords crossed dry", result.stats.fords],
                       ["Runes cast", result.stats.spells],
                       ...(result.stats.animalsLost > 0 ? [["Animals eaten", result.stats.animalsLost] as [string, React.ReactNode]] : []),
