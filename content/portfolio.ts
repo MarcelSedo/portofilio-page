@@ -137,13 +137,6 @@ export const games: Game[] = [
     image: "/portfolio/hartfield.webp",
   },
   {
-    title: "Emma: The Matchmaker of Bramblewick",
-    kicker: "Detective game · Phone first",
-    note: "Walk a Regency village, follow four love stories through gossip and proof, and announce all the matches at once.",
-    href: "/games/emma",
-    image: "/portfolio/emma.webp",
-  },
-  {
     title: "Time Traveller",
     kicker: "Timeline game · British culture",
     note: "Six centuries of British culture: put 603 books, paintings, records, plays and films in order, mixed or one kind at a time. Years from Wikidata; every picture is drawn by code.",
@@ -162,7 +155,7 @@ export const games: Game[] = [
     kicker: "Endless runner · Keyboard and touch",
     note: "The world has turned inside out. Ride with Brigid through four lands, give your hearts to the villages to save them, lead the monsters into the land, and find what she has forgotten; or take the endless ride. Every picture is drawn by code.",
     href: "/games/long-spring",
-    image: "/portfolio/long-spring.webp",
+    image: "/portfolio/long-spring-keyart.svg",
   },
 ];
 
