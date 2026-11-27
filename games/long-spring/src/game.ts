@@ -89,6 +89,8 @@ type Chapter = {
   i: number; t: number; startM: number; seg: number;
   /** thirds of the picture coloured so far, and whether this stretch went well */
   thirds: number; segHit: boolean; segT: number; nearT: number; done?: boolean;
+  /** hits taken in the chapter: three, and the memory is lost */
+  hits: number;
   /** how each stretch went, for the card: "ok", "hurt", "far" (lost the ribbon) */
   results: string[];
   /** the ribbon: where it flies, and where it has been */
@@ -386,6 +388,7 @@ export class Game {
   private lostRun: number[] = [];
   /** how grey the world is: follows the forgetting, and comes back to colour when a memory is won */
   private forgetVis = 0;
+  private mistVis = 0;
   private shades: Shade[] = [];
   /** when a chapter was finished, for the word over the scene */
   private finishAt: { t: number; thirds: number } | null = null;
@@ -896,7 +899,7 @@ export class Game {
     if (!this.rune) return this.say("No rune. Rune-stones stand here and there in the land: ride through one.");
     const m = this.metres;
     void m;
-    const len = 3;
+    const len = 1;
     const all: Dir4[] = ["up", "right", "down", "left"];
     const dirs: Dir4[] = [];
     while (dirs.length < len) {
@@ -1126,7 +1129,17 @@ export class Game {
     }
     this.hearts--;
     if (this.chapter) {
-      if (!this.chapter.segHit && MEMORIES[this.chapter.i].rule !== "ribbon" && MEMORIES[this.chapter.i].rule !== "count") this.failMark("this third stays grey");
+      const r0 = MEMORIES[this.chapter.i].rule;
+      if (r0 !== "ribbon" && r0 !== "count") {
+        this.chapter.hits++;
+        if (this.chapter.hits >= 3) {
+          this.failMark("the memory is lost");
+          this.chapter.segHit = true;
+          this.inv = 1.2;
+          if (this.hearts > 0) return this.loseChapter();
+        }
+        if (!this.chapter.segHit) this.failMark("a part of the memory slips away");
+      }
       this.chapter.segHit = true;
       const kids = this.chapter.kids;
       if (kids) for (let n = kids.length - 1; n >= 0; n--) if (kids[n].alive) {
@@ -1235,7 +1248,8 @@ export class Game {
     this.armoury(dt);
     if (this.mode === "endless") this.eventStep(dt);
     if (this.mode === "extreme" && this.runT >= EXTREME.time && !this.won) return this.outlast();
-    this.forgetVis += ((this.chapter ? 0.8 * (1 - this.chapter.thirds / 3) * Math.min(1, this.chapter.t / 2) : 0) - this.forgetVis) * Math.min(1, dt * (this.chapter ? 1.5 : 0.8));
+    const greyBy = [0.9, 0.5, 0.18, 0];
+    this.forgetVis += ((this.chapter ? greyBy[this.chapter.thirds] * Math.min(1, this.chapter.t / 1.2) : 0) - this.forgetVis) * Math.min(1, dt * 3);
     // the drawn bow: the world slows while you hold your breath, for as long as your calm lasts
     const drawing = this.aimT > 0.22 && this.arrows > 0 && this.focus > 0;
     this.slow += ((drawing ? 0.5 : 1) - this.slow) * Math.min(1, dt * 8);
@@ -1904,7 +1918,7 @@ export class Game {
       }
       const i = this.queue.shift()!;
       const rule = MEMORIES[i].rule;
-      const ch: Chapter = { i, t: 0, startM: m, seg: 0, thirds: 0, segHit: false, segT: 0, nearT: 0, shadesPut: 0, results: [] };
+      const ch: Chapter = { i, t: 0, startM: m, seg: 0, thirds: 0, segHit: false, segT: 0, nearT: 0, shadesPut: 0, results: [], hits: 0 };
       this.curCh = i;
       if (rule === "ribbon") ch.ribbon = { x: this.x, y: this.y + 170, cx: this.x, y0: this.y, ph: 0, tail: [], cleared: this.y + (VIEW_H - this.PY) + 20, on: 0 };
       if (rule === "count") ch.kids = [0, 1, 2].map((k) => ({ alive: true, x: this.x, y: this.y - 20 * (k + 1), ph: k * 2 }));
@@ -1914,7 +1928,8 @@ export class Game {
         ch.rowY = this.y + (VIEW_H - this.PY) + 120;
       }
       this.chapter = ch;
-      // a chapter begins like a new level: an empty road ahead, nobody behind
+      // a chapter begins like a new level: an empty road ahead, nobody behind, the last scene gone
+      this.places = [];
       for (const q of this.monsters) if (q.state !== "dying") q.state = "gone";
       this.monsters = this.monsters.filter((q) => q.state !== "gone");
       this.spits = [];
@@ -2051,15 +2066,41 @@ export class Game {
         this.say(`${["", "Second", "Last"][seg]} stretch: ${fl.name}.`);
       } else ch.done = true;
     }
-    // the chapter ends where its place stands: ride up to it
-    if (ch.done && (!ch.place || this.y >= ch.place.y - 80)) return this.endChapter();
+    // the chapter ends where its place stands: ride into it
+    if (ch.place && this.y >= ch.place.y - 30) {
+      if (!ch.done && rule !== "count") {
+        const good = rule === "ribbon" ? ch.nearT / Math.max(0.1, ch.segT) >= C.near : !ch.segHit;
+        while (ch.results.length < 3) {
+          ch.results.push(good ? "ok" : rule === "ribbon" ? "far" : "hurt");
+          if (good) this.colourThird();
+          if (ch.results.length < 3 && !good) break;
+        }
+        while (ch.results.length < 3) ch.results.push("hurt");
+      }
+      return this.endChapter();
+    }
+    if (ch.done && !ch.place) return this.endChapter();
     // somewhere in the middle: someone the rot has touched, by the road
     if (rule !== "ribbon" && ch.shadesPut < Math.min(2, 1 + Math.floor(ch.i / 4)) && (m - ch.startM) > C.seg * (0.5 + ch.shadesPut)) this.putShade();
     // near the end the place itself comes into sight, right ahead on the road, and the way to it is clear
-    if (!ch.place && m - ch.startM > C.seg * 3 - 95) {
-      const y = this.y + (VIEW_H - this.PY) + 140;
+    if (!ch.place && m - ch.startM > C.seg * 3 - 150) {
+      const y0 = this.y + (VIEW_H - this.PY) + 40;
+      const y = y0 + 900;
       const x = this.x;
-      this.clearArea((ox, oy) => Math.abs(ox - x) < 150 && oy > this.y + (VIEW_H - this.PY) && oy < y + 120, x - 170, x + 170, this.y, y + 140);
+      // the land narrows like a funnel towards the place: two rows of trees, wide apart, closing in
+      this.clearArea((ox, oy) => oy > y0 - 40 && oy < y + 260, x - 900, x + 900, y0 - 60, y + 280);
+      const [tw, th] = SIZE.tree;
+      for (let yy = y0; yy < y - 60; yy += 46) {
+        const k = (yy - y0) / (y - y0);
+        const half = 330 - 230 * k;
+        for (const side of [-1, 1]) {
+          for (let extra = 0; extra < 3; extra++) {
+            const tx = x + side * (half + extra * 52 + (Math.random() - 0.5) * 10);
+            const c = this.cell(Math.floor(tx / CELL), Math.floor(yy / CELL));
+            c.obs.push({ id: this.nextId++, kind: "tree", x: tx, y: yy + extra * 9, w: tw, h: th, v: Math.floor(Math.random() * 3) });
+          }
+        }
+      }
       ch.place = { x, y, kind: MEMORIES[ch.i].place ?? "stone" };
       this.wave = 0;
       this.calmT = 30;
@@ -2087,9 +2128,22 @@ export class Game {
     sfx.eat();
     this.failMark("a small light is lost");
     const left = ch.kids.filter((q) => q.alive).length;
+    if (!left) {
+      this.say("The last small light is gone.", true);
+      return this.loseChapter();
+    }
     this.say(left ? `One of the small lights is gone. ${left} left.` : "The last small light is gone.", true);
   }
 
+  /** the memory is lost on the way (all the lights gone, or too many hits): the chapter ends grey, to be ridden again */
+  private loseChapter() {
+    const ch = this.chapter!;
+    ch.thirds = 0;
+    ch.kids = undefined;
+    while (ch.results.length < 3) ch.results.push(MEMORIES[ch.i].rule === "count" ? "kid" : "hurt");
+    ch.place = undefined;
+    this.endChapter();
+  }
   /** something that costs the picture: red at the edges, and the word for it */
   private failMark(why: string) {
     this.redT = this.t;
@@ -2145,14 +2199,15 @@ export class Game {
     for (let k = 0; k < thirds + 1; k++) this.trees.push({ x: cx + (k % 2 ? 1 : -1) * (70 + k * 30), y: cy + (k - 1) * 40, big: k === 0, t: this.t + k * 0.2 });
     sfx.fanfare();
     this.wave = 0;
-    const [a, bb] = MISSION.chapter.gap;
-    this.nextChapterM = this.metres + a + Math.random() * (bb - a);
+    void MISSION.chapter.gap;
+    // the next chapter begins as soon as the picture is closed, like a new level
+    this.nextChapterM = this.metres;
     // the world stands still on the scene: "Well done", then the picture
-    this.freeze = 2.6;
+    this.freeze = 2.8;
     this.finishAt = { t: this.t, thirds };
     this.keys.left = this.keys.right = false;
     this.aimT = -1;
-    this.say(thirds >= 3 ? `${MEMORIES[ch.i].title}: it comes back whole.` : thirds ? `${MEMORIES[ch.i].title}: it comes back, in part.` : `${MEMORIES[ch.i].title}: it stays grey. Ride it again another time.`, true);
+    this.say(thirds >= 3 ? `${MEMORIES[ch.i].title}: it comes back whole.` : thirds ? `${MEMORIES[ch.i].title}: it comes back, in part.` : `${MEMORIES[ch.i].title}: it stays grey. You will ride it again.`, true);
     if (ch.kids) ch.results = ch.kids.map((k) => (k.alive ? "ok" : "kid"));
     this.o.onEvent({ type: "memory", memory: ch.i, saved: thirds > 0, thirds, results: ch.results, hold: 2.2, hearts: this.hearts, got: this.savedLand, need: this.need });
   }
@@ -3902,10 +3957,7 @@ export class Game {
     for (const t of this.trees) list.push({ y: t.y, fn: () => this.drawSpringTree(t) });
     for (const c of this.cheer) if (this.finaleT >= c.at) list.push({ y: c.y, fn: () => this.drawCheer(c) });
     for (const sh of this.shades) list.push({ y: sh.y, fn: () => this.drawShade(sh) });
-    if (this.chapter?.place) {
-      const pl = this.chapter.place;
-      list.push({ y: pl.y, fn: () => this.drawPlace(pl) });
-    }
+
     for (const pl of this.places) list.push({ y: pl.y, fn: () => this.drawPlace(pl) });
     for (const p of this.prey) if (p.state !== "safe" && p.state !== "eaten") list.push({ y: p.y, fn: () => this.drawPrey(p) });
     if (!this.o.showcase) {
@@ -3941,6 +3993,8 @@ export class Game {
       this.drawRibbon(this.chapter.ribbon);
     }
     if (this.chapter && MEMORIES[this.chapter.i].rule === "dance") this.drawDance(this.chapter);
+    // the place where it happened keeps its colour in the grey: it is where she is going
+    if (this.chapter?.place) this.drawPlace(this.chapter.place);
     if (this.chapter?.kids) for (const k of this.chapter.kids) if (k.alive) this.drawKid(k);
     if (grey) {
       for (const p of this.extra) if (!p.taken && p.id === stoneId) {
@@ -4142,7 +4196,9 @@ export class Game {
     if (this.fog) this.drawFog();
     // the mist of a memory not yet won back: thick at the start of a chapter, lifting a third at a time
     if (this.chapter && !this.o.showcase) {
-      const k = 0.85 * (1 - this.chapter.thirds / 3) * Math.min(1, this.chapter.t / 1.5) * (this.chapter.done ? 0.5 : 1);
+      const mistBy = [0.95, 0.45, 0.12, 0];
+      this.mistVis += (mistBy[this.chapter.thirds] * Math.min(1, this.chapter.t / 1.2) - this.mistVis) * Math.min(1, 1 / 20);
+      const k = this.mistVis;
       if (k > 0.02) this.drawFogK(k, "205,210,214");
     }
     if (this.t - this.redT < 1.2 && !this.o.showcase) {
@@ -5601,8 +5657,8 @@ export class Game {
     }
     this.pulses = this.pulses.filter((p) => this.t - p.t < 0.7);
     // just before the beat: a faint shadow where each tree is about to stand
-    if (toNext < 0.36) {
-      const a = (1 - toNext / 0.36) * 0.7;
+    if (toNext < 0.45) {
+      const a = (1 - toNext / 0.45) * 0.95;
       g.save();
       g.setLineDash([3, 3]);
       g.strokeStyle = `rgba(255,230,170,${a.toFixed(3)})`;
@@ -5616,7 +5672,7 @@ export class Game {
           if (y < -20 || y > VIEW_H + 20) continue;
           const nx = ob.bx + ((ch.beat! + 1 + o.id) % 2 ? C.step : -C.step);
           // a pale ghost of the tree where it is about to stand
-          this.put(this.lands[this.biome].tree[o.v], this.sx(nx), y + o.h / 2 + 2, a * 0.55);
+          this.put(this.lands[this.biome].tree[o.v], this.sx(nx), y + o.h / 2 + 2, a * 0.8);
           g.beginPath();
           g.ellipse(this.sx(nx), y + 3, 11, 4, 0, 0, Math.PI * 2);
           g.fill();
@@ -5742,10 +5798,18 @@ export class Game {
     if (y < -120 || y > VIEW_H + 80) return;
     const k = p.bloom === undefined ? 0 : Math.min(1, (this.t - p.bloom) / 1.2);
     const land = this.lands[this.biome];
-    if (k > 0) this.glow(x, y - 30, 80, "255,240,180", 0.5 * k);
+    const big = p.kind === "riverTree" || p.kind === "fire";
+    // a beacon: always lit, brighter once it blooms
+    this.glow(x, y - 40, big ? 220 : 90, "255,236,170", (big ? 0.45 : 0.25) + 0.35 * k + Math.sin(this.t * 2) * 0.05);
+    g.save();
+    if (big) {
+      g.translate(x, y);
+      g.scale(1.9, 1.9);
+      g.translate(-x, -y);
+    }
     if (p.kind === "riverTree") {
       // a stream across the road, and by it an apple tree with the green ribbon caught in its branches
-      g.fillStyle = k > 0 ? "#3a8ab0" : "#4a5a62";
+      g.fillStyle = "#3a9ac8";
       g.beginPath();
       g.moveTo(x - 260, y + 30);
       g.bezierCurveTo(x - 120, y + 10, x + 80, y + 50, x + 260, y + 24);
@@ -5773,55 +5837,82 @@ export class Game {
       g.lineTo(x + 78, y - 62);
       g.stroke();
       for (let i = 0; i < 10; i++) {
-        g.fillStyle = k > 0 ? (i % 3 ? "#5aa84a" : "#ffc0d8") : "#4a4a44";
+        g.fillStyle = i % 3 ? "#5ab84a" : "#ffc0d8";
         g.beginPath();
         g.arc(x + 54 + Math.cos(i * 1.9) * 26, y - 66 + Math.sin(i * 1.9) * 16, 11, 0, Math.PI * 2);
         g.fill();
       }
-      g.strokeStyle = "#2bbf6a";
-      g.lineWidth = 3;
+      this.glow(x + 20, y - 46, 30, "120,255,150", 0.8);
+      g.strokeStyle = "#2bdf7a";
+      g.lineWidth = 4;
       g.beginPath();
       g.moveTo(x + 34, y - 56);
       g.bezierCurveTo(x + 22, y - 44 + Math.sin(this.t * 4) * 4, x + 14, y - 30, x + 2, y - 36 + Math.sin(this.t * 5) * 5);
       g.stroke();
     } else if (p.kind === "fire") {
-      // the fire in the hall, and the dancers round it
+      // the fire in the hall of trees, and the dancers round it, long-haired like her, in a ring
       const fl = 0.85 + 0.15 * Math.sin(this.t * 13) * Math.sin(this.t * 7);
-      this.glow(x, y - 16, 90, k > 0 ? "255,170,60" : "200,200,200", k > 0 ? 0.7 : 0.25);
+      this.glow(x, y - 24, 130, "255,170,60", 0.85);
+      this.glow(x, y - 20, 50, "255,240,180", 0.9);
+      const ring = (front: boolean) => {
+        for (let d = 0; d < 10; d++) {
+          const an = (d / 10) * Math.PI * 2 + this.t * 0.9;
+          if (Math.sin(an) > 0 !== front) continue;
+          const dx = x + Math.cos(an) * 62;
+          const dy = y - 2 + Math.sin(an) * 22;
+          const hop = Math.abs(Math.sin(this.t * 6 + d)) * 5;
+          const sw = Math.sin(this.t * 6 + d) * 4;
+          // the robe, the long hair flying, arms up
+          g.fillStyle = d % 2 ? "#2e8a4a" : "#3a6a8a";
+          g.beginPath();
+          g.moveTo(dx - 7, dy - hop);
+          g.lineTo(dx - 2, dy - 22 - hop);
+          g.lineTo(dx + 2, dy - 22 - hop);
+          g.lineTo(dx + 7, dy - hop);
+          g.closePath();
+          g.fill();
+          g.strokeStyle = "#1a120c";
+          g.lineWidth = 1;
+          g.stroke();
+          g.fillStyle = "#f0dcc0";
+          g.beginPath();
+          g.arc(dx, dy - 26 - hop, 3.6, 0, Math.PI * 2);
+          g.fill();
+          g.strokeStyle = d % 3 ? "#3aa85a" : "#c87a3a";
+          g.lineWidth = 2.6;
+          g.beginPath();
+          g.moveTo(dx, dy - 28 - hop);
+          g.quadraticCurveTo(dx - 8 - sw, dy - 24 - hop, dx - 12 - sw, dy - 14 - hop);
+          g.stroke();
+          g.strokeStyle = "#f0dcc0";
+          g.lineWidth = 1.6;
+          g.beginPath();
+          g.moveTo(dx - 2, dy - 18 - hop);
+          g.lineTo(dx - 8, dy - 30 - hop + sw);
+          g.moveTo(dx + 2, dy - 18 - hop);
+          g.lineTo(dx + 8, dy - 30 - hop - sw);
+          g.stroke();
+        }
+      };
+      ring(false);
       g.fillStyle = "#3a2414";
-      g.fillRect(x - 18, y - 4, 36, 6);
-      const cols = k > 0 ? ["#e04a1a", "#ff9a2a", "#ffe46a"] : ["#6a6a6a", "#8a8a8a", "#b0b0b0"];
-      cols.forEach((c, i) => {
+      g.fillRect(x - 22, y - 6, 44, 8);
+      ["#c8341a", "#ff8a1a", "#ffd84a", "#fff8d0"].forEach((c, i) => {
         g.fillStyle = c;
         g.beginPath();
-        const h = (30 - i * 8) * fl;
-        g.moveTo(x - 12 + i * 4, y - 2);
-        g.quadraticCurveTo(x - 6 + i * 2, y - h * 0.6, x, y - h);
-        g.quadraticCurveTo(x + 6 - i * 2, y - h * 0.6, x + 12 - i * 4, y - 2);
+        const h = (54 - i * 12) * fl;
+        const w = 20 - i * 4;
+        g.moveTo(x - w, y - 2);
+        g.quadraticCurveTo(x - w * 0.6 + Math.sin(this.t * 9 + i) * 3, y - h * 0.6, x, y - h);
+        g.quadraticCurveTo(x + w * 0.6 - Math.sin(this.t * 8 + i) * 3, y - h * 0.6, x + w, y - 2);
         g.fill();
       });
-      for (let d = 0; d < 6; d++) {
-        const an = (d / 6) * Math.PI * 2 + this.t * (k > 0 ? 0.9 : 0.15);
-        const dx = x + Math.cos(an) * 46;
-        const dy = y - 4 + Math.sin(an) * 18;
-        const hop = k > 0 ? Math.abs(Math.sin(this.t * 6 + d)) * 4 : 0;
-        g.fillStyle = "#1a120c";
-        g.beginPath();
-        g.arc(dx, dy - 22 - hop, 4, 0, Math.PI * 2);
-        g.fill();
-        g.beginPath();
-        g.moveTo(dx - 5, dy - hop);
-        g.lineTo(dx, dy - 18 - hop);
-        g.lineTo(dx + 5, dy - hop);
-        g.closePath();
-        g.fill();
-        g.strokeStyle = "#1a120c";
-        g.lineWidth = 2;
-        g.beginPath();
-        g.moveTo(dx - 7, dy - 14 - hop + Math.sin(this.t * 6 + d) * 3);
-        g.lineTo(dx + 7, dy - 16 - hop - Math.sin(this.t * 6 + d) * 3);
-        g.stroke();
+      for (let i = 0; i < 8; i++) {
+        const sy2 = (this.t * 40 + i * 13) % 70;
+        g.fillStyle = `rgba(255,220,120,${(1 - sy2 / 70).toFixed(2)})`;
+        g.fillRect(x + Math.sin(i * 3 + this.t * 2) * 14, y - 30 - sy2, 2, 2);
       }
+      ring(true);
     } else if (p.kind === "thorn") {
       this.put(land.thorns, x, y);
       // the ribbon caught on the thorn
@@ -5863,6 +5954,7 @@ export class Game {
       this.put(land.menhir, x, y);
       this.glow(x, y - 20, 24, "150,255,170", 0.4 + 0.2 * Math.sin(this.t * 3));
     }
+    g.restore();
     // blossom falls on it once it is remembered
     if (k > 0) {
       const fl = BIOMES[3].flowers;
@@ -5926,8 +6018,8 @@ export class Game {
     const k = Math.min(1, (this.t - f.t) / 0.5);
     const W = this.W;
     const y = VIEW_H * 0.36;
-    const word = f.thirds >= 3 ? "Well done" : f.thirds > 0 ? "Finished" : "It slipped away";
-    const sub = f.thirds >= 3 ? "the memory comes back whole" : f.thirds > 0 ? `${f.thirds} of 3 parts come back` : "it stays grey: ride it again";
+    const word = f.thirds > 0 ? "You finished" : "You lost the memory";
+    const sub = f.thirds >= 3 ? "it all comes back to you" : f.thirds === 2 ? "the land and the memory have almost come back" : f.thirds === 1 ? "only a glimpse of it comes back" : "it slips away into the mist: ride it again";
     g.save();
     g.globalAlpha = k;
     g.fillStyle = "rgba(8,10,8,0.45)";

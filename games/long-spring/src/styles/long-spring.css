@@ -775,7 +775,7 @@ html.ls-lock, html.ls-lock body { overflow: hidden; }
 
 /* the mission's chapter: the memory, its three pieces, and the forgetting running out */
 .ls-chapter-bar { display: flex; align-items: center; gap: 10px; margin-top: 4px; padding: 3px 10px; border: 1px solid rgba(240, 200, 90, 0.45); border-radius: 999px; background: rgba(20, 16, 8, 0.55); }
-.ls-chapter-name { font: 400 0.95rem/1.1 "LS Uncial", Georgia, serif; color: #fff4d8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40%; }
+.ls-chapter-name { font: 400 0.95rem/1.1 "LS Uncial", Georgia, serif; color: #fff4d8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 58%; }
 .ls-chapter-pieces { display: inline-flex; gap: 6px; }
 .ls-chapter-pieces span { width: 20px; height: 20px; display: inline-grid; place-items: center; border-radius: 50%; border: 1.5px solid rgba(255, 240, 200, 0.45); color: rgba(255, 240, 200, 0.45); font-size: 0.75rem; line-height: 1; }
 .ls-chapter-pieces span.is-in { color: #20180a; background: #ffe59a; border-color: #ffe59a; box-shadow: 0 0 8px rgba(255, 228, 150, 0.8); }
@@ -856,3 +856,19 @@ html.ls-lock, html.ls-lock body { overflow: hidden; }
 .ls-thirds-why .is-ok { color: #e8ffd8; }
 .ls-thirds-why .is-ok span { color: #ffe59a; }
 .ls-thirds-why .is-grey { color: #b8b0a0; }
+
+/* the opening: the pictures fill the game, the words come in under them */
+.ls-intro { position: absolute; inset: 0; z-index: 30; background: #0a0806; display: flex; flex-direction: column; }
+.ls-intro-cv { flex: 1; width: 100%; min-height: 0; display: block; cursor: pointer; }
+.ls-intro-text {
+  margin: 0; padding: 12px 20px 6px; min-height: 4.6em; text-align: center;
+  font: italic 400 clamp(1rem, 2.2vw, 1.35rem)/1.45 Georgia, serif; color: #f4ead0; text-shadow: 0 1px 2px #000;
+}
+.ls-intro-text span span { opacity: 0; transition: opacity 0.5s ease; }
+.ls-intro-text span span.is-in { opacity: 1; }
+.ls-intro-bar { display: flex; gap: 8px; align-items: center; justify-content: center; padding: 4px 12px 12px; flex-wrap: wrap; }
+.ls-intro-dots { display: inline-flex; gap: 6px; margin-right: 8px; }
+.ls-intro-dots span { width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 240, 200, 0.25); }
+.ls-intro-dots span.is-done { background: rgba(255, 228, 150, 0.6); }
+.ls-intro-dots span.is-on { background: #ffe59a; box-shadow: 0 0 6px #ffe59a; }
+.ls-intro-card .ls-kicker, .ls-mist .ls-kicker { white-space: normal; overflow: visible; line-height: 1.35; letter-spacing: 0.1em; }

@@ -10,6 +10,8 @@ import { STUDIO_LOGO } from "../studio-logo";
 import { MONSTER_BOX, iconUrls, monsterFrames, type IconId, type Spr } from "../sprites";
 import "../styles/long-spring.css";
 import { Divider, Ornament } from "./Ornament";
+import { pickVoice } from "../voice";
+import { Intro } from "./Intro";
 import { CHAPTERS, ENDING, HEROINE, LAND_CHAPTERS, MEMORIES, NEED, PROLOGUE, RULES, memoryPic, mistOf, type ChapterRule } from "../story";
 
 export type LongSpringProps = { exitHref?: string; exitLabel?: string };
@@ -105,10 +107,10 @@ function partOf(text: string, thirds: number) {
 
 /** what each chapter asks, in one line, under its picture */
 const TASKS: Record<ChapterRule | "plain", string> = {
-  ribbon: "Follow the ribbon's glowing path. A green ring round you means you are on it.",
-  dance: "The trees step aside on every beat of the drum. A shadow shows where each will stand.",
-  count: "Three small lights ride behind you. Keep the monsters and the trees off them.",
-  plain: "Don't get hurt. The chapter has three stretches: each one you ride without losing a heart brings back a third of the picture.",
+  ribbon: "Follow the ribbon's glowing path. Lose it, and the memory fades.",
+  dance: "Dodge the dancing trees and everything else. Every hit tears a piece of the memory away; three, and it is lost.",
+  count: "Three small lights follow you. Keep them safe: lose all three, and the memory is lost.",
+  plain: "Don't crash into anything. Every hit tears a piece of the memory away; three, and it is lost.",
 };
 /** a small picture of what to do */
 function TaskPic({ rule }: { rule?: ChapterRule }) {
@@ -316,17 +318,6 @@ function KingdomMap({ thirds, at, light, reached, onPick }: { thirds: number[]; 
   );
 }
 
-/** the browser's own voice for now (a woman's, soft and slow, if the browser has one); a recorded voice can replace it later */
-function pickVoice(): SpeechSynthesisVoice | null {
-  const all = window.speechSynthesis.getVoices();
-  const en = all.filter((v) => v.lang.toLowerCase().startsWith("en"));
-  const wanted = ["Moira", "Fiona", "Serena", "Kate", "Tessa", "Martha", "Stephanie", "Karen", "Samantha", "Libby", "Sonia", "Hazel", "Emily", "Maisie", "Google UK English Female", "Female"];
-  for (const w of wanted) {
-    const v = en.find((x) => x.name.includes(w));
-    if (v) return v;
-  }
-  return en.find((v) => /en[-_](IE|GB)/i.test(v.lang)) ?? en[0] ?? null;
-}
 function Recite({ title, text }: { title: string; text: string }) {
   const [on, setOn] = useState(false);
   const [can, setCan] = useState(false);
@@ -624,6 +615,8 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
   const [memResults, setMemResults] = useState<string[]>([]);
   /** the grey picture shown as a chapter begins */
   const [introCard, setIntroCard] = useState<number | null>(null);
+  /** the opening pictures: shown before the first ride of the story, or watched again from the menu */
+  const [opening, setOpening] = useState<null | "ride" | "watch">(null);
   const introAt = useRef(0);
   const introBtn = useRef<HTMLButtonElement>(null);
   /** what the pause (or the end) dialog shows: its own buttons, the settings, or the book */
@@ -897,11 +890,15 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         introAt.current = Date.now();
         setIntroCard(e.memory);
       } else if (e.type === "piece") {
-        setLive(`${e.name}: ${e.n} of 3 parts of the picture in colour.`);
-        setBanner(`✦ ${e.n} of 3 in colour`);
-        setTimeout(() => setBanner(""), 1800);
+        const line = ["", "The mist thins: something comes back", "Almost there: the memory is nearly yours again", "It all comes back"][e.n] ?? "";
+        setLive(line);
+        // the last piece arrives with the finish words; no banner over them
+        if (e.n < 3) {
+          setBanner(`✦ ${line}`);
+          setTimeout(() => setBanner(""), 1800);
+        }
       } else if (e.type === "grey") {
-        setBanner(e.why === "far" ? "The ribbon got away: this third stays grey" : "You were hurt: this third stays grey");
+        setBanner(e.why === "far" ? "The ribbon got away: a piece of the memory fades" : "A piece of the memory slips away");
         setTimeout(() => setBanner(""), 2400);
       }
       else if (e.type === "shade") setLive(e.saved ? "You gave a heart. They thank you, and walk away into the woods." : "You passed them by. The rot takes them.");
@@ -909,6 +906,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         setBanner(e.name);
         setTimeout(() => setBanner(""), 2400);
       } else if (e.type === "memory") {
+        setBanner("");
         // the chapter is ridden: "Well done" over the scene first, then the picture and the poem
         update((s) => {
           const thirds = [...(s.thirds ?? [])];
@@ -1361,7 +1359,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
     return (
       <article className="ls-mist is-page" aria-label={`Memory ${i + 1}: ${m.title}`}>
         <p className="ls-kicker ls-mist-kick">
-          Chapter {i + 1} of {MEMORIES.length} · {(save.thirds[i] ?? 0) >= 3 ? "whole" : `${save.thirds[i] ?? 0} of 3 in colour`}
+          Chapter {i + 1} of {MEMORIES.length} · {["you lost it", "only a glimpse", "almost whole", "whole"][save.thirds[i] ?? 0]}
         </p>
         <MemPic i={i} state="mist" thirds={save.thirds[i] ?? 0} />
         <p className="ls-mist-sign">{m.sign}</p>
@@ -1372,8 +1370,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         ) : (
           <>
             <p className="ls-muted ls-small ls-mist-more-note">
-              Part of it is still grey. Each of the chapter&apos;s three stretches brings back a third, if you ride it well. Ride it
-              again to win the rest.
+              Part of it is still lost in the mist. Ride the chapter again, without a fault, and all of it comes back.
             </p>
             {screen !== "play" && (
               <button type="button" className="ls-chipbtn" onClick={() => rideChapter(i)}>
@@ -1462,7 +1459,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                       <span className="sr-only">Chapter {i + 1}, {save.thirds[i] ?? 0} of 3 in colour:</span>
                       <span className="ls-mist-title">{m.title}</span>
                       <span className="ls-mist-state" aria-hidden="true">
-                        {(save.thirds[i] ?? 0) >= 3 ? "whole" : `${save.thirds[i] ?? 0}/3`}
+                        {["lost", "a glimpse", "almost", "whole"][save.thirds[i] ?? 0]}
                       </span>
                     </button>
                   </li>
@@ -1616,7 +1613,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
           Where does {HEROINE} ride from?
         </h2>
         <div className="ls-stack is-wide">
-          <button type="button" className="ls-btn is-big" onClick={() => ride("mission")}>
+          <button type="button" className="ls-btn is-big" onClick={() => (save.introSeen ? ride("mission") : setOpening("ride"))}>
             {(save.chapterAt ?? 0) > 0 ? "Ride on" : "Ride"}
             <span className="ls-btn-sub">{(save.chapterAt ?? 0) > 0 ? `chapter ${(save.chapterAt ?? 0) + 1}: ${MEMORIES[save.chapterAt ?? 0].title}` : "from the hall, where it began"}</span>
           </button>
@@ -1645,6 +1642,9 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         <div className="ls-grid2 is-narrow">
           <button type="button" className="ls-btn is-ghost" onClick={() => ride("tutorial")}>
             The First Morning
+          </button>
+          <button type="button" className="ls-btn is-ghost" onClick={() => setOpening("watch")}>
+            The beginning
           </button>
           <button type="button" className="ls-btn is-ghost" onClick={() => setScreen("prologue")}>
             The prologue
@@ -2283,6 +2283,18 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
 
   return (
     <div className={`ls${playing ? " is-playing" : ""}${save.settings.calm ? " is-calm" : ""}${full ? " is-full" : ""}`} ref={rootRef}>
+      {opening && (
+        <Intro
+          voice
+          calm={save.settings.calm}
+          onDone={() => {
+            const then = opening;
+            setOpening(null);
+            update((s) => ({ ...s, introSeen: true }));
+            if (then === "ride") ride("mission");
+          }}
+        />
+      )}
       {playing && (
         <div className="ls-hud" inert={dialog}>
           <div className="ls-hud-row">
@@ -2493,7 +2505,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
               </div>
               {introCard > 0 && (
                 <p className="ls-task-more">
-                  <span aria-hidden="true">♥</span> People wait by their houses, half taken by the rot. Ride into the ring at their feet to give them one of your hearts, and they live. Pass by, and they turn into monsters.
+                  <span aria-hidden="true">♥</span> Ride into a villager&apos;s ring to give a heart and save them.
                 </p>
               )}
               <button type="button" className="ls-btn is-go" onClick={closeIntro} ref={introBtn}>
@@ -2540,6 +2552,9 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                   <div className="ls-stack">
                     <button type="button" className="ls-btn is-go" onClick={togglePause}>
                       Ride on
+                    </button>
+                    <button type="button" className="ls-btn is-ghost" onClick={() => setFullscreen(!full)}>
+                      {full ? "Leave full screen" : "Full screen"}
                     </button>
                     <button type="button" className="ls-btn is-ghost" onClick={() => setView("settings")}>
                       Settings
@@ -2601,7 +2616,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
             <div className="ls-mist is-pop">
               <Close onClick={closeMemory} label="Close and ride on" />
               <p className="ls-kicker">
-                Chapter {memoryCard + 1} of {MEMORIES.length} · {memThirds >= 3 ? "it comes back whole" : memThirds ? `${memThirds} of 3 in colour` : "it stays grey: you will ride it again"}
+                Chapter {memoryCard + 1} of {MEMORIES.length} · {memThirds >= 3 ? "it all comes back" : memThirds === 2 ? "the land and the memory have almost come back" : memThirds === 1 ? "only a glimpse comes back" : "you lost the memory: ride it again"}
               </p>
               <MemPic i={memoryCard} state="mist" thirds={memThirds} />
               <p className="ls-mist-sign">{MEMORIES[memoryCard].sign}</p>
@@ -2621,7 +2636,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                       <li key={k} className={r === "ok" ? "is-ok" : "is-grey"}>
                         <span aria-hidden="true">{r === "ok" ? "✦" : "○"}</span>{" "}
                         {MEMORIES[memoryCard].rule === "count" ? `Small light ${k + 1}: ` : `Stretch ${k + 1}: `}
-                        {r === "ok" ? "in colour" : r === "hurt" ? "grey, you lost a heart in it" : r === "far" ? "grey, the ribbon got away from you" : "grey, a monster took it"}
+                        {r === "ok" ? "remembered" : r === "hurt" ? "lost: you crashed" : r === "far" ? "lost: the ribbon got away" : "lost: the light went out"}
                       </li>
                     );
                   })}

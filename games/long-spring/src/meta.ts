@@ -157,6 +157,8 @@ export type Save = {
   tutorialDone: boolean;
   /** the prologue and the codex have been shown once */
   prologueSeen: boolean;
+  /** the opening pictures have been seen */
+  introSeen?: boolean;
   /** the furthest land reached in the mission (0–3); the endless ride is set there. 4 = the mission is done */
   furthestLand: number;
   /** a fallen Brigid rises again at the start of this land */
