@@ -51,52 +51,225 @@
 .tt-gap:hover, .tt-gap.is-over { background: #f2b544 !important; box-shadow: 0 3px 0 0 #8a5a12 !important; }
 .tt-gap:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 
-/* cards */
+/* =====================================================================
+   Cards – Archival Tactile & Pixel Frame Styling
+   ===================================================================== */
 .tt-card {
-  display: flex; flex-direction: column; gap: 4px;
-  width: 150px; min-height: 120px; padding: 10px 12px;
-  font: inherit; text-align: left; color: #0b1226;
-  background: #fdf3d6; border: 0;
-  box-shadow: 0 -3px 0 0 #2b1600, 0 3px 0 0 #2b1600, -3px 0 0 0 #2b1600, 3px 0 0 0 #2b1600, 0 6px 0 0 rgba(0, 0, 0, 0.4);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 154px;
+  min-height: 132px;
+  padding: 10px 12px 9px;
+  font: inherit;
+  text-align: left;
+  color: #0b1226;
+  border: 0;
+  /* Archival card stock: subtle paper grain + warm vignette */
+  background-color: #fdf3d6;
+  background-image:
+    radial-gradient(circle at 50% 35%, transparent 55%, rgba(138, 90, 18, 0.11) 100%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(138, 90, 18, 0.025) 0px,
+      rgba(138, 90, 18, 0.025) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  /* Outer pixel outline + inner passe-partout border + drop shadow */
+  box-shadow:
+    inset 0 0 0 2px #e5d2a3,
+    inset 0 4px 0 0 var(--card-accent, #8a5a12),
+    0 -3px 0 0 #2b1600,
+    0 3px 0 0 #2b1600,
+    -3px 0 0 0 #2b1600,
+    3px 0 0 0 #2b1600,
+    0 6px 0 0 rgba(0, 0, 0, 0.45);
+  transition: transform 120ms steps(2), box-shadow 120ms steps(2);
 }
-.tt-year { font-family: var(--font-pixel), monospace; font-size: 15px; color: #8a5a12; }
-.tt-title { font-weight: 700; font-size: 15px; line-height: 1.3; }
-.tt-dir { margin-top: auto; font-size: 12px; line-height: 1.3; color: #5a4a35; }
-.tt-card.is-new { background: #d9f5ec; }
 
-.tt-hand { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 18px; }
+/* Category accent variables */
+.tt-card:has(.is-book)  { --card-accent: #7a1f2b; }
+.tt-card:has(.is-art)   { --card-accent: #9c6814; }
+.tt-card:has(.is-music) { --card-accent: #1f4a7a; }
+.tt-card:has(.is-stage) { --card-accent: #5a1a4a; }
+.tt-card:has(.is-film)  { --card-accent: #2a2e34; }
+
+/* Optional wrapper if kind + year are placed side-by-side */
+.tt-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.tt-year {
+  align-self: flex-start;
+  display: inline-block;
+  padding: 1px 5px;
+  font-family: var(--font-pixel), monospace;
+  font-size: 13px;
+  line-height: 1.2;
+  color: #2b1600;
+  background: #f0dfa8;
+  box-shadow: inset 0 0 0 1px #b89446;
+}
+
+/* Mystery stamp while card is still in hand */
+.tt-card.is-hand .tt-year {
+  color: #6e5832;
+  background: #e8d8ad;
+  box-shadow: inset 0 0 0 1px #a68c53;
+  letter-spacing: 0.05em;
+}
+
+.tt-title {
+  font-weight: 700;
+  font-size: 14.5px;
+  line-height: 1.28;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tt-dir {
+  margin-top: auto;
+  padding-top: 5px;
+  border-top: 1px solid rgba(90, 74, 53, 0.22);
+  font-size: 11.5px;
+  line-height: 1.25;
+  color: #4a3b28;
+}
+
+/* Newly placed card highlight */
+.tt-card.is-new {
+  background-color: #dff7ef;
+  box-shadow:
+    inset 0 0 0 2px #7fd1be,
+    inset 0 4px 0 0 #2b8a78,
+    0 -3px 0 0 #133b34,
+    0 3px 0 0 #133b34,
+    -3px 0 0 0 #133b34,
+    3px 0 0 0 #133b34,
+    0 6px 0 0 rgba(0, 0, 0, 0.45);
+}
+.tt-card.is-new .tt-year {
+  background: #bdebe0;
+  box-shadow: inset 0 0 0 1px #3a8f84;
+}
+
+/* Cards in player's hand */
+.tt-hand {
+  margin: 0;
+  padding: 4px 0 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
 .tt-card.is-hand { cursor: grab; }
-.tt-card.is-hand:hover { background: #fff8e6; }
-.tt-card.is-hand:hover .tt-title { text-decoration: underline; text-underline-offset: 3px; }
-.tt-card.is-hand[aria-pressed="true"] {
-  background: #f2b544;
-  box-shadow: 0 -3px 0 0 #fff, 0 3px 0 0 #fff, -3px 0 0 0 #fff, 3px 0 0 0 #fff, 0 0 0 7px #0b1226;
-}
-.tt-card { position: relative; }
-.tt-card.is-hand[aria-pressed="true"]::before { content: "Picked ✓"; position: absolute; z-index: 1; top: 6px; left: 6px; padding: 2px 6px; font-size: 12px; font-weight: 700; color: #0b1226; background: #f2b544; box-shadow: 0 0 0 2px #0b1226; }
-.tt-card.is-hand:focus-visible { outline: 3px solid #fff; outline-offset: 6px; }
 
+.tt-card.is-hand:hover {
+  background-color: #fff9e8;
+  transform: translateY(-4px);
+  box-shadow:
+    inset 0 0 0 2px #f2b544,
+    inset 0 4px 0 0 var(--card-accent, #8a5a12),
+    0 -3px 0 0 #2b1600,
+    0 3px 0 0 #2b1600,
+    -3px 0 0 0 #2b1600,
+    3px 0 0 0 #2b1600,
+    0 10px 0 0 rgba(0, 0, 0, 0.4);
+}
+
+.tt-card.is-hand:hover .tt-title {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  -webkit-line-clamp: unset;
+}
+
+.tt-card.is-hand[aria-pressed="true"] {
+  background-color: #ffe9ad;
+  transform: translateY(-6px);
+  box-shadow:
+    inset 0 0 0 2px #0b1226,
+    inset 0 4px 0 0 var(--card-accent, #8a5a12),
+    0 -3px 0 0 #fff,
+    0 3px 0 0 #fff,
+    -3px 0 0 0 #fff,
+    3px 0 0 0 #fff,
+    0 0 0 7px #0b1226;
+}
+
+.tt-card.is-hand[aria-pressed="true"]::before {
+  content: "Picked ✓";
+  position: absolute;
+  z-index: 2;
+  top: 8px;
+  left: 8px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #0b1226;
+  background: #f2b544;
+  box-shadow: 0 0 0 2px #0b1226;
+}
+
+.tt-card.is-hand:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 6px;
+}
+
+/* Future-proof state for Temporal Anomaly / Paradox mode (WCAG 2.3.1 safe) */
+.tt-card.is-paradox {
+  background-color: #fbe4e1;
+  box-shadow:
+    inset 0 0 0 2px #ff8a7a,
+    inset 0 4px 0 0 #c93b2b,
+    0 -3px 0 0 #5c140e,
+    0 3px 0 0 #5c140e,
+    -3px 0 0 0 #5c140e,
+    3px 0 0 0 #5c140e,
+    0 6px 0 0 rgba(0, 0, 0, 0.45);
+}
+
+/* feedback */
 .tt-feedback { margin: 24px 0 0; padding: 12px 16px; font-size: 17px; line-height: 1.5; background: #131c38; }
 .tt-feedback.is-ok { box-shadow: inset 4px 0 0 0 #5ec4b6; }
 .tt-feedback.is-bad { box-shadow: inset 4px 0 0 0 #ff8a7a; }
 .tt-feedback.is-ok::before { content: "✓ "; color: #5ec4b6; font-weight: 700; }
 .tt-feedback.is-bad::before { content: "✗ "; color: #ff8a7a; font-weight: 700; }
 
+/* motion */
 @media (prefers-reduced-motion: no-preference) {
   .tt-card.is-new { animation: tt-in 300ms steps(3); }
 }
+@media (prefers-reduced-motion: reduce) {
+  .tt-card,
+  .tt-card.is-hand:hover,
+  .tt-card.is-hand[aria-pressed="true"] {
+    transition: none;
+    transform: none;
+  }
+}
 @keyframes tt-in { from { transform: translateY(-8px); } }
-@media (max-width: 639px) {
-  .tt-card { width: 128px; min-height: 108px; }
-  .tt-bar-actions { margin-left: 0; }
-}
-@media (forced-colors: active) {
-  .tt-card, .tt-gap { border: 2px solid ButtonText; }
-  .tt-card.is-hand[aria-pressed="true"] { border-width: 5px; }
-}
 
 /* pixel posters (components/games/Poster.tsx) */
-.tt-poster { display: block; width: calc(100% + 24px); margin: -10px -12px 6px; aspect-ratio: 48 / 30; height: auto; image-rendering: pixelated; }
+.tt-poster {
+  display: block;
+  width: calc(100% + 20px);
+  margin: -6px -10px 4px;
+  aspect-ratio: 48 / 30;
+  height: auto;
+  image-rendering: pixelated;
+  box-shadow: 0 2px 0 0 rgba(43, 22, 0, 0.25);
+}
 .tt-card.is-hand[aria-pressed="true"] .tt-poster { opacity: 0.85; }
 
 /* deck choice */
@@ -106,13 +279,7 @@
 .tt-deck:has(input:checked) { box-shadow: inset 0 0 0 2px #f2b544; }
 .tt-deck input { width: 20px; height: 20px; accent-color: #f2b544; flex: none; }
 .tt-deck strong { color: #f2b544; }
-@media (max-width: 479px) {
-  .tt-card { width: 112px; min-height: 0; }
-  .tt-timeline.is-placing .tt-gap:not(.is-idle) { width: 32px; margin: 0 3px; }
-  .tt-hand { gap: 12px; }
-}
-.tt-title { overflow-wrap: anywhere; hyphens: auto; }
-@media (max-width: 479px) { .tt-title { font-size: 14px; } }
+.tt-classics { margin-top: 12px; }
 
 /* British culture edition: a small kind label on each card. Text, not colour alone, says the kind. */
 .tt-kind {
@@ -125,5 +292,23 @@
 .tt-kind.is-stage { background: #5a1a4a; }
 .tt-kind.is-film { background: #2a2e34; }
 .tt-deck .tt-kind { flex: none; min-width: 52px; text-align: center; }
-.tt-classics { margin-top: 12px; }
-@media (forced-colors: active) { .tt-kind { border: 1px solid CanvasText; } }
+
+/* responsive */
+@media (max-width: 639px) {
+  .tt-card { width: 130px; min-height: 114px; }
+  .tt-bar-actions { margin-left: 0; }
+}
+@media (max-width: 479px) {
+  .tt-card { width: 114px; min-height: 0; padding: 8px 10px; }
+  .tt-poster { width: calc(100% + 16px); margin: -4px -8px 4px; }
+  .tt-title { font-size: 13.5px; }
+  .tt-timeline.is-placing .tt-gap:not(.is-idle) { width: 32px; margin: 0 3px; }
+  .tt-hand { gap: 12px; }
+}
+
+/* Windows High Contrast */
+@media (forced-colors: active) {
+  .tt-card, .tt-gap, .tt-year { border: 2px solid ButtonText; }
+  .tt-card.is-hand[aria-pressed="true"] { border-width: 5px; }
+  .tt-kind { border: 1px solid CanvasText; }
+}
