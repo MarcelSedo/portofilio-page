@@ -1,12 +1,15 @@
 # The Long Spring
 
-Brigid's ride through a world turned inside out. Two ways to play:
+Brigid's ride through a world turned inside out. Three ways to play, one set of controls:
 
-- **The mission**: Brigid (the dryad) rides through four lands: The Rot, First Green, Deep Green, Bloom. Villages turn up
-  on the way; ride through the glowing ring at a village's heart to give it one of your hearts. Saved souls open the gate
-  of spring into the next land; after Bloom, the golden gate and the end. Fall, and you rise again at the last gate.
-- **The endless ride**: any rider and mount, no villages, no end, kilometres and points, missions and the daily word.
-  It is set in the furthest land the mission has reached, and stays there.
+- **The mission** (the story, the slowest): Brigid (the dryad) rides through four lands, The Rot, First Green, Deep
+  Green, Bloom, and wins back fourteen of her memories (3, 4, 4, 3). Each memory is a chapter, raced against the
+  forgetting. Win back all but one of a land's memories and the gate of spring opens; after Bloom, the golden gate and
+  the end. Fall, and you rise again at the last gate.
+- **The endless ride** (30–60 minutes): any rider and mount, no villages, no hearts on the road. The only thing to
+  gather is the lamp's coloured lights, in order. Weapons come back by themselves; every five minutes the land does
+  something (fog, a storm, fords, rune-stones, the Colossus), then goes quiet. Missions and the score multiplier.
+- **The hunt** (10 minutes): any rider, The Rot, only monsters. Score = how many you bring down, and whether you live.
 - **The First Morning**: a short lesson ride that can't kill you, offered before the first mission.
 
 ## Files
@@ -19,7 +22,8 @@ Brigid's ride through a world turned inside out. Two ways to play:
 | `src/ui/Ornament.tsx` | The knotwork corners, the antler medallion and the vine divider of the menus |
 | `src/styles/fonts/` | Uncial Antiqua (SIL Open Font License) for the titles |
 | `src/sprites.ts` | All the art, drawn with canvas paths at the screen's real resolution (no image files); rider and mount are redrawn when colours change |
-| `src/story.ts` | **Everything the player reads in the mission**: the prologue, the three kinds of village, the rules, Brigid's 24 memories (4 lands × 6), the ending, and the generators for village names, people's names, their lines and gifts |
+| `src/story.ts` | **Everything the player reads in the mission**: the prologue, the rules, Brigid's 14 memories (title, sign, poem, picture, its three pieces), how many each land needs, the ending |
+| `public/long-spring/memories/` | The fourteen pictures of the memories (webp, 1200×900) |
 | `src/meta.ts` | What lasts between runs: missions and the multiplier, the daily word, the save (`long-spring-v2`) |
 | `src/sound.ts` | Tiny Web Audio beeps (off by default) |
 | `src/ui/LongSpring.tsx` | React shell: menus over the still land, the Edge-surf-style picker, HUD, touch buttons, dialogs, the `?tune` panel |
@@ -51,36 +55,35 @@ Open the page with `?tune`: sliders for metres per pixel, monster speed, the lea
 the stumble, and a box with the values to paste back into `TUNE`. With `?tune` the game is also on
 `window.longSpring` for experiments in the console.
 
-## The mission (numbers in `MISSION`, `config.ts`)
+## The mission (numbers in `MISSION`, `config.ts`; texts in `story.ts`)
 
-- **Places to heal** come every 190–280 m, half of them **hamlets**, half **forks**, never two forks in a row.
-  - **The Hamlet**: one cottage near the road, one soul, costs a heart (never your last).
-  - **A fork**: two trails from a signpost, as far each way (215–255 from the road) and on one line, so only one
-    can be reached. **The Village**: two souls, two named people, costs a heart. **The Glade**: a pool choked by
-    the rot; no souls and no heart. Healing it brings the animals back (a deer, hares, birds), gives an animal
-    friend (or, if one already walks with you, a weapon) and a memory; its creatures lead the villagers of the
-    other way into the woods (no loss).
-  - **Ride past** a hamlet, or both ways of a fork: −1 / −2 souls, and the rot makes one of the people into a monster
-    that hunts you on top of the usual hunt (at most `turnedMax` of them).
-- **Souls needed** per land: 10, 10, 10, 15. Weapons lie here and there in the land, and always one on the way to a
-  glade. Hearts lie in the land every 150–240 m; at most 9. Saved hamlets and
-  villages grow a tree of spring (a sanctuary that stuns monsters); no tree gives hearts back any more.
-- **The moment**: a saved village or a healed glade stops the world until you ride on (Space, Enter, a steering key or
-  the button; keys count after 0.9 s). The card lists what you got. A memory comes after it as a misty red-edged card.
-- **Memories** (24, in verse, numbered) come only from glades, in order: always the first one not found yet, from this
-  land or an earlier one. Found once, a memory is **in mist** (some words hidden, the last two lines missing); when
-  all are found, glades bring them back **clear**, one by one. The save keeps `memories` and `clear`.
-- **Wells**: the pits of green fire heal land by land: tall fire (The Rot), lower fire and the first stones (First
-  Green), a broken rim with embers (Deep Green), a stone well full of water (Bloom: ride round it like a rock;
-  monsters crash on it). In the finale the wells light up and the reborn come out of them.
+- **A chapter** begins 110 m into a land, then 150–220 m after the last. Its sign shows (a ribbon on a thorn, candles
+  in the snow), and the forgetting starts: `chapter.limit` seconds (80, 74, 70, 66 by land; 10 % less when a forgotten
+  one comes again). The world loses its colour (a saturation pass over the canvas) and darkens from the edges.
+- **Three pieces**, one after another: a **light** drifting over the land (shoot it; an empty quiver is lent two
+  arrows), a **ring** of light on the road (ride through it), a **rune-stone** (take it and cast it; a rune already in
+  hand anchors it too). A missed piece comes again after 3 s. The pieces keep their colour in the grey world.
+- **Remembered**: the colour comes back, a heart, the hunt is thrown back and stunned, a spring tree grows, and the
+  card shows the picture and the poem, with *Read it aloud* (the browser's own voice for now, a woman's if it has
+  one, slow, line by line; to be replaced by a recording). **Forgotten**: the memory goes dark (mist in the book), one
+  monster comes after you, and the memory comes back later in the land only if the land still needs it.
+- **The gate** opens when every chapter of the land has been played and all but one are remembered.
+- **The Collector** steals a won piece (in the endless ride the lamp's lights, in the hunt three arrows); shoot it to
+  get it back.
+- **Pace**: the mission rides at 85 % (`MISSION.pace`), with one hunter in the first two lands, two in the last two.
+- **The save** keeps `memories` (chapters reached) and `clear` (remembered). Older saves with the 24 memories are let
+  go once (`book: 2`).
+- **Wells**: the pits of green fire heal land by land, as before. In the finale the wells light up and the reborn come
+  out of them.
 - **Starting over**: once you have passed a gate, The mission asks where to ride from: on from the last gate, or the
-  whole mission again (the book and the Named stay).
-- **The finale** at the golden gate: the hunt ends, the rot dissolves, everyone saved gathers and waves, the trees
-  grow, Brigid goes into the light, and every heart she still has becomes one more person. Enter, Space or Esc skips.
+  whole mission again (the book stays).
+- **The finale** at the golden gate: the hunt ends, the rot dissolves, the people gather, a tree grows for every
+  memory won on the ride, Brigid goes into the light, and every heart she still has becomes one more person.
 
 ## The First Morning (tutorial)
 
-Steer, jump a log, duck an arch, take a heart, lead a monster into a tree, a hamlet, a fork, then three drills with
+Steer, jump a log, duck an arch, take a heart, lead a monster into a tree, ride through a memory's ring, shoot a
+memory's light, then three drills with
 a slow practice monster: the bow (hold Space, let go when the line points at it), a root trap (Z when it is right
 behind you) and the sword (X when it is on your neck; two more come out of the blood, then the lesson ends). Then
 a gate. Nothing can kill you.
@@ -94,8 +97,13 @@ a gate. Nothing can kill you.
 - **Monsters** are ash-grey, darker towards the ground, with veins, and a smoke of the dark round their feet.
 - **Companions** act where you can see it: the hound tears a monster down (twice, then it falls), the raven blinds
   them all and takes the eyes of the nearest, the doe leads one into the woods for good.
-- **The endless ride** has hamlets and villages too (no forks): a heart for their souls. Its two records are the
-  metres and the souls saved (`bestMetres`, `bestSouls`), big on the end panel and in the hud.
+- **The endless ride** (`ENDLESS`, `EVENTS`): lamps of 3 lights, 4 from 10 min, 5 from 25 min; a mirrored lamp (⇄,
+  from 10 min, 30 %) wants them backwards. Right light +20 × multiplier, full lamp +150 per light (×1.5 mirrored);
+  three full lamps without a spill give a heart. Arrows +1 every 4 s (max 6), a trap every 30 s, the sword every 55 s.
+  Records: score, metres, lamps (`best`, `bestMetres`, `bestLamps`).
+- **The hunt** (`EXTREME`): 600 s, hunters 2, 3, 3, 4, 4, 5 (every 100 s), respawn 1.6 s, the Colossus at 520 s.
+  Arrows +1 every 2.2 s (max 9), half the kills drop one more (the Colossus five), a heart every 150 s. No animals,
+  fords, lamps or memories. Records: `bestKills`, `huntsWon`.
 
 ## Music and the opening
 

@@ -1,5 +1,5 @@
 /**
- * The story of The Long Spring: the prologue, Brigid's memories (four lands, six each), the ending,
+ * The story of The Long Spring: the prologue, Brigid's memories (fourteen chapters in four lands), the ending,
  * and the generators for the names of villages and their people.
  * Everything a player reads in the mission lives here, so it can be rewritten without touching the game.
  */
@@ -22,13 +22,13 @@ it found me where I lay,
 broken at the ravine’s cold foot,
 and would not let me stay.`,
   `It took the years I was before
-and gave me roots and rain;
-wherever I give my heart away,
-the land is green again.`,
-  `But hearts are made of only so
-much giving, and no more:
-so ride, and choose, and count the cost
-of every open door.`,
+and left me roots and rain;
+and every memory I keep
+turns one place green again.`,
+  `But what I was is slipping off
+like water through a hand:
+so ride, and win back what is left,
+ere dark takes all the land.`,
 ];
 
 /** the kinds of place Brigid can heal, as the codex explains them */
@@ -57,192 +57,109 @@ export type VillageKind = keyof typeof VILLAGE_KINDS;
 export type VillageSize = 0 | 1 | 2;
 
 export const RULES: string[] = [
-  "Ride through the glowing ring of a hamlet or a village to give it one of your hearts. You can't give your last one.",
-  "Where the road forks you heal only one: the village (two souls) or the glade (no souls, but your heart stays, an animal friend and a memory).",
-  "Ride past both, or past a hamlet, and its people are lost: their souls come off your count, and they come after you as a monster.",
-  "A saved place greens, and the monsters break on it like on stone: lead them into it.",
-  "When you have saved enough souls, a gate of spring opens ahead. Four lands, and at the end, the golden gate.",
+  "Each land keeps a few of Brigid's memories. A sign on the road brings one back, and the forgetting begins: the land loses its colour.",
+  "Win back its three pieces before it is gone: shoot its drifting light, ride through its ring of light, then take the rune-stone and cast it to anchor the memory.",
+  "A memory won back stays in the world: the land greens, a heart comes back to you, and the hunt falls back. A forgotten one goes dark, and something comes after you.",
+  "Win back all but one of a land's memories and a gate of spring opens. Four lands, and at the end, the golden gate.",
 ];
 
-export type Memory = { land: number; title: string; sign: string; text: string };
+export type Memory = {
+  land: number; title: string; sign: string; text: string;
+  /** the picture in /public/long-spring/memories */
+  pic: string;
+  /** the three pieces of the moment Brigid has to win back before it is forgotten: a light to shoot, a place to ride through, a stone that anchors it */
+  pieces: [string, string, string];
+};
 
 /**
- * Brigid's memories. A hamlet of The Named that is marked with a spiral carries the next one; they come back in order.
- * `sign` is what she sees in the hamlet that brings it back.
+ * Brigid's memories: fourteen chapters of the mission, in four lands (3, 4, 4, 3).
+ * Each one is a moment of the old world; win it back and that place stays in the world.
+ * `sign` is what she sees on the road that brings it back.
  */
 export const MEMORIES: Memory[] = [
-  // The Rot: before
-  { land: 0, title: "The ribbon", sign: "A girl ties her hair with a green ribbon.", text: `I tied a ribbon every dawn
-in hair that would not wait;
-small hands, small feet, a green silk tail
-already through the gate.
-
-My mother tied the same for me
-with river-weed and grass;
-she said, a girl who wears the field
+  // Before
+  { land: 0, title: "The ribbon", pic: "01-ribbon", pieces: ["the green silk", "the wind in the field", "her mother's hands"],
+    sign: "A green ribbon flutters on a thorn.", text: `My mother tied a ribbon green
+of river-weed and grass:
+a girl who wears the field, she said,
 goes where the wild things pass.` },
-  { land: 0, title: "The hall of branches", sign: "An old man hums a dance tune.", text: `There was a hall that had no roof,
+  { land: 0, title: "The hall", pic: "02-hall", pieces: ["the music", "the dancers", "the fire"],
+    sign: "Somewhere, someone hums a dance tune.", text: `They crowned me in a hall of trees,
 its rafters living wood;
-we danced there every newborn moon
-as only dancers could.
-
-The petals fell all night like snow
-and never ceased to fall;
-I did not know a spring could end.
-I did not know at all.` },
-  { land: 0, title: "The crown of leaves", sign: "A child wears a crown of dead leaves.", text: `They set a crown upon my hair
-no heavier than rain;
-its leaves were living, and each dawn
-I watered it again.` },
-  { land: 0, title: "Counting", sign: "A mother counts her children in at the door.", text: `Three. I had three. I cannot hear
+the petals fell all night like snow.
+I thought they always would.` },
+  { land: 0, title: "Counting", pic: "03-counting", pieces: ["three pairs of shoes", "the open door", "the voices"],
+    sign: "Small footprints lead up to a door.", text: `Three. I had three. I cannot hear
 their names, not yet, not one;
 I only hear how many times
 I called them, one by one.` },
-  { land: 0, title: "His laugh", sign: "A man carries his son on his shoulders.", text: `He laughed so easily, back then;
-he bore our youngest high
-along the orchard rows, her heels
-against the apple sky.
-
-I loved him. I must keep that too,
-though it is hard to hold:
-the land gives back the whole of things,
-the sweet one with the cold.` },
-  { land: 0, title: "The first hole", sign: "A boy shows you a stone he dug up.", text: `One morning, in the orchard grass,
-a hole as deep as wells;
-and no one said who dug it there,
-and no one rang the bells.
-
-I looked into it, and it looked
-so patiently at me,
-the way a hungry thing will wait
-beneath an apple tree.` },
-  // First Green: the hunger
-  { land: 1, title: "Gold under the roots", sign: "A woman wears a gold coin on a string.", text: `They found the gold beneath the oak,
-the oldest in the wood;
-he had it felled. The children wept.
-He told them gold was good,
-
-and gave them each a shining coin
-to dry their eyes upon;
-they wore them strung about their necks
-long after it was gone.` },
-  { land: 1, title: "Lamps at night", sign: "A miner's lamp hangs over a door.", text: `Men came down from the hills with lamps
-and dug while daylight slept,
-so that the land would never see
-how deep the hollows crept.
-
-I watched their small lights from the hall
-go under, one by one,
-like stars that someone drowned at night
-before the night was done.` },
-  { land: 1, title: "Never again", sign: "A widow sits by a fresh grave.", text: `His mother died at winter’s end.
-Three days he would not stir;
-then said: no one I love will die.
-No one. Not after her.
-
-I thought that it was grief that spoke,
-as grief will speak, then sleep;
-I did not hear the thing below
-that heard him, and would keep.` },
-  { land: 1, title: "The cup", sign: "A cracked black cup stands on a windowsill.", text: `He took a knife, he took a cup,
+  // The hunger
+  { land: 1, title: "Never again", pic: "04-never-again", pieces: ["the candles", "the grave in the snow", "his vow"],
+    sign: "Two candles burn in the snow.", text: `His mother died at winter’s end.
+My king knelt in the snow
+and swore that none he loved would die;
+and something heard, below.` },
+  { land: 1, title: "The cup", pic: "05-cup", pieces: ["the knife", "the black cup", "his eyes"],
+    sign: "A cracked black cup stands on a stone.", text: `He took a knife, he took a cup,
 he went below the light;
-and when at last he climbed back up
-his eyes stayed wide all night.
-
-And when he blinked, they did not close;
-the lids went over, slow,
-and something looked at me through them
-that I did not yet know.` },
-  { land: 1, title: "The first blossom", sign: "Petals lie on bare earth.", text: `A blossom fell, the first to fall
+he climbed back up, and something looked
+out of his eyes all night.` },
+  { land: 1, title: "The first blossom", pic: "06-first-blossom", pieces: ["the falling petal", "the bare earth", "the hundred springs"],
+    sign: "Petals lie on bare black earth.", text: `A blossom fell, the first to fall
 in a hundred years of spring;
 and where it fell, the earth was bare,
 and did not grow a thing.` },
-  { land: 1, title: "I asked him", sign: "Two old people hold hands.", text: `I asked him then to stop. He kissed
-my forehead, soft and slow,
-and said that all of it was ours.
-That was the last. I know
-
-it was the last time that his hand
-was gentle on my face;
-I keep it, as you keep a thorn
-to know a rose’s place.` },
-  // Deep Green: the turning
-  { land: 2, title: "The voice below", sign: "A dog growls at the ground.", text: `Something answered from below,
-from under root and stone;
-it spoke to me in his own voice,
-and wanted to be grown.
-
-It said my name the way he did
-at morning, by the door;
-that is the way I knew he’d gone
-and would come back no more.` },
-  { land: 2, title: "Too many teeth", sign: "A man won't eat his bread.", text: `The lords stopped eating bread. They ate
+  { land: 1, title: "The voice below", pic: "07-voice-below", pieces: ["the growling dog", "the mouth in the floor", "her name, in his voice"],
+    sign: "A dog growls at the ground.", text: `A voice came up through root and stone
+and said my name, his way,
+the way he said it every dawn.
+He’d gone. It meant to stay.` },
+  // The turning
+  { land: 2, title: "Too many teeth", pic: "08-teeth", pieces: ["the long table", "the raw meat", "the teeth"],
+    sign: "Bread lies untouched on a table.", text: `The lords stopped eating bread. They ate
 the meat raw from the bone,
 and laughed across the table, and
 their teeth were not their own.` },
-  { land: 2, title: "Inside out", sign: "The sky over the hamlet is the wrong colour.", text: `One night the sky turned to the red
+  { land: 2, title: "Inside out", pic: "09-inside-out", pieces: ["the red sky", "the black sun", "the crooked houses"],
+    sign: "The sky ahead is the wrong colour.", text: `One night the sky turned to the red
 of what lies under skin;
-and when it passed, the hall was full
+and when it passed, the homes were full
 of what had once been men.` },
-  { land: 2, title: "His eyes", sign: "A father hides his children behind him.", text: `He still was mostly him. And that
+  { land: 2, title: "His eyes", pic: "10-eyes", pieces: ["the sheep", "the wall", "his eyes"],
+    sign: "Sheep huddle against a wall.", text: `He still was mostly him. And that
 was the worst thing of all:
 he watched our children like the sheep
 are watched beyond the wall.` },
-  { land: 2, title: "The black orchards", sign: "A blackened apple hangs on a dead tree.", text: `The orchards blackened in a week,
-the apples hung like coal;
-the wells filled up with something that
-was moving, and not whole.` },
-  { land: 2, title: "To see the sea", sign: "A girl draws waves in the dust.", text: `I woke the children before dawn
+  { land: 2, title: "To see the sea", pic: "11-sea", pieces: ["the whisper", "the open door", "the sea"],
+    sign: "Someone has drawn waves in the dust.", text: `I woke the children before dawn
 and whispered: come with me.
 We’re going on a journey, loves.
 We’re going to see the sea.` },
-  // Bloom: the ravine
-  { land: 3, title: "The old road", sign: "Two children walk hand in hand.", text: `We ran along the oldest road,
-the little one on my back;
-the older two held hands, and ran,
-and never once looked back.
-
-They did not cry. I tell it twice
-because it must be told:
-they did not cry, my brave ones, though
-the night was long and cold.` },
-  { land: 3, title: "The bridge", sign: "A broken bridge over a stream.", text: `He found us at the bridge. The land
-is kinder than I’d be:
-of all of it, it lets me keep
-one thing, and gives it me:
-
-that they were holding hands. Just that.
-The rest the land has kept;
-I do not ask it for the rest.
-I only know I wept.` },
-  { land: 3, title: "The edge", sign: "Someone looks down into a ravine.", text: `I held the little one and stepped
-out where the ground was done;
-I wanted us to go together.
-I wanted us as one.` },
-  { land: 3, title: "Not yet", sign: "Roots break through a cottage floor.", text: `But roots came up and caught us there,
-and moss, and water’s spill,
-and a voice that was not his said: not
-yet. Not yet. Be still.` },
-  { land: 3, title: "Her name", sign: "A woman calls a name across a field.", text: `My youngest was a little girl.
-Her name was ${CHILD}. There.
-I said it every morning once,
-while combing out her hair.
-
-I lost it for so long, so long,
-like ribbon in a stream;
+  // The ravine
+  { land: 3, title: "The bridge", pic: "12-bridge", pieces: ["the running", "the broken bridge", "their hands"],
+    sign: "Two small figures stand on a broken bridge.", text: `He found us at the bridge. It broke.
+Of all of it, the land
+lets me keep one thing, only one:
+that they were holding hands.` },
+  { land: 3, title: "Her name", pic: "13-her-name", pieces: ["the stream", "the ribbon", "her name"],
+    sign: "A green ribbon drifts down a stream.", text: `Her name: I lost it in the stream
+like ribbon from her hair.
 I have it now. I’ll hold it tight.
-${CHILD}. Not a dream.` },
-  { land: 3, title: "Where she went", sign: "A child laughs, and the flowers open.", text: `The land could keep just one of us.
-It chose, and it kept me,
+Her name was ${CHILD}. There.` },
+  { land: 3, title: "Where she went", pic: "14-tree", pieces: ["the blossom", "the ribbon in the branches", "the green of things"],
+    sign: "An apple tree in blossom, alone in the rot.", text: `The land could keep just one of us;
+it chose, and it kept me,
 and kept her in another way:
 in every bud and tree.
-
-Each spring I bring is ${CHILD}’s spring;
-she rides with me, and sings.
-She always has. She always will.
+Each spring I bring is ${CHILD}’s spring.
 She’s in the green of things.` },
 ];
-export const MEMORIES_PER_LAND = 6;
+/** chapters in each land: 3, 4, 4, 3 */
+export const CHAPTERS = [0, 1, 2, 3].map((l) => MEMORIES.filter((m) => m.land === l).length);
+/** how many of a land's memories must be won back before its gate opens: all but one */
+export const NEED = CHAPTERS.map((n) => n - 1);
+export const memoryPic = (i: number) => `/long-spring/memories/${MEMORIES[i].pic}.webp`;
+
 
 /**
  * How a memory reads the first time it comes back: in mist. A few of the longer words are hidden

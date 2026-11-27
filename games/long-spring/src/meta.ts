@@ -39,13 +39,17 @@ export type Stats = {
   wisps: number;
   /** lamps filled in the endless ride */
   lamps: number;
+  /** monsters brought down, by any means */
+  kills: number;
+  /** memories forgotten on this ride */
+  memoriesLost: number;
 };
 
 export const emptyStats = (): Stats => ({
   metres: 0, seeds: 0, logs: 0, branches: 0, pitted: 0, crashed: 0, trapped: 0,
   arrowKills: 0, swordKills: 0, companions: 0, clean: 0, afterSword: 0,
   gates: 0, animalsLost: 0, peopleLost: 0, villagesSafe: 0,
-  souls: 0, villagesSaved: 0, villagesLost: 0, memoriesFound: 0, spells: 0, fords: 0, wisps: 0, lamps: 0,
+  souls: 0, villagesSaved: 0, villagesLost: 0, memoriesFound: 0, spells: 0, fords: 0, wisps: 0, lamps: 0, kills: 0, memoriesLost: 0,
 });
 
 export type Mission = { stat: keyof Stats; goal: number; text: string };
@@ -57,7 +61,7 @@ const n = (x: number) => x.toLocaleString("en-GB");
 const LIST: Mission[] = [
   m("metres", 500, "Ride 500 m"),
   m("crashed", 1, "Lead a monster into a tree or a rock"),
-  m("souls", 10, "Gather 10 souls"),
+  m("lamps", 1, "Fill your lamp"),
   m("logs", 3, "Jump over 3 fallen trunks"),
   m("pitted", 1, "Lead a monster into a burning pit"),
   m("metres", 1000, "Reach First Green (1,000 m)"),
@@ -67,10 +71,10 @@ const LIST: Mission[] = [
   m("clean", 600, "Ride 600 m without losing a heart"),
   m("arrowKills", 1, "Shoot a monster with an arrow"),
   m("spells", 1, "Cast a rune"),
-  m("souls", 30, "Gather 30 souls"),
+  m("lamps", 3, "Fill your lamp 3 times in one ride"),
   m("pitted", 3, "Lead 3 monsters into pits"),
   m("afterSword", 300, "Use a sword, then survive 300 m more"),
-  m("companions", 1, "Find a companion"),
+  m("kills", 5, "Bring down 5 monsters in one ride"),
   m("metres", 2000, "Reach Deep Green (2,000 m)"),
   m("logs", 15, "Jump over 15 fallen trunks"),
   m("crashed", 5, "Lead 5 monsters into trees or rocks"),
@@ -78,15 +82,15 @@ const LIST: Mission[] = [
   m("clean", 1500, "Ride 1,500 m without losing a heart"),
   m("trapped", 3, "Catch 3 monsters in traps"),
   m("fords", 2, "Cross 2 fords without slipping"),
-  m("wisps", 3, "Shoot 3 drifting soul-lights"),
+  m("spells", 2, "Cast 2 runes in one ride"),
   m("lamps", 2, "Fill your lamp twice in one ride"),
-  m("souls", 80, "Gather 80 souls"),
+  m("lamps", 6, "Fill your lamp 6 times in one ride"),
   m("metres", 5000, "Reach Bloom (5,000 m)"),
-  m("villagesSafe", 1, "Lead the hunt past a village with nobody taken"),
+  m("kills", 12, "Bring down 12 monsters in one ride"),
   m("pitted", 8, "Lead 8 monsters into pits"),
   m("swordKills", 3, "Cut down 3 monsters with a sword"),
   m("metres", 7500, "Ride 7,500 m"),
-  m("villagesSafe", 3, "Keep 3 villages safe in one run"),
+  m("lamps", 10, "Fill your lamp 10 times in one ride"),
   m("metres", 10000, "Ride the whole Long Spring (10 km)"),
 ];
 
@@ -97,7 +101,7 @@ export function missionAt(i: number): Mission {
   const kinds: Mission[] = [
     m("pitted", 4 * round, `Lead ${4 * round} monsters into pits`),
     m("crashed", 6 * round, `Lead ${6 * round} monsters into trees or rocks`),
-    m("souls", 40 * round, `Gather ${n(40 * round)} souls`),
+    m("lamps", 4 * round, `Fill your lamp ${n(4 * round)} times`),
     m("clean", 1000 * round, `Ride ${n(1000 * round)} m without losing a heart`),
     m("trapped", 2 * round, `Catch ${2 * round} monsters in traps`),
     m("arrowKills", round, `Shoot ${round} monsters`),
@@ -122,8 +126,15 @@ export type Settings = {
 export type Save = {
   best: number;
   bestMetres: number;
-  /** most souls saved on one endless ride */
+  /** most souls saved on one endless ride (old) */
   bestSouls: number;
+  /** most lamps filled on one endless ride */
+  bestLamps: number;
+  /** the hunt: most monsters brought down in ten minutes, and how often it was outlasted */
+  bestKills: number;
+  huntsWon: number;
+  /** 2: the book of fourteen chapters (older saves had 24 memories, which are let go) */
+  book: number;
   /** missions completed so far = multiplier − 1 (plus daily words) */
   multiplier: number;
   /** the three open missions, as indexes into missionAt */
@@ -150,9 +161,9 @@ export type Save = {
   furthestLand: number;
   /** a fallen Brigid rises again at the start of this land */
   checkpoint: number;
-  /** indexes into MEMORIES, in the order found */
+  /** chapters reached (indexes into MEMORIES): a memory glimpsed, even if it was then forgotten */
   memories: number[];
-  /** memories found a second time, which have come back clear */
+  /** memories won back: they show clear in the book */
   clear: number[];
   /** everyone named she has saved, newest last (kept to the last 400) */
   named: string[];
@@ -176,6 +187,10 @@ export function freshSave(calm = false): Save {
     best: 0,
     bestMetres: 0,
     bestSouls: 0,
+    bestLamps: 0,
+    bestKills: 0,
+    huntsWon: 0,
+    book: 2,
     multiplier: 1,
     open: [0, 1, 2],
     nextMission: 3,
@@ -208,13 +223,20 @@ export function loadSave(): Save {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return base;
-    const s = { ...base, ...JSON.parse(raw) } as Save;
+    const old = JSON.parse(raw) as Partial<Save>;
+    const s = { ...base, ...old } as Save;
     s.looks = { ...DEFAULT_LOOK, ...s.looks };
     s.settings = { ...base.settings, ...s.settings };
     if (s.word.day !== today()) s.word = { day: today(), got: 0, done: false };
     const ids = ["hollow", "hound", "spitter", "burrower", "hands", "collector", "colossus"];
     s.seenMonsters = (s.seenMonsters ?? []).filter((x) => ids.includes(x));
     s.killedMonsters = (s.killedMonsters ?? []).filter((x) => ids.includes(x));
+    if ((old.book ?? 1) < 2) {
+      // the book was rewritten: 24 memories became 14 chapters, and the lands start over
+      s.memories = [];
+      s.clear = [];
+      s.book = 2;
+    }
     return s;
   } catch {
     return base;

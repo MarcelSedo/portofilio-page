@@ -1,17 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as RKeyboardEvent } from "react";
-import { BIOMES, ENDLESS, MONSTERS, type MonsterId, MOUNTS, RIDERS, SPELLS, SWATCHES, TUNE, type Look, type Mount, type Rider } from "../config";
+import { BIOMES, ENDLESS, EXTREME, MONSTERS, type MonsterId, MOUNTS, RIDERS, SPELLS, SWATCHES, TUNE, type Look, type Mount, type Rider } from "../config";
 import { Game, heroPreview, type GameEvent, type Hud, type Mode } from "../game";
 import { freshSave, loadSave, missionAt, writeSave, type Save, type Settings, type Stats } from "../meta";
 import { setSound, setSoundVolume } from "../sound";
 import { setMusic, setMusicDanger, setMusicLand, setMusicMood, setMusicVolume } from "../music";
 import { STUDIO_LOGO } from "../studio-logo";
-import { memoryPicture } from "../vignettes";
 import { MONSTER_BOX, iconUrls, monsterFrames, type IconId, type Spr } from "../sprites";
 import "../styles/long-spring.css";
 import { Divider, Ornament } from "./Ornament";
-import { ENDING, HEROINE, LAND_CHAPTERS, MEMORIES, MEMORIES_PER_LAND, PROLOGUE, RULES, VILLAGE_KINDS, mistOf } from "../story";
+import { CHAPTERS, ENDING, HEROINE, LAND_CHAPTERS, MEMORIES, NEED, PROLOGUE, RULES, memoryPic, mistOf } from "../story";
 
 export type LongSpringProps = { exitHref?: string; exitLabel?: string };
 
@@ -77,14 +76,59 @@ function Preview({ rider, mount, look, calm, height, label, locked }: { rider: R
   );
 }
 
-/** A memory's picture: deep in mist until it is found, clouded until it is cleared, then plain */
+/** A memory's picture: deep in dark until it is reached, in mist while it is forgotten, then plain once won back */
 function MemPic({ i, state }: { i: number; state: "missing" | "mist" | "clear" }) {
-  const [src, setSrc] = useState<string | null>(null);
-  useEffect(() => setSrc(memoryPicture(i)), [i]);
   return (
     <span className={`ls-mempic is-${state}`} aria-hidden="true">
-      {src && <img src={src} alt="" draggable={false} />}
+      <img src={memoryPic(i)} alt="" draggable={false} loading="lazy" decoding="async" />
     </span>
+  );
+}
+
+/** the browser's own voice for now (a woman's, soft and slow, if the browser has one); a recorded voice can replace it later */
+function pickVoice(): SpeechSynthesisVoice | null {
+  const all = window.speechSynthesis.getVoices();
+  const en = all.filter((v) => v.lang.toLowerCase().startsWith("en"));
+  const wanted = ["Moira", "Fiona", "Serena", "Kate", "Tessa", "Martha", "Stephanie", "Karen", "Samantha", "Libby", "Sonia", "Hazel", "Emily", "Maisie", "Google UK English Female", "Female"];
+  for (const w of wanted) {
+    const v = en.find((x) => x.name.includes(w));
+    if (v) return v;
+  }
+  return en.find((v) => /en[-_](IE|GB)/i.test(v.lang)) ?? en[0] ?? null;
+}
+function Recite({ title, text }: { title: string; text: string }) {
+  const [on, setOn] = useState(false);
+  const [can, setCan] = useState(false);
+  useEffect(() => {
+    if (!("speechSynthesis" in window)) return;
+    setCan(true);
+    window.speechSynthesis.getVoices();
+    return () => window.speechSynthesis.cancel();
+  }, [text]);
+  if (!can) return null;
+  const go = () => {
+    const sy = window.speechSynthesis;
+    sy.cancel();
+    if (on) return setOn(false);
+    const lines = [title, ...text.split("\n")].map((l) => l.trim()).filter(Boolean);
+    const voice = pickVoice();
+    lines.forEach((l, k) => {
+      const u = new SpeechSynthesisUtterance(l);
+      u.rate = 0.78;
+      u.pitch = 1.04;
+      if (voice) {
+        u.voice = voice;
+        u.lang = voice.lang;
+      } else u.lang = "en-GB";
+      if (k === lines.length - 1) u.onend = u.onerror = () => setOn(false);
+      sy.speak(u);
+    });
+    setOn(true);
+  };
+  return (
+    <button type="button" className="ls-chipbtn ls-recite" onClick={go} aria-pressed={on}>
+      <span aria-hidden="true">{on ? "■" : "▶"}</span> {on ? "Stop reading" : "Read it aloud"}
+    </button>
   );
 }
 
@@ -314,6 +358,12 @@ type Moment = {
   village: string; kind: "village" | "glade"; names: string[]; gift?: string; giftId?: string; memory: number; clear: boolean; line?: string; key: number;
   hearts: number; souls: number; need: number;
 };
+/** what a memory is won back from, as the prologue explains it */
+const PIECES = [
+  { name: "The light", short: "shoot it", text: "A light drifts over the land: the first piece of the moment. Hold Space and let go, and your arrow brings it back. If your quiver is empty, the memory lends you arrows." },
+  { name: "The ring", short: "ride through it", text: "A ring of light waits on the road: the place where it happened. Ride through it before it is behind you." },
+  { name: "The stone", short: "cast it", text: "Last, a rune-stone rises. Take it and cast it (R): remember its letter, then set the pieces back on the stem, bottom up. That anchors the memory, and the place stays in the world." },
+];
 /** the picture for each gift of the Named */
 const GIFT_ICON: Record<string, IconId> = { sword: "sword", bow: "bow", traps: "trap", rune: "rune", heart: "heart", hound: "hound", raven: "raven", doe: "doe" };
 
@@ -604,6 +654,27 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
             ? `The glade is healed. No souls, and your heart stays.${e.gift ? ` A gift of the land: ${e.gift}.` : ""}${e.memory >= 0 ? (e.clear ? ` Memory ${e.memory + 1} comes back clear.` : ` Memory ${e.memory + 1} comes back.`) : ""}`
             : `${e.names.join(" and ")} of ${e.village} are saved: two souls, ${e.souls} of ${e.need}.`;
         setLive(`${what} Press Space or Enter to ride on.`);
+      } else if (e.type === "chapter") {
+        update((s) => ({ ...s, memories: s.memories.includes(e.memory) ? s.memories : [...s.memories, e.memory] }));
+        setBanner(`${MEMORIES[e.memory].title}`);
+        setTimeout(() => setBanner(""), 2600);
+      } else if (e.type === "piece") setLive(`${e.name}: piece ${e.n} of 3.`);
+      else if (e.type === "event") {
+        setBanner(e.name);
+        setTimeout(() => setBanner(""), 2400);
+      } else if (e.type === "memory") {
+        if (!e.saved) return;
+        // a memory won back: the world holds still while it is read (and, if you like, read aloud)
+        g?.pause();
+        if (g) setHud(g.hud());
+        update((s) => ({
+          ...s,
+          memories: s.memories.includes(e.memory) ? s.memories : [...s.memories, e.memory],
+          clear: s.clear.includes(e.memory) ? s.clear : [...s.clear, e.memory],
+        }));
+        runRef.current.memories.push(e.memory);
+        setMemClear(true);
+        setMemoryCard(e.memory);
       } else if (e.type === "tutorial") {
         setTutStep(e.done ? -1 : e.step);
         if (e.done) update((s) => ({ ...s, tutorialDone: true }));
@@ -632,12 +703,15 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         if (e.mode === "endless") {
           best = e.score > saveRef.current.best;
           update((s) => ({
-            ...s, best: Math.max(s.best, e.score), bestMetres: Math.max(s.bestMetres, e.metres), bestSouls: Math.max(s.bestSouls, e.stats.souls),
+            ...s, best: Math.max(s.best, e.score), bestMetres: Math.max(s.bestMetres, e.metres), bestLamps: Math.max(s.bestLamps ?? 0, e.stats.lamps),
           }));
+        } else if (e.mode === "extreme") {
+          best = e.stats.kills > (saveRef.current.bestKills ?? 0);
+          update((s) => ({ ...s, bestKills: Math.max(s.bestKills ?? 0, e.stats.kills), huntsWon: (s.huntsWon ?? 0) + (e.win ? 1 : 0) }));
         } else if (e.mode === "mission" && e.win)
           update((s) => ({
             ...s, wins: s.wins + 1, endings: s.endings + 1, furthestLand: BIOMES.length, checkpoint: 0,
-            bestEnding: Math.max(s.bestEnding, e.stats.souls + e.reborn),
+            bestEnding: Math.max(s.bestEnding, s.clear.length),
           }));
         setResult({ ...e, best, missions: runRef.current.missions, word: runRef.current.word, memories: runRef.current.memories });
         setScreen("over");
@@ -692,8 +766,9 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
     gameRef.current?.destroy();
     const m = modeRef.current;
     const endless = m === "endless";
+    const own = endless || m === "extreme";
     const game = new Game(canvasRef.current, {
-      choice: endless ? choiceOf(s) : brigidOf(s),
+      choice: own ? choiceOf(s) : brigidOf(s),
       mode: m,
       startLand: endless ? endlessLand(s) : m === "mission" ? Math.min(s.checkpoint, BIOMES.length - 1) : 0,
       memories: [...s.memories],
@@ -719,10 +794,11 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
     setHud(game.hud());
     stageRef.current?.focus();
     game.start();
-    const c = endless ? choiceOf(s) : brigidOf(s);
-    if (endless) say(`${c.rider.name} on ${c.mount.name.toLowerCase()}, in ${BIOMES[endlessLand(s)].name}. Ride! ← → to steer.`);
+    const c = own ? choiceOf(s) : brigidOf(s);
+    if (endless) say(`${c.rider.name} on ${c.mount.name.toLowerCase()}, in ${BIOMES[endlessLand(s)].name}. Ride, and fill your lamp! ← → to steer.`);
+    else if (m === "extreme") say(`The hunt: ten minutes in ${BIOMES[0].name}. Bring down all you can, and live. Your arrows come back by themselves.`, true);
     else if (m === "mission")
-      say(`${HEROINE} rides out into ${BIOMES[Math.min(s.checkpoint, BIOMES.length - 1)].name}. Give your hearts to the villages; when enough souls are saved, a gate opens.`);
+      say(`${HEROINE} rides out into ${BIOMES[Math.min(s.checkpoint, BIOMES.length - 1)].name}. Her memories are slipping away: win them back before they are forgotten.`);
     const ro = new ResizeObserver(() => game.resize());
     ro.observe(canvasRef.current);
     const hide = () => {
@@ -973,7 +1049,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
   };
 
   let menu: React.ReactNode = null;
-  const memCount = save.memories.length;
+  const memCount = save.clear.length;
   const openMission = () => {
     if (!save.prologueSeen || !save.tutorialDone) setScreen("prologue");
     else setScreen("begin");
@@ -1007,13 +1083,17 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
     return (
       <article className="ls-mist is-page" aria-label={`Memory ${i + 1}: ${m.title}`}>
         <p className="ls-kicker ls-mist-kick">
-          Memory {i + 1} of {MEMORIES.length} · {save.clear.includes(i) ? "clear" : "still in mist"}
+          Chapter {i + 1} of {MEMORIES.length} · {save.clear.includes(i) ? "remembered" : "forgotten, for now"}
         </p>
         <MemPic i={i} state={save.clear.includes(i) ? "clear" : "mist"} />
         <p className="ls-mist-sign">{m.sign}</p>
         <h4 className="ls-mist-title">{m.title}</h4>
         <p className="ls-mist-text">{save.clear.includes(i) ? m.text : mistOf(i).text}</p>
-        {!save.clear.includes(i) && <p className="ls-muted ls-small ls-mist-more-note">The rest is in mist. A glade will bring it back clear, once every memory has been found.</p>}
+        {save.clear.includes(i) ? (
+          <Recite title={m.title} text={m.text} />
+        ) : (
+          <p className="ls-muted ls-small ls-mist-more-note">The rest is in mist. Ride this land again and win it back before it is forgotten.</p>
+        )}
         {nav && (
           <div className="ls-mist-nav">
             <button type="button" className="ls-chipbtn" onClick={() => prev !== undefined && setReading(prev)} disabled={prev === undefined}>
@@ -1032,22 +1112,23 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
   };
   const bookTabs: Tab[] = BIOMES.map((b, land) => {
     const list = MEMORIES.map((m, i) => ({ m, i })).filter(({ m }) => m.land === land);
-    const found = list.filter(({ i }) => save.memories.includes(i)).length;
+    const found = list.filter(({ i }) => save.clear.includes(i)).length;
+    const per = CHAPTERS[land];
     const locked = land > reached;
     return {
       id: `land${land}`,
       state: locked ? "locked" : land === curLand ? "now" : land < curLand ? "done" : undefined,
-      aria: `${land + 1}. ${b.name}${locked ? ", not reached yet" : `, ${found} of ${MEMORIES_PER_LAND} memories`}${land === curLand && !locked ? ", where you are now" : ""}`,
+      aria: `${land + 1}. ${b.name}${locked ? ", not reached yet" : `, ${found} of ${per} memories remembered`}${land === curLand && !locked ? ", where you are now" : ""}`,
       label: (
         <>
           <span className="ls-step-n" aria-hidden="true">
-            {found === MEMORIES_PER_LAND ? "✓" : land + 1}
+            {found === per ? "✓" : land + 1}
           </span>
           <span className="ls-step-name" aria-hidden="true">
             {b.name}
           </span>
           <span className="ls-step-count" aria-hidden="true">
-            {locked ? "not yet" : `${found}/${MEMORIES_PER_LAND}`}
+            {locked ? "not yet" : `${found}/${per}`}
           </span>
         </>
       ),
@@ -1068,10 +1149,10 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                       <span className="ls-mist-n" aria-hidden="true">
                         {i + 1}
                       </span>
-                      <span className="sr-only">Memory {i + 1}{save.clear.includes(i) ? ", clear" : ", in mist"}:</span>
+                      <span className="sr-only">Chapter {i + 1}{save.clear.includes(i) ? ", remembered" : ", forgotten"}:</span>
                       <span className="ls-mist-title">{m.title}</span>
                       <span className="ls-mist-state" aria-hidden="true">
-                        {save.clear.includes(i) ? "clear" : "in mist"}
+                        {save.clear.includes(i) ? "remembered" : "forgotten"}
                       </span>
                     </button>
                   </li>
@@ -1083,36 +1164,20 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                         {i + 1}
                       </span>
                       <span aria-hidden="true">· · ·</span>
-                      <span className="sr-only">Memory {i + 1}, not found yet</span>
+                      <span className="sr-only">Chapter {i + 1}, not reached yet</span>
                     </span>
                   </li>
                 ),
               )}
             </ul>
             <p className="ls-muted ls-small ls-center">
-              {found === MEMORIES_PER_LAND
-                ? "Every memory of this land has come back."
-                : "Hamlets of two souls carry them, always the first one missing. Any you miss here wait for you in the next land."}
+              {found === per
+                ? "Every memory of this land has come back, and stays in the world."
+                : `A sign on the road brings each one back. Win back ${NEED[land]} of ${per} and the gate opens; any you forget wait for your next ride.`}
             </p>
           </>
         ),
     };
-  });
-  bookTabs.push({
-    id: "named",
-    label: <>The Named · {fmt(save.named.length)}</>,
-    content: save.named.length ? (
-      <>
-        <ul className="ls-named">
-          {[...save.named].reverse().slice(0, 30).map((n, i) => (
-            <li key={i}>{n}</li>
-          ))}
-        </ul>
-        {save.named.length > 30 && <p className="ls-muted ls-small ls-center">and {fmt(save.named.length - 30)} more before them.</p>}
-      </>
-    ) : (
-      <p className="ls-muted ls-center">Nobody yet. The hamlets of two souls keep their names.</p>
-    ),
   });
   if (save.endings > 0)
     bookTabs.push({
@@ -1155,7 +1220,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
           <Preview {...brigidOf(save)} calm={save.settings.calm} height={120} label={`${HEROINE} on ${brigidOf(save).mount.name}`} />
         </div>
         <p className="ls-lead">
-          The world has turned inside out. Ride with {HEROINE}, give your heart to the villages, and bring the spring back.
+          The world has turned inside out, and {HEROINE} is forgetting it. Ride with her, win back her memories, and bring the spring back.
         </p>
         <div className="ls-stack is-wide">
           <button type="button" className="ls-btn is-big" onClick={openMission}>
@@ -1164,10 +1229,16 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
               {HEROINE}&apos;s story · {save.endings > 0 ? "from the start" : landName(save.checkpoint)}
             </span>
           </button>
-          <button type="button" className="ls-btn is-big" onClick={() => ride("endless")}>
-            Endless ride
-            <span className="ls-btn-sub">Any rider · {landName(endlessLand(save))}</span>
-          </button>
+          <div className="ls-grid2">
+            <button type="button" className="ls-btn is-big" onClick={() => ride("endless")}>
+              Endless ride
+              <span className="ls-btn-sub">the lamp · as long as you last</span>
+            </button>
+            <button type="button" className="ls-btn is-big is-alt" onClick={() => ride("extreme")}>
+              The hunt
+              <span className="ls-btn-sub">ten minutes · only the kill</span>
+            </button>
+          </div>
           <div className="ls-grid2">
             <button type="button" className="ls-btn is-ghost" onClick={() => setScreen("bestiary")}>
               Bestiary · {save.seenMonsters.length}/{Object.keys(MONSTERS).length}
@@ -1184,7 +1255,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
           </div>
         </div>
         <p className="ls-muted ls-small">
-          Souls saved: {fmt(save.soulsTotal)} · Endless best: {km(save.bestMetres)}, {fmt(save.bestSouls)} souls
+          Memories: {save.clear.length}/{MEMORIES.length} · Endless best: {fmt(save.best)} ({km(save.bestMetres)}) · The hunt: {fmt(save.bestKills ?? 0)} brought down
         </p>
         <p className="ls-credits-link">
           <button type="button" className="ls-linkbtn" onClick={() => setScreen("credits")}>
@@ -1257,7 +1328,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         </div>
         {save.checkpoint > 0 && (
           <p className="ls-muted ls-small">
-            Beginning again keeps the Book of Memories and the Named. The lands, the souls and the gates start over.
+            Beginning again keeps the Book of Memories. The lands and the gates start over.
           </p>
         )}
         <div className="ls-grid2 is-narrow">
@@ -1287,7 +1358,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         </button>
       </div>
     );
-    const titles = ["The world turned inside out", "People, or the land", `How ${HEROINE} heals`];
+    const titles = ["The world turned inside out", "Three pieces of a memory", `How ${HEROINE} remembers`];
     menu = (
       <section className="ls-panel is-text is-book" aria-labelledby="ls-prologue-title">
         <Ornament medal />
@@ -1307,16 +1378,16 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         )}
         {page === 1 && (
           <ul className="ls-kinds">
-            {(["hamlet", "village", "glade"] as const).map((n) => (
-              <li key={n}>
+            {PIECES.map((n, k) => (
+              <li key={n.name}>
                 <span className="ls-kind-n" aria-hidden="true">
-                  {VILLAGE_KINDS[n].souls || "✦"}
+                  {k + 1}
                 </span>
                 <strong>
-                  {VILLAGE_KINDS[n].name} <span className="sr-only">,</span>
-                  <span className="ls-muted"> · {VILLAGE_KINDS[n].short}</span>
+                  {n.name} <span className="sr-only">,</span>
+                  <span className="ls-muted"> · {n.short}</span>
                 </strong>
-                <span>{VILLAGE_KINDS[n].text}</span>
+                <span>{n.text}</span>
               </li>
             ))}
           </ul>
@@ -1367,7 +1438,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         <Ornament medal />
         <Close onClick={() => setScreen("begin")} label="Close, back to the mission" />
         <p className="ls-kicker">
-          {memCount} of {MEMORIES.length} memories · {fmt(save.soulsTotal)} souls saved
+          {memCount} of {MEMORIES.length} memories remembered
         </p>
         <h2 id="ls-book-title" className="ls-h2" tabIndex={-1} ref={headRef}>
           Book of Memories
@@ -1451,6 +1522,9 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
             <button type="button" className="ls-btn is-go" onClick={() => ride("endless")} disabled={riderLocked || mountLocked}>
               Endless ride
             </button>
+            <button type="button" className="ls-btn is-go" onClick={() => ride("extreme")} disabled={riderLocked || mountLocked}>
+              The hunt
+            </button>
           </div>
         </div>
       </section>
@@ -1519,9 +1593,10 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         content: (
           <ul className="ls-help">
             <li>
-              <strong>Two ways to ride.</strong> <em>The mission</em>: {HEROINE}&apos;s story, four lands, villages to save,
-              and an end. <em>The endless ride</em>: any rider, no end, souls and kilometres, in the dark land where the green is
-              coming back.
+              <strong>Three ways to ride.</strong> <em>The mission</em>: {HEROINE}&apos;s story, fourteen memories to win back
+              in four lands, and an end. <em>The endless ride</em>: any rider, no end, a lamp to fill with lights, for as long
+              as you last. <em>The hunt</em>: ten minutes of nothing but monsters; what counts is how many you bring down, and
+              whether you live.
             </li>
             <li>
               <strong>Ride and steer.</strong> You ride down the screen; the monsters come from behind, at the top. Hitting
@@ -1539,7 +1614,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
       },
       {
         id: "hunt",
-        label: "The hunt",
+        label: "Monsters",
         content: (
           <ul className="ls-help">
             <li>
@@ -1548,7 +1623,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
             </li>
             <li>
               <strong>Use the land.</strong> Lead them into trees and rocks and they crash; into the green fire and they burn.
-              Saved villages are stone to them.
+              A memory won back makes them fall back for a moment.
             </li>
             <li>
               <strong>Keep them from the living.</strong> Hares, foxes and deer cross the road. A monster that catches one
@@ -1572,17 +1647,14 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
               is left: it fills again as you ride, and faster with every hit. Hold too long and the bow starts to shake.
             </li>
             <li>
-              <strong>Arrows</strong> come with a bow, found on the road or given by a glade. They also find drifting
-              memories (in the mission) and soul-lights (in the endless ride).
+              <strong>Arrows.</strong> In the mission they come with a bow found on the road, and a memory lends you two
+              when your quiver is empty. In the endless ride and the hunt they come back by themselves, and so do traps and the
+              sword, more slowly. In the hunt, what you bring down often drops an arrow.
             </li>
             <li>
               <strong>Everything works on everything.</strong> An arrow is one blow, a root trap (Z, dropped behind you) or the
               sword three. Most monsters fall to one; the Colossus takes six. The monsters differ in how they come for you:
               see the <em>Bestiary</em>.
-            </li>
-            <li>
-              <strong>A companion</strong> (a hound, a raven or a doe from a glade) waits for the moment a monster is on your
-              heels. Then it throws itself at it, kills it, and dies with it. Once.
             </li>
             <li>
               <strong>The sword (X) is the last resort.</strong> It kills whatever is on your neck, but the blood wakes the
@@ -1632,24 +1704,24 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
         content: (
           <ul className="ls-help">
             <li>
-              <strong>Hearts are what you give.</strong> Ride through the glowing ring of a hamlet (one soul) or a village
-              (two) to give it a heart, never your last. Every saved village refills your quiver.
+              <strong>A chapter is a memory.</strong> A sign on the road (a ribbon on a thorn, candles in the snow) brings one of{" "}
+              {HEROINE}&apos;s memories back, and the forgetting begins: the colour drains out of the land, and the dark closes
+              in from the edges.
             </li>
             <li>
-              <strong>Where the road forks</strong> you heal one way only: the village, two souls, or the glade, no souls
-              and no heart, but an animal friend and one of {HEROINE}&apos;s memories. Its animals lead the villagers away.
+              <strong>Win back its three pieces</strong> before it is gone: shoot its drifting <em>light</em>, ride through its{" "}
+              <em>ring</em>, then take its <em>rune-stone</em> and cast it (R) to anchor it. A piece you miss comes again, but the
+              forgetting does not wait.
             </li>
             <li>
-              <strong>Memories drift</strong> over the road as pale lights. Shoot one and it comes back to the book.
+              <strong>Remembered</strong>, the place stays in the world: the land greens, a heart comes back to you, the hunt
+              falls back, and the poem is written in the book (it can be read aloud). <strong>Forgotten</strong>, it goes dark,
+              and something comes after you. The Collector can steal a piece you have won: shoot it to get it back.
             </li>
             <li>
-              <strong>Ride past</strong> a hamlet, or both ways of a fork, and the people are lost: their souls come off your
-              count, and the rot makes one of them into a monster that hunts you.
-            </li>
-            <li>
-              <strong>Four lands.</strong> The Rot is wholly dark, and a dirty rain falls; each land after it is less ruined,
-              until Bloom, where the fairies dance. When enough souls are saved, a brook of light runs across the land ahead.
-              Crossing it heals you. Fall, and you rise again at the last gate. After Bloom comes the golden gate, and the end.
+              <strong>Four lands</strong>, fourteen memories (3, 4, 4, 3). Win back all but one of a land&apos;s memories and a
+              brook of light opens the way on; crossing it heals you. Fall, and you rise again at the last gate. After Bloom comes
+              the golden gate, and the end.
             </li>
           </ul>
         ),
@@ -1661,18 +1733,22 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
           <>
             <ul className="ls-help">
               <li>
-                <strong>Ride as far as you can</strong>, on any rider and mount. It starts gently: one monster at a time, and more
-                kinds the further you get. The Colossus comes only far on, and only to someone armed.
+                <strong>Ride as long as you can</strong>, on any rider and mount. It starts gently: one monster at a time, and
+                more kinds the further you get. Your arrows, traps and sword come back by themselves.
               </li>
               <li>
-                <strong>Only souls.</strong> Nothing else lies on the road. Every {ENDLESS.soulsPerHeart} souls give you a
-                heart back. Shoot the drifting soul-lights for {ENDLESS.wispSouls} souls each.
+                <strong>The lamp is all you gather.</strong> Up in the bar you see which lights it wants, in order. They float
+                over the road three at a time, one of each colour: ride through the right one (points). Take a wrong one and the
+                lamp spills. Fill it for many more points, and the colour it wants most is your gift: <em>green</em> a heart,{" "}
+                <em>gold</em> three arrows, <em>blue</em> a quiet step. Three full lamps in a row without spilling give a heart.
               </li>
               <li>
-                <strong>The lamp.</strong> Up in the bar you see which lights your lamp wants, in order. They float over the road
-                three at a time, one of each colour: ride through the right one. Take a wrong one and the lamp spills. Fill it, and
-                the colour it wanted twice is your gift: <em>green</em> a heart, <em>gold</em> three arrows, <em>blue</em> a quiet
-                step (the monsters lose you for a while).
+                <strong>It grows.</strong> From ten minutes the lamp wants four lights, from twenty-five five. Now and then a{" "}
+                <em>mirrored</em> lamp (⇄) wants them the other way round, from the last to the first.
+              </li>
+              <li>
+                <strong>Every five minutes the land does something</strong>: fog, a storm, a run of fords, rune-stones, the
+                Colossus. Then it goes quiet for a while, to breathe.
               </li>
               <li>An animal eaten by the rot costs you points.</li>
             </ul>
@@ -1698,6 +1774,27 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                 ))}
             </ul>
           </>
+        ),
+      },
+      {
+        id: "extreme",
+        label: "The hunt",
+        content: (
+          <ul className="ls-help">
+            <li>
+              <strong>Ten minutes</strong> in The Rot, on any rider. Nothing to gather, no fords, no lamps: only the monsters,
+              more and more of them ({EXTREME.hunters[0]} at once at first, up to {EXTREME.hunters[EXTREME.hunters.length - 1]}).
+            </li>
+            <li>
+              <strong>What counts</strong> is how many you bring down, by any means: arrows, traps, the sword, trees, rocks and
+              the green fire. And whether you are still riding when the time is up.
+            </li>
+            <li>
+              <strong>The fight feeds itself.</strong> Arrows come back fast, and what falls often drops one more. Traps and the
+              sword come back too. Every two and a half minutes you hold on, a heart comes back.
+            </li>
+            <li>Near the end the Colossus comes. It is worth five arrows.</li>
+          </ul>
         ),
       },
       {
@@ -1847,12 +1944,13 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
     ["Burned", st.pitted],
     ["Trapped", st.trapped],
     ["By the sword", st.swordKills],
-    ["In all", st.arrowKills + st.crashed + st.pitted + st.trapped + st.swordKills],
+    ["In all", st.kills ?? st.arrowKills + st.crashed + st.pitted + st.trapped + st.swordKills],
   ];
 
   if (!loaded) return <div className="ls" aria-busy="true" />;
   const h = hud;
-  const r = mode === "endless" ? choiceOf(save).rider : brigidOf(save).rider;
+  const r = mode === "endless" || mode === "extreme" ? choiceOf(save).rider : brigidOf(save).rider;
+  const clock = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
   const dialog = paused || swordCard || memoryCard !== null || !!moment || screen === "over";
 
   return (
@@ -1860,14 +1958,24 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
       {playing && (
         <div className="ls-hud" inert={dialog}>
           <div className="ls-hud-row">
-            {h && h.mode !== "endless" ? (
+            {h && h.mode === "extreme" ? (
+              <>
+                <span className="ls-dist">
+                  <strong className={`ls-souls${h.timeLeft < 60 ? " is-late" : ""}`} aria-label={`${clock(h.timeLeft)} left`}>
+                    {clock(h.timeLeft)}
+                  </strong>
+                  <strong className="ls-souls is-small"> · {h.kills} brought down</strong>
+                </span>
+                <span className="ls-score">best {fmt(save.bestKills ?? 0)}</span>
+              </>
+            ) : h && h.mode !== "endless" ? (
               <span className="ls-dist">
                 <strong className="ls-souls">
-                  {h.souls} / {h.need} souls
+                  {h.mode === "tutorial" ? "The First Morning" : `${h.souls} / ${h.need} remembered`}
                 </strong>
                 <span className="ls-muted">
                   {" "}
-                  · {h.biome} · {km(h.metres)}
+                  · {h.biome}
                 </span>
               </span>
             ) : (
@@ -1876,11 +1984,11 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                   <strong className="ls-souls">{km(h?.metres ?? 0)}</strong>
                   <strong className="ls-souls is-small">
                     {" "}
-                    · {h?.souls ?? 0} {h?.souls === 1 ? "soul" : "souls"}
+                    · {h?.lamps ?? 0} {h?.lamps === 1 ? "lamp" : "lamps"}
                   </strong>
                   <span className="ls-muted">
                     {" "}
-                    · {h?.kmh ?? 0} km/h · {h?.biome}
+                    · {h?.kmh ?? 0} km/h{h?.event ? ` · ${h.event}` : ""}
                   </span>
                 </span>
                 <span className="ls-score">
@@ -1899,6 +2007,27 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
             )}
             {fsButton("ls-pause ls-fsbtn")}
           </div>
+          {h?.chapter && (
+            <div
+              className="ls-chapter-bar"
+              role="group"
+              aria-label={`${MEMORIES[h.chapter.memory].title}: ${h.chapter.got} of 3 pieces; ${Math.round((1 - h.chapter.forget) * 100)} percent left before it is forgotten`}
+            >
+              <span className="ls-chapter-name" aria-hidden="true">
+                {MEMORIES[h.chapter.memory].title}
+              </span>
+              <span className="ls-chapter-pieces" aria-hidden="true">
+                {[0, 1, 2].map((k) => (
+                  <span key={k} className={k < h.chapter!.got ? "is-in" : ""} title={["the light: shoot it", "the ring: ride through it", "the stone: cast it"][k]}>
+                    {["✦", "◯", "ᚁ"][k]}
+                  </span>
+                ))}
+              </span>
+              <span className="ls-chapter-time" aria-hidden="true">
+                <span style={{ width: `${Math.max(0, (1 - h.chapter.forget) * 100)}%` }} />
+              </span>
+            </div>
+          )}
           <div className="ls-hud-row is-small">
             <span className="ls-hearts" aria-label={`${h?.hearts ?? 0} of ${h?.maxHearts ?? 3} hearts`}>
               {Array.from({ length: h?.maxHearts ?? 3 }, (_, i) => (
@@ -1952,11 +2081,18 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
               </span>
             </span>
             {mode === "endless" && h?.lamp && (
-              <span className="ls-lamp" aria-label={`Lamp: wants ${h.lamp.want.join(", ")}; ${h.lamp.got} of 3 in`} title="The lamp wants these lights, in this order">
+              <span
+                className={`ls-lamp${h.lamp.mirror ? " is-mirror" : ""}`}
+                aria-label={`Lamp${h.lamp.mirror ? ", mirrored: take them from the last to the first" : ""}: wants ${h.lamp.want.join(", ")}; ${h.lamp.got} of ${h.lamp.want.length} in`}
+                title={h.lamp.mirror ? "A mirrored lamp: take its lights from the last to the first" : "The lamp wants these lights, in this order"}
+              >
                 <span className="ls-lamp-ico" aria-hidden="true">🏮</span>
-                {h.lamp.want.map((c, i) => (
-                  <span key={i} className={`ls-lamp-dot is-${c}${i < h.lamp!.got ? " is-in" : ""}`} aria-hidden="true" />
-                ))}
+                {h.lamp.mirror && <span className="ls-lamp-mirror" aria-hidden="true">⇄</span>}
+                {h.lamp.want.map((c, i) => {
+                  const n = h.lamp!.want.length;
+                  const inLamp = h.lamp!.mirror ? i >= n - h.lamp!.got : i < h.lamp!.got;
+                  return <span key={i} className={`ls-lamp-dot is-${c}${inLamp ? " is-in" : ""}`} aria-hidden="true" />;
+                })}
               </span>
             )}
           </div>
@@ -2113,7 +2249,7 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
             <div className="ls-mist is-pop">
               <Close onClick={closeMemory} label="Close and ride on" />
               <p className="ls-kicker">
-                Memory {memoryCard + 1} of {MEMORIES.length} · {memClear ? "it comes back clear" : "it comes back, in mist"}
+                Chapter {memoryCard + 1} of {MEMORIES.length} · {memClear ? "remembered" : "it comes back, in mist"}
               </p>
               <MemPic i={memoryCard} state={memClear ? "clear" : "mist"} />
               <p className="ls-mist-sign">{MEMORIES[memoryCard].sign}</p>
@@ -2123,8 +2259,8 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
               <p id="ls-mem-text" className="ls-mist-text">
                 {memClear ? MEMORIES[memoryCard].text : mistOf(memoryCard).text}
               </p>
-              {!memClear && <p className="ls-muted ls-small">The rest is still in mist.</p>}
-              <p className="ls-muted ls-small">Written in the Book of Memories, {BIOMES[MEMORIES[memoryCard].land].name}.</p>
+              {memClear ? <Recite title={MEMORIES[memoryCard].title} text={MEMORIES[memoryCard].text} /> : <p className="ls-muted ls-small">The rest is still in mist.</p>}
+              <p className="ls-muted ls-small">That place stays in the world. Written in the Book of Memories, {BIOMES[MEMORIES[memoryCard].land].name}.</p>
               <div className="ls-stack">
                 <button type="button" className="ls-btn is-go" onClick={closeMemory}>
                   Ride on
@@ -2192,8 +2328,8 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                     You are ready
                   </h2>
                   <p>
-                    {HEROINE} knows how to ride, how to lead the rot into the land, and what a heart is for. The mission begins
-                    where the rot is deepest.
+                    {HEROINE} knows how to ride, how to lead the rot into the land, and how a memory is won back. The mission
+                    begins where the rot is deepest.
                   </p>
                   <div className="ls-stack">
                     <button type="button" className="ls-btn is-go" onClick={() => ride("mission")}>
@@ -2220,10 +2356,9 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                   )}
                   <div className="ls-tables">
                     {statTable("The ride", [
-                      ["Souls saved", result.stats.souls],
+                      ["Memories won back", result.stats.memoriesFound],
+                      ["Forgotten", result.stats.memoriesLost ?? 0],
                       ...(result.win ? [["Reborn", `${result.reborn}, from the hearts she had left`] as [string, React.ReactNode]] : []),
-                      ["Villages saved", result.stats.villagesSaved],
-                      ["Villages lost", result.stats.villagesLost],
                       ["Fords crossed dry", result.stats.fords],
                       ["Runes cast", result.stats.spells],
                       ["Ridden", km(result.metres)],
@@ -2231,10 +2366,10 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                     {statTable("The rot", monsterRows(result.stats))}
                   </div>
                   <p className="ls-mem-line">
-                    <strong>Memories:</strong>{" "}
-                    {result.memories.length ? result.memories.map((i) => MEMORIES[i].title).join(" · ") : "none on this ride"}{" "}
+                    <strong>Remembered:</strong>{" "}
+                    {result.memories.length ? result.memories.map((i) => MEMORIES[i].title).join(" · ") : "nothing on this ride"}{" "}
                     <span className="ls-muted">
-                      ({save.memories.length}/{MEMORIES.length} in the book)
+                      ({save.clear.length}/{MEMORIES.length} in the book)
                     </span>
                   </p>
                   <div className="ls-actions">
@@ -2263,6 +2398,41 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                     </button>
                   </div>
                 </>
+              ) : result.mode === "extreme" ? (
+                <>
+                  <p className="ls-kicker">The hunt · {result.win ? "you outlasted it" : "it caught you"}</p>
+                  <h2 id="ls-over-title" className="ls-h2" tabIndex={-1} ref={headRef}>
+                    {result.cause}
+                  </h2>
+                  <div className="ls-records">
+                    <div>
+                      <span className="ls-record-n">{fmt(result.stats.kills)}</span>
+                      <span className="ls-record-l">
+                        brought down{result.best && <span className="ls-new"> best!</span>}
+                      </span>
+                      <span className="ls-record-b">best {fmt(save.bestKills ?? 0)}</span>
+                    </div>
+                    <div>
+                      <span className="ls-record-n">{result.win ? "10:00" : km(result.metres)}</span>
+                      <span className="ls-record-l">{result.win ? "survived" : "ridden before the end"}</span>
+                      <span className="ls-record-b">hunts outlasted: {fmt(save.huntsWon ?? 0)}</span>
+                    </div>
+                  </div>
+                  <div className="ls-tables is-one">
+                    {statTable("Brought down", [...monsterRows(result.stats), ["Runes cast", result.stats.spells], ["Ridden", km(result.metres)]])}
+                  </div>
+                  <div className="ls-actions">
+                    <button type="button" className="ls-btn is-go" onClick={() => ride("extreme")}>
+                      Hunt again
+                    </button>
+                    <button type="button" className="ls-btn is-ghost" onClick={() => setScreen("rider")}>
+                      Change rider
+                    </button>
+                    <button type="button" className="ls-btn is-ghost" onClick={() => setScreen("title")}>
+                      To the menu
+                    </button>
+                  </div>
+                </>
               ) : (
                 <>
                   <p className="ls-kicker">The run is over · {BIOMES[result.land].name}</p>
@@ -2278,18 +2448,17 @@ export function LongSpring({ exitHref, exitLabel = "Back" }: LongSpringProps) {
                       <span className="ls-record-b">best {km(save.bestMetres)}</span>
                     </div>
                     <div>
-                      <span className="ls-record-n">{fmt(result.stats.souls)}</span>
+                      <span className="ls-record-n">{fmt(result.stats.lamps)}</span>
                       <span className="ls-record-l">
-                        {result.stats.souls === 1 ? "soul saved" : "souls saved"}
-                        {result.stats.souls >= save.bestSouls && result.stats.souls > 0 && <span className="ls-new"> best!</span>}
+                        {result.stats.lamps === 1 ? "lamp filled" : "lamps filled"}
+                        {result.stats.lamps >= (save.bestLamps ?? 0) && result.stats.lamps > 0 && <span className="ls-new"> best!</span>}
                       </span>
-                      <span className="ls-record-b">best {fmt(save.bestSouls)}</span>
+                      <span className="ls-record-b">best {fmt(save.bestLamps ?? 0)}</span>
                     </div>
                   </div>
                   <div className="ls-tables">
                     {statTable("The ride", [
                       ["Score", `${fmt(result.score)} (best ${fmt(save.best)})`],
-                      ["Soul-lights shot", result.stats.wisps],
                       ["Lamps filled", result.stats.lamps],
                       ["Fords crossed dry", result.stats.fords],
                       ["Runes cast", result.stats.spells],

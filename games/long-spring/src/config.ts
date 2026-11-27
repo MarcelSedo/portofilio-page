@@ -268,9 +268,9 @@ export const MONSTERS: Record<MonsterId, MonsterType> = {
   collector: {
     id: "collector",
     name: "the Collector",
-    lore: "A belly like a sack, sewn shut with sinew, and inside it the stolen souls glow. It has no face to speak of: only a slit, and fingers.",
-    tell: "The Collector does not kill. It takes a soul and runs: shoot it before it is gone, and the soul comes back.",
-    danger: "Theft. It rushes you, takes a soul and runs off sideways.",
+    lore: "A belly like a sack, sewn shut with sinew, and inside it the stolen things glow. It has no face to speak of: only a slit, and fingers.",
+    tell: "The Collector does not kill. It takes what you carry and runs: a piece of a memory, the lights in your lamp, your arrows. Shoot it before it is gone, and you get it back.",
+    danger: "Theft. It rushes you, takes something and runs off sideways.",
     counter: "Shoot it as it runs. Anything kills it.",
     from: 3600, gain: 0.06, side: 170, agility: 6, radius: 11, aim: "lead", way: "thief",
     sees: { tree: 0.7, pit: 0.7, trap: 0.5 }, smashes: false, hp: 1, weight: 1,
@@ -451,26 +451,60 @@ export const VILLAGE_NAMES = ["Bibury", "Lower Slaughter", "Castle Combe", "Snow
 
 /** the mission: souls open the gates, hearts are what you pay with */
 export const MISSION = {
-  /** souls each land asks before its gate opens */
-  need: [10, 10, 10, 15],
+  /** kept for older code paths (the gate count is NEED in story.ts) */
+  need: [2, 3, 3, 2],
   villageGap: [190, 280],
   /** the shortest the world holds still after a saved village or glade (then it waits for the player) */
   moment: { village: 1.2, glade: 1.6 },
-  heartGap: [150, 240], maxHearts: 9, hunters: [1, 2, 2, 3], sanctuary: 120, gateAhead: 900,
+  heartGap: [150, 240], maxHearts: 9, hunters: [1, 1, 2, 2], sanctuary: 120, gateAhead: 900,
   /** how far each way of a fork lies from the road, and how far ahead the fork shows */
   forkOff: [215, 255], forkAhead: 380,
-  /** monsters made from lost people, beyond the usual hunt */
-  turnedMax: 4,
-  /** the quiver: arrows at the start of each ride, and what a saved village or glade gives */
+  /** monsters made from what was forgotten, beyond the usual hunt */
+  turnedMax: 3,
+  /** the quiver at the start of each ride */
   arrows: 4, villageArrows: 3,
-  /** a lost memory floats over the land every so often: shoot it to bring it back (m) */
   wispGap: [240, 400] as [number, number],
   /** a ford in each of the first three lands, this far past its gate (m) */
   fordAt: [380, 700] as [number, number],
+  /** the mission rides a little slower than the other two: it is a story */
+  pace: 0.85,
+  /**
+   * a chapter: the first comes this far into a land, the next this far after the last (m);
+   * `limit` is how long the memory lasts before it is forgotten in each land (s);
+   * a piece shows `pieceDelay` s after the last one, a missed one comes back after `again` s;
+   * `lend`: arrows the memory lends you when the quiver is empty and its light comes
+   */
+  chapter: { first: 110, gap: [150, 220] as [number, number], limit: [80, 74, 70, 66], pieceDelay: 2.2, again: 3, lend: 2 },
 };
-
-/** the endless ride: only souls lie on the road; every ten bring a heart back */
-export const ENDLESS = { soulsPerHeart: 10, wispGap: [300, 520] as [number, number], wispSouls: 3 };
-
+/**
+ * The endless ride: only the lamp. Weapons come back by themselves; every five minutes the land
+ * does something (fog, a storm, a run of fords, rune-stones, the Colossus), then it is quiet for a while.
+ */
+export const ENDLESS = {
+  soulsPerHeart: 10, wispGap: [300, 520] as [number, number], wispSouls: 3,
+  arrows: 3, arrowEvery: 4, maxArrows: 6, trapEvery: 30, maxTraps: 2, swordEvery: 55,
+  /** the first event (s into the ride), then one every `every` s; each lasts its own time, then `calm` s of quiet */
+  firstEvent: 200, every: 300, calm: 30,
+  /** lamp length by minutes ridden: 3 lights, then 4 from 10 min, 5 from 25 min; mirrored lamps from 10 min */
+  lampAt: [600, 1500], mirrorFrom: 600, mirrorP: 0.3,
+  /** points for a right light, and for a full lamp per light in it */
+  lightPts: 20, lampPts: 150,
+};
+export type EndlessEvent = "fog" | "storm" | "fords" | "runes" | "boss";
+export const EVENTS: Record<EndlessEvent, { name: string; len: number; say: string }> = {
+  fog: { name: "Fog", len: 60, say: "Fog comes down over the land. You will see things late." },
+  storm: { name: "Storm", len: 60, say: "A storm breaks. The hunt runs faster in the rain." },
+  fords: { name: "The fords", len: 80, say: "The land floods: ford after ford ahead." },
+  runes: { name: "Rune-stones", len: 50, say: "Rune-stones rise along the road. Take them, and cast." },
+  boss: { name: "The Colossus", len: 100, say: "The ground shakes." },
+};
+/** The hunt: ten minutes, nothing to gather, only the monsters. What counts is how many you bring down, and whether you live. */
+export const EXTREME = {
+  time: 600, boss: 520, arrows: 6, arrowEvery: 2.2, maxArrows: 9, trapEvery: 20, maxTraps: 3, swordEvery: 32, healEvery: 150,
+  /** hunters at once, every 100 s */
+  hunters: [2, 3, 3, 4, 4, 5], respawn: 1.6,
+  /** metres added for what turns up (all obstacles and monsters from the start) */
+  mOff: 3000,
+};
 /** how much of each land the rot still holds: all of The Rot, then less and less */
 export const RUIN = [1, 0.7, 0.4, 0.2];

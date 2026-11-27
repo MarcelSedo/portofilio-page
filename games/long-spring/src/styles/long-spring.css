@@ -480,7 +480,7 @@ html.ls-lock, html.ls-lock body { overflow: hidden; }
 .ls-picker .ls-stack { margin-top: 8px; }
 @media (max-width: 760px) { .ls-picker .ls-picker-side { padding-top: 0; } .ls-picker .ls-picker-stage { padding-top: 26px; } }
 .ls-panel.ls-picker { max-width: 900px; grid-template-columns: 1fr 390px; }
-.ls-ridebar { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; margin-top: 10px; }
+.ls-ridebar { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: center; margin-top: 10px; }
 .ls-ridebar .ls-btn { min-height: 44px; padding-left: 30px; padding-right: 30px; }
 .ls-ridebar .ls-chipbtn { min-height: 44px; }
 @media (max-height: 740px) {
@@ -763,12 +763,28 @@ html.ls-lock, html.ls-lock body { overflow: hidden; }
 .ls-lamp-dot.is-blue { border-radius: 2px; }
 
 /* a memory's picture: the same frame always, so nothing jumps; the mist is a blur that lifts */
-.ls-mempic { display: block; position: relative; aspect-ratio: 16 / 9; width: 100%; overflow: hidden; border-radius: 6px; border: 1px solid rgba(240, 200, 90, 0.35); background: #10160f; margin: 0 0 8px; }
-.ls-mempic img { display: block; width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; transition: filter 1.2s ease, transform 1.2s ease; }
-.ls-mempic.is-missing img { filter: blur(7px) grayscale(0.8) brightness(0.55); transform: scale(1.12); }
-.ls-mempic.is-mist img { filter: blur(2.2px) grayscale(0.35) brightness(0.9); transform: scale(1.04); }
+.ls-mempic { display: block; position: relative; aspect-ratio: 4 / 3; width: 100%; overflow: hidden; border-radius: 6px; border: 1px solid rgba(240, 200, 90, 0.35); background: #10160f; margin: 0 0 8px; }
+.ls-mempic img { display: block; width: 100%; height: 100%; object-fit: cover; transition: filter 1.2s ease, transform 1.2s ease; }
+.ls-mempic.is-missing img { filter: blur(10px) grayscale(1) brightness(0.35); transform: scale(1.15); }
+.ls-mempic.is-mist img { filter: blur(3px) grayscale(0.85) brightness(0.7); transform: scale(1.05); }
 .ls-mempic.is-missing::after, .ls-mempic.is-mist::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 60%, rgba(200, 210, 200, 0), rgba(170, 180, 170, 0.45)); pointer-events: none; }
 .ls-mempic.is-mist::after { opacity: 0.55; }
 .ls-mist.is-pop .ls-mempic { margin: 6px 0 10px; }
 .ls-mist.is-card .ls-mempic { margin: -2px 0 6px; }
 .ls.is-calm .ls-mempic img { transition: none; }
+
+/* the mission's chapter: the memory, its three pieces, and the forgetting running out */
+.ls-chapter-bar { display: flex; align-items: center; gap: 10px; margin-top: 4px; padding: 3px 10px; border: 1px solid rgba(240, 200, 90, 0.45); border-radius: 999px; background: rgba(20, 16, 8, 0.55); }
+.ls-chapter-name { font: 400 0.95rem/1.1 "LS Uncial", Georgia, serif; color: #fff4d8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40%; }
+.ls-chapter-pieces { display: inline-flex; gap: 6px; }
+.ls-chapter-pieces span { width: 20px; height: 20px; display: inline-grid; place-items: center; border-radius: 50%; border: 1.5px solid rgba(255, 240, 200, 0.45); color: rgba(255, 240, 200, 0.45); font-size: 0.75rem; line-height: 1; }
+.ls-chapter-pieces span.is-in { color: #20180a; background: #ffe59a; border-color: #ffe59a; box-shadow: 0 0 8px rgba(255, 228, 150, 0.8); }
+.ls-chapter-time { flex: 1; min-width: 60px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.ls-chapter-time span { display: block; height: 100%; background: linear-gradient(90deg, #9a9a9a, #ffe59a); transition: width 0.15s linear; }
+.ls-souls.is-late { color: #ffb0a0; }
+.ls-lamp-mirror { font-weight: 700; color: #ffe59a; margin-right: 2px; }
+.ls-lamp.is-mirror { border-color: #ffe59a; }
+.ls-recite { margin: 4px auto 8px; display: inline-flex; gap: 6px; align-items: center; }
+.ls-recite[aria-pressed="true"] { border-color: #ffe59a; color: #ffe59a; }
+.ls-mist .ls-recite { display: flex; width: max-content; }
+.ls-tables.is-one { grid-template-columns: minmax(0, 1fr); max-width: 420px; margin-left: auto; margin-right: auto; }
